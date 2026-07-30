@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
 
 from flask import Flask, jsonify, request, send_from_directory
 
+from model.brain import brain
 from model.trainer import trainer
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
@@ -62,6 +63,24 @@ def generate():
         "valid_python": valid is not None,
         "valid_prefix": valid,
     })
+
+
+@app.post("/api/chat")
+def chat():
+    data = request.get_json(silent=True) or {}
+    message = str(data.get("message", ""))[:2000]
+    result = brain.reply(message)
+
+    # Neural experimental extra when requested
+    if data.get("neural"):
+        try:
+            sample = trainer.generate(prompt="def ", n_chars=160, temperature=0.5)
+            valid = trainer.longest_valid_prefix(sample)
+            result["neural_sample"] = valid or sample[:200]
+            result["neural_valid"] = valid is not None
+        except Exception:
+            pass
+    return jsonify({"ok": True, **result})
 
 
 @app.post("/api/self_train")

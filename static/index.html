@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DimAI</title>
-  <meta name="description" content="DimAI — kendi kendini eğiten kod modeli" />
+  <title>DimAI — Kod Asistanı</title>
+  <meta name="description" content="DimAI — kendi kendini eğiten kod asistanı" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -14,82 +14,67 @@
   <div class="ambient" aria-hidden="true">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
-    <div class="orb orb-3"></div>
   </div>
 
-  <nav class="nav reveal">
-    <div class="nav-inner">
-      <div class="logo">
-        <span class="logo-mark"></span>
-        <span class="logo-text">DimAI</span>
-      </div>
-      <div class="nav-status">
-        <span id="live-dot" class="dot"></span>
-        <span id="live-label">bağlanıyor…</span>
-      </div>
-    </div>
-  </nav>
-
-  <main class="page">
-    <section class="hero reveal">
-      <h1>Kendi modelin.<br /><span class="grad">Kendi zekân.</span></h1>
-      <p>Dış AI API’si yok. Tarayıcından izle: model kod üretir, doğrular ve kendini yeniden eğitir.</p>
-    </section>
-
-    <section class="card composer reveal" style="--d:.08s">
-      <div class="field-row">
-        <div class="field grow">
-          <label for="prompt">Prompt</label>
-          <input id="prompt" type="text" value="def " maxlength="80" spellcheck="false" autocomplete="off" />
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="side-top">
+        <div class="logo">
+          <span class="logo-mark"></span>
+          <span class="logo-text">DimAI</span>
         </div>
-        <div class="field temp-field">
-          <label for="temp">Yaratıcılık <span id="temp-val">0.7</span></label>
-          <input id="temp" type="range" min="0.2" max="1.4" step="0.05" value="0.7" />
-        </div>
-      </div>
-      <div class="actions">
-        <button id="btn-generate" class="btn primary">
-          <span class="btn-label">Kod üret</span>
-          <span class="spinner" aria-hidden="true"></span>
+        <button id="btn-new" class="new-chat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Yeni sohbet
         </button>
-        <button id="btn-self" class="btn">1 tur öğren</button>
-        <button id="btn-train" class="btn">50 adım eğit</button>
-        <button id="btn-auto" class="btn toggle">Sürekli öğrenme</button>
       </div>
-    </section>
 
-    <section class="card output-card reveal" style="--d:.16s">
-      <header class="card-head">
-        <h2>Çıktı</h2>
-        <span id="valid-badge" class="pill neutral">bekliyor</span>
-      </header>
-      <div class="code-wrap">
-        <pre id="output" class="code"><span class="placeholder">Model hazır. “Kod üret”e bas.</span></pre>
+      <div class="side-section">
+        <p class="side-title">Hızlı sorular</p>
+        <div id="chips" class="chips"></div>
       </div>
-    </section>
 
-    <section class="stats-grid reveal" style="--d:.24s">
-      <div class="stat card"><span class="stat-label">Adım</span><span id="s-steps" class="stat-value">—</span></div>
-      <div class="stat card"><span class="stat-label">Tur</span><span id="s-rounds" class="stat-value">—</span></div>
-      <div class="stat card"><span class="stat-label">Kabul</span><span id="s-ok" class="stat-value ok">—</span></div>
-      <div class="stat card"><span class="stat-label">Red</span><span id="s-bad" class="stat-value bad">—</span></div>
-      <div class="stat card wide"><span class="stat-label">Loss</span><span id="s-loss" class="stat-value">—</span>
-        <div class="loss-bar"><div id="loss-fill" class="loss-fill"></div></div>
+      <div class="side-section side-bottom">
+        <p class="side-title">Nöral model</p>
+        <div class="mini-stats">
+          <div><span>Adım</span><strong id="s-steps">—</strong></div>
+          <div><span>Kabul</span><strong id="s-ok">—</strong></div>
+          <div><span>Loss</span><strong id="s-loss">—</strong></div>
+        </div>
+        <label class="switch-row">
+          <span>Sürekli öğrenme</span>
+          <button id="btn-auto" class="switch" role="switch" aria-checked="false"><span class="knob"></span></button>
+        </label>
+        <div class="live-row">
+          <span id="live-dot" class="dot"></span>
+          <span id="live-label">bağlanıyor…</span>
+        </div>
       </div>
-    </section>
+    </aside>
 
-    <section class="card history-card reveal" style="--d:.32s">
-      <header class="card-head">
-        <h2>Öğrenme akışı</h2>
-        <span id="s-msg" class="pill neutral subtle">—</span>
-      </header>
-      <ul id="history" class="history"></ul>
-    </section>
+    <!-- Chat -->
+    <main class="chat">
+      <div id="messages" class="messages">
+        <div class="welcome" id="welcome">
+          <div class="welcome-mark"></div>
+          <h1>Nasıl yardımcı olabilirim?</h1>
+          <p>Kod odaklı sorular sor — Python, JavaScript, SQL, Git…</p>
+          <div id="welcome-chips" class="chips center"></div>
+        </div>
+      </div>
 
-    <footer class="footer reveal" style="--d:.4s">
-      <p>DimAI · NumPy ile eğitilen karakter seviyesinde dil modeli · dış AI API’si kullanılmaz</p>
-    </footer>
-  </main>
+      <div class="composer-wrap">
+        <form id="composer" class="composer">
+          <textarea id="input" rows="1" placeholder="Bir şey sor… (ör. sayı tahmin oyunu yaz)" maxlength="2000"></textarea>
+          <button id="btn-send" type="submit" class="send" aria-label="Gönder">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </form>
+        <p class="disclaimer">DimAI yereldeki bilgi tabanı + kendi nöral modelini kullanır · dış AI API’si yok</p>
+      </div>
+    </main>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>
