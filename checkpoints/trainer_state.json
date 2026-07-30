@@ -1,222 +1,362 @@
 {
-  "steps": 30427,
-  "self_train_rounds": 30,
-  "accepted": 12,
-  "rejected": 18,
-  "last_loss": 1.4126376206076965,
-  "last_accepted": "def main(self, action):\n    a = nd.roor",
-  "running": false,
-  "message": "trained 14 steps, loss=1.413",
+  "steps": 33883,
+  "self_train_rounds": 270,
+  "accepted": 133,
+  "rejected": 137,
+  "last_loss": 1.9018865345012035,
+  "last_accepted": "def maind_max_items(string):\n    if n == 0:\n        return ures.date(sum_expend)",
+  "running": true,
+  "message": "trained 14 steps, loss=1.902",
   "history": [
     {
-      "t": 1785413707.6136875,
-      "ok": false,
-      "prompt": "if __name__",
-      "preview": "if __name___init__(self, name, om_dict)\n            return result",
-      "loss": 1.3459481722753932
-    },
-    {
-      "t": 1785413708.4496515,
-      "ok": true,
-      "prompt": "def map_",
-      "preview": "def map_information(self, text):\n    total = None",
-      "loss": 1.2968003614065984
-    },
-    {
-      "t": 1785413708.800314,
-      "ok": false,
-      "prompt": "def add",
-      "preview": "def add_defilater(version):\n    componstr = \"\n        self.parser_params = average'\n        \n    num_list = self.items(t",
-      "loss": 1.5541085172360394
-    },
-    {
-      "t": 1785413709.8089738,
-      "ok": true,
-      "prompt": "def map_",
-      "preview": "def map_initial_pustrorm(row, key, tagget):\n    def remove_dectionalize(self, output_string):\n        self.report = self",
-      "loss": 1.8062854132238129
-    },
-    {
-      "t": 1785413710.1875172,
-      "ok": false,
-      "prompt": "def main",
-      "preview": "def main_list_file_path(results, connicts):\n    def reverse(self, element, arg: str) - list(fint_address):\n            r",
-      "loss": 1.281499972085578
-    },
-    {
-      "t": 1785413710.5651479,
-      "ok": false,
-      "prompt": "if __name__",
-      "preview": "if __name___init__(self, column):\n        self.sortect = None\n        self.arg = requests[i]",
-      "loss": 1.4388260765243035
-    },
-    {
-      "t": 1785413710.9571354,
-      "ok": false,
-      "prompt": "def ",
-      "preview": "def count_numbers(input_matk, name):\n    total = book.applize(\"\"\")",
-      "loss": 1.4884111370899284
-    },
-    {
-      "t": 1785413711.3338273,
-      "ok": false,
-      "prompt": "if __name__",
-      "preview": "if __name__ = 0\n\n    def count_files(self, self, not, y, n):\n        self.initial_def                   self.retprone = ",
-      "loss": 1.2938041612490694
-    },
-    {
-      "t": 1785413711.7110186,
-      "ok": false,
-      "prompt": "if __name__",
-      "preview": "if __name___init__(self, callure_inf, hesponse):\n        self.number = sentence",
-      "loss": 1.673484312189684
-    },
-    {
-      "t": 1785413712.086978,
-      "ok": false,
-      "prompt": "class ",
-      "preview": "class Dict:\n    def __init__(self, path):\n        self.length = {00\n    return False\n        self.items = []\n        sel",
-      "loss": 1.3283224139080416
-    },
-    {
-      "t": 1785413712.9792094,
-      "ok": true,
-      "prompt": "def map_",
-      "preview": "def map_index(self, a, n):\n    if n == 0:\n        return {}",
-      "loss": 1.3450110692537158
-    },
-    {
-      "t": 1785413713.3225186,
-      "ok": false,
-      "prompt": "def filter_",
-      "preview": "def filter_massige(self, query, string):\n    if n == 0:\n    return result",
-      "loss": 1.3642440752037082
-    },
-    {
-      "t": 1785413714.18343,
-      "ok": true,
-      "prompt": "def is_",
-      "preview": "def is_point_requents(arr):\n    n = len(self.list)",
-      "loss": 1.7436756179596764
-    },
-    {
-      "t": 1785413715.0937402,
+      "t": 1785414813.1301947,
       "ok": true,
       "prompt": "def filter_",
-      "preview": "def filter_files(arr):\n    # Implement the partent the for detime ay envers\n        self.ending = self.reader()\n        ",
-      "loss": 1.4205669968522625
+      "preview": "def filter_max(dictionary):\n    results = self.arg",
+      "loss": 1.782218620260009
     },
     {
-      "t": 1785413715.959267,
+      "t": 1785414813.3696532,
       "ok": true,
       "prompt": "def add",
-      "preview": "def add_outprame(file_path, string):\n        self.ressonnt = 1",
-      "loss": 1.7726052067461495
+      "preview": "def add_enciten(list):\n    results = []",
+      "loss": 1.3056830356956959
     },
     {
-      "t": 1785413716.8294148,
-      "ok": true,
-      "prompt": "class ",
-      "preview": "class Reader:\n    def __init__(self):\n        self.read = None",
-      "loss": 1.4587022338628224
-    },
-    {
-      "t": 1785413717.1724076,
+      "t": 1785414813.637189,
       "ok": false,
       "prompt": "def try_",
-      "preview": "def try_model_item(input_intertent_labels):\n    def __init__(self, tables):\n        self.read = self.requentation('Pianc",
-      "loss": 1.234511097535394
+      "preview": "def try_shring(arr):\n    if num = 0:\n            return 0\n    return self.results(arr):\n            return results.argut",
+      "loss": 1.3558883915484825
     },
     {
-      "t": 1785413717.517344,
+      "t": 1785414813.9344146,
+      "ok": true,
+      "prompt": "def try_",
+      "preview": "def try_pinition_price_intochalize(number):\n    results = []\n    for string in string:\n        return (name, arg)\n    el",
+      "loss": 1.3895900068269251
+    },
+    {
+      "t": 1785414814.1922631,
       "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__init__(self): \n        result",
+      "loss": 1.1646278403142443
+    },
+    {
+      "t": 1785414814.4837396,
+      "ok": true,
       "prompt": "def ",
-      "preview": "def search_length(self, isput_list):\n    if n == 0:\n        return a prypr arr a in books:\n            \"\"\"\"\"\"\"\"\"\n       ",
-      "loss": 1.28336926585455
+      "preview": "def generate_and_engry():\n    return self.name\n    modilis = [1]",
+      "loss": 1.3680266949510063
     },
     {
-      "t": 1785413717.8609557,
-      "ok": false,
-      "prompt": "def sum_",
-      "preview": "def sum_array(arr):\n        self.read = [nums.append(filename.strite)\n        self.report = seader J in intented\n       ",
-      "loss": 1.5955520068979714
-    },
-    {
-      "t": 1785413718.7090645,
-      "ok": true,
-      "prompt": "def map_",
-      "preview": "def map_index(self, request, sead):\n    tots = []",
-      "loss": 1.5157483508902805
-    },
-    {
-      "t": 1785413719.081692,
-      "ok": false,
-      "prompt": "class ",
-      "preview": "class Check:\n    def __init__(self, nums):\n        self.resurn = self.stapper')\n        self.roud = []",
-      "loss": 1.4999781565352985
-    },
-    {
-      "t": 1785413719.4559262,
-      "ok": false,
-      "prompt": "def sum_",
-      "preview": "def sum_request_arg():\n        self.read = start.text_math(\")\n        if len(self.came) = []",
-      "loss": 1.3947721364108083
-    },
-    {
-      "t": 1785413720.3418574,
-      "ok": true,
-      "prompt": "def map_",
-      "preview": "def map_request_by_and_config(self, items, text: List[str]): \n        self.read = output.self.ler(arr)",
-      "loss": 1.611999049099102
-    },
-    {
-      "t": 1785413721.2463987,
-      "ok": true,
-      "prompt": "def add",
-      "preview": "def add_trailites(self, tenger):\n    def __init__(self, connaction): \n        self.object = []\n    for sub in arr:\n     ",
-      "loss": 1.200235649477937
-    },
-    {
-      "t": 1785413722.0869637,
-      "ok": true,
-      "prompt": "def main",
-      "preview": "def mainary(self, tort, imates_time):\n    connection_version = []",
-      "loss": 1.4026510100143628
-    },
-    {
-      "t": 1785413722.4275966,
-      "ok": false,
-      "prompt": "def map_",
-      "preview": "def map_initial_pareact(request):\n    try:\n            if n == 0:\n        return [0\n    for j in range(len(arr)):\n      ",
-      "loss": 1.4115117292359685
-    },
-    {
-      "t": 1785413722.7687871,
-      "ok": false,
-      "prompt": "def is_",
-      "preview": "def is_folter_config(self, items: str, length):\n    for cheract in self.name:\n        return len(self.sorted[str()] + 1\n",
-      "loss": 1.4096651509002431
-    },
-    {
-      "t": 1785413723.602697,
-      "ok": true,
-      "prompt": "def main",
-      "preview": "def main(self, action):\n    a = nd.roor",
-      "loss": 1.4975954790528467
-    },
-    {
-      "t": 1785413723.9762475,
+      "t": 1785414814.755615,
       "ok": false,
       "prompt": "def filter_",
-      "preview": "def filter_to_get(self, rode, num):\n    toks:\n            if self.read(cruntention)\n    max_aunity = []",
-      "loss": 1.358734030679167
+      "preview": "def filter_to_dict(ord):\n    \"\"\"\"\n    \n    def __init__(self):\n        string = []\n    fille_path = []\n    for i in rang",
+      "loss": 1.2978855976275376
     },
     {
-      "t": 1785413724.3519611,
+      "t": 1785414814.9876244,
+      "ok": true,
+      "prompt": "def main",
+      "preview": "def maind(x_str): \n    results = []",
+      "loss": 1.6376364104632066
+    },
+    {
+      "t": 1785414815.2833917,
+      "ok": true,
+      "prompt": "def filter_",
+      "preview": "def filter_mav(distance):\n    result = []\n    color = 0\n    for j in range(1, 1):\n        words = sentence(ters)\n    ret",
+      "loss": 1.5192098298341659
+    },
+    {
+      "t": 1785414815.527724,
+      "ok": true,
+      "prompt": "def add",
+      "preview": "def add_enchy_dict(nums):\n    result = []",
+      "loss": 1.5057721245138014
+    },
+    {
+      "t": 1785414815.839573,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__query():\n        self.name = name\n        self.name = parsed(None, self.genguted)",
+      "loss": 1.5807730181953388
+    },
+    {
+      "t": 1785414816.1185887,
+      "ok": true,
+      "prompt": "def try_",
+      "preview": "def try_pry_list(nums): \n    if num == withor: \n        return ''",
+      "loss": 1.1811083283837267
+    },
+    {
+      "t": 1785414816.383546,
+      "ok": false,
+      "prompt": "def is_",
+      "preview": "def is_prime(n):\n    returns a co2 iter count in strrngtes:\n        if string += list(nums):\n                           ",
+      "loss": 1.5103715602800019
+    },
+    {
+      "t": 1785414816.6488423,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__(self, name, age): \nself.ngmber = 0\n    for num in arr: \n        return self.name",
+      "loss": 1.4873806552046782
+    },
+    {
+      "t": 1785414816.8795738,
+      "ok": true,
+      "prompt": "def filter_",
+      "preview": "def filter_mat(numbers):\n    return results",
+      "loss": 1.5277892639813277
+    },
+    {
+      "t": 1785414817.1164265,
+      "ok": false,
+      "prompt": "def main",
+      "preview": "def maind(x, n):\n    return self.sow(text):\n        self.name = name\n        return count.costroccle_ty_emply(self, arg]",
+      "loss": 1.192810468495276
+    },
+    {
+      "t": 1785414817.3500319,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name___sirnals(self, name, arr):\n        self.name = node",
+      "loss": 1.1657245597846002
+    },
+    {
+      "t": 1785414817.5835538,
+      "ok": false,
+      "prompt": "def ",
+      "preview": "def add_encryption(number):\n    return text.",
+      "loss": 1.319172446386072
+    },
+    {
+      "t": 1785414817.8244326,
+      "ok": false,
+      "prompt": "def sum_",
+      "preview": "def sum_list(list):\n    if che inpe in dictionary[0] == \":\n        if hesp in s *ithor\n    return result",
+      "loss": 1.433977230982373
+    },
+    {
+      "t": 1785414818.063657,
+      "ok": true,
+      "prompt": "def sum_",
+      "preview": "def sum_list(numbers):\n    return results",
+      "loss": 1.4955930627629028
+    },
+    {
+      "t": 1785414818.3465424,
+      "ok": false,
+      "prompt": "def add",
+      "preview": "def add_excruption(list):\n    return results.file('addrequest.maplicit)\n    count = 0\n    for i in range(():            ",
+      "loss": 1.320828429562989
+    },
+    {
+      "t": 1785414818.596837,
+      "ok": true,
+      "prompt": "def sum_",
+      "preview": "def sum_list(intex_list):\n    return results",
+      "loss": 1.0435764142703903
+    },
+    {
+      "t": 1785414818.8585784,
+      "ok": false,
+      "prompt": "def sum_",
+      "preview": "def sum_list(numbers):\n    return results.string.stfilatet',''''''''s'ap'.append(')\n            os.list(hext)\n        re",
+      "loss": 1.2685287135249232
+    },
+    {
+      "t": 1785414819.1199183,
+      "ok": true,
+      "prompt": "def add",
+      "preview": "def add_encegs(list1, list1, list1):\n    return results",
+      "loss": 1.2156158875477217
+    },
+    {
+      "t": 1785414819.3765001,
+      "ok": true,
+      "prompt": "def try_",
+      "preview": "def try_cuncoints(nums):\n    return results",
+      "loss": 1.4881012621285779
+    },
+    {
+      "t": 1785414819.6462393,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__(self, name, age):\n        self.node_list = numbersel(nums) \n        if len(arr) <= 0:\n            count = 0",
+      "loss": 1.5177925537129011
+    },
+    {
+      "t": 1785414819.9179554,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__arrom_inition_pen(time_text)):\n        return results.get()",
+      "loss": 1.3275537924051206
+    },
+    {
+      "t": 1785414820.1806765,
+      "ok": true,
+      "prompt": "def try_",
+      "preview": "def try_ticeate_strings(numbers):\n    return results",
+      "loss": 1.4493795567552155
+    },
+    {
+      "t": 1785414820.4543066,
+      "ok": true,
+      "prompt": "def filter_",
+      "preview": "def filter_main(x, y):\n    return results.context()\n    min_list = []\n    for i in range(n):\n        return results.get(",
+      "loss": 1.3141904571440446
+    },
+    {
+      "t": 1785414820.757594,
+      "ok": true,
+      "prompt": "class ",
+      "preview": "class StrEngry:\n    def __init__(self, name, numbers):\n        return tree",
+      "loss": 1.3341543163142366
+    },
+    {
+      "t": 1785414821.0613592,
+      "ok": false,
+      "prompt": "def ",
+      "preview": "def sort_strings(numbers):\n    return results.",
+      "loss": 1.464976861299284
+    },
+    {
+      "t": 1785414821.3273041,
       "ok": false,
       "prompt": "class ",
-      "preview": "class Baneager:\n    def __init__(self, senfine):\n        self.edder = {partend('matuielH', 'esconver': stringers)\n      ",
-      "loss": 1.4126376206076965
+      "preview": "class Prequent.loger():\n    print(\"Count the with the renuetes the lostory to conpent choract\n        self.name = [strin",
+      "loss": 1.3735432967920158
+    },
+    {
+      "t": 1785414821.5642285,
+      "ok": true,
+      "prompt": "def filter_",
+      "preview": "def filter_max_data(strings):\n    return results",
+      "loss": 1.4491339204505422
+    },
+    {
+      "t": 1785414821.8055015,
+      "ok": false,
+      "prompt": "def add",
+      "preview": "def add_email(tr_eventing):\n    if n == 0: \n    return result",
+      "loss": 1.3659562427962826
+    },
+    {
+      "t": 1785414822.04213,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__andimize(string):\n        current_prepdicitial = [main (0  # 3== curcors._pansed.compent()\n    total_to_mates",
+      "loss": 1.4820124052514443
+    },
+    {
+      "t": 1785414822.286196,
+      "ok": true,
+      "prompt": "def add",
+      "preview": "def add_array(n): \n    return results.loze()",
+      "loss": 1.1447062286027103
+    },
+    {
+      "t": 1785414822.528708,
+      "ok": true,
+      "prompt": "def add",
+      "preview": "def add_array(input_string):\n    total = [0]",
+      "loss": 1.2018134547252801
+    },
+    {
+      "t": 1785414822.8239107,
+      "ok": true,
+      "prompt": "def try_",
+      "preview": "def try_numbers(list):\n    if n == 0:\n        return results.content()\n    self.name = name",
+      "loss": 1.410223364044755
+    },
+    {
+      "t": 1785414823.078223,
+      "ok": false,
+      "prompt": "def try_",
+      "preview": "def try_viles(n):\n    print(\"A.filet) in the mapping.",
+      "loss": 1.5933766814098693
+    },
+    {
+      "t": 1785414823.3263543,
+      "ok": true,
+      "prompt": "def try_",
+      "preview": "def try_tring_string(string): \n    intex = numbers[str1]",
+      "loss": 1.590725203065607
+    },
+    {
+      "t": 1785414823.6204367,
+      "ok": false,
+      "prompt": "class ",
+      "preview": "class StackParg:\n    def __init__(self, name, ty_list):\n        print(\"Incounter)\n    print(\"-3, \")\n    if num == 0:\n   ",
+      "loss": 1.6268728479950743
+    },
+    {
+      "t": 1785414823.8795748,
+      "ok": false,
+      "prompt": "def ",
+      "preview": "def ave_jsencl():\n    count = [0.len(nums)]\n    else:\n        print(\"Reccount in the and word ling sumbersicl\n          ",
+      "loss": 1.2517639350727479
+    },
+    {
+      "t": 1785414824.1367044,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__(self, name, calculate, array):\n        self.name = name",
+      "loss": 1.2779097309812084
+    },
+    {
+      "t": 1785414824.4028106,
+      "ok": false,
+      "prompt": "def try_",
+      "preview": "def try_try_text():\n    \"\"\" for i in range(len(lint)):\n            return '''.data.rapuiz(')\n    else:\n            retur",
+      "loss": 1.5922667263192651
+    },
+    {
+      "t": 1785414824.640607,
+      "ok": true,
+      "prompt": "def sum_",
+      "preview": "def sum_amp(list):\n    return False",
+      "loss": 1.3755353144186593
+    },
+    {
+      "t": 1785414824.8968987,
+      "ok": false,
+      "prompt": "class ",
+      "preview": "class Test\ndef is_boournance(string):\n    return results.element(')\n    else:\n            return word_fars\n        self.",
+      "loss": 1.5734870361941802
+    },
+    {
+      "t": 1785414825.1377785,
+      "ok": true,
+      "prompt": "def sum_",
+      "preview": "def sum_time(numbers):\n    mod_list = []",
+      "loss": 1.4189412842282845
+    },
+    {
+      "t": 1785414825.4121618,
+      "ok": false,
+      "prompt": "def is_",
+      "preview": "def is_param_past_numbers(nums):\n    if class != string:\n            else:\n            self.parket_splition = {}\n       ",
+      "loss": 1.2412794099004962
+    },
+    {
+      "t": 1785414825.7084057,
+      "ok": true,
+      "prompt": "def main",
+      "preview": "def maind_max_items(string):\n    if n == 0:\n        return ures.date(sum_expend)",
+      "loss": 1.4474634678272724
+    },
+    {
+      "t": 1785414825.9669147,
+      "ok": false,
+      "prompt": "def map_",
+      "preview": "def map_dict(numbirs):\n    return '",
+      "loss": 1.9018865345012035
     }
   ]
 }

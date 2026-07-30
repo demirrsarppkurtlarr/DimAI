@@ -181,43 +181,110 @@ class LearnedStore:
 # Free web sources
 # ---------------------------------------------------------------------------
 
-def wikipedia_lookup(query: str, lang: str = "tr") -> Optional[tuple[str, str]]:
+def _strip_html(html: str) -> str:
+    import html as html_mod
+
+    html = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", html, flags=re.S)
+    html = re.sub(r"<[^>]+>", " ", html)
+    html = html_mod.unescape(html)
+    return re.sub(r"\s+", " ", html).strip()
+
+
+def _relevance_score(query: str, title: str, text: str) -> float:
+    """Score how well a page covers the query.
+
+    Returns 0 when required keywords are missing. Turkish suffixes are handled
+    with a crude prefix-stem match (first 5 normalized chars) on space-stripped
+    text, e.g. 'karadelik' matches 'kara delik'.
+    """
+    qnorm = _norm(query)
+    kws = [w for w in qnorm.split() if len(w) >= 3]
+    tns = _norm(title + " " + text).replace(" ", "")
+    if kws:
+        hits = sum(1 for w in kws if w[: min(len(w), 5)] in tns)
+        ratio = hits / len(kws)
+        if (len(kws) <= 3 and hits < len(kws)) or ratio < 0.7:
+            return 0.0
+    else:
+        ratio = 1.0
+    score = ratio
+    if qnorm.replace(" ", "") in tns:
+        score += 1.0  # tam ifade eşleşmesi
+    score += difflib.SequenceMatcher(None, _norm(title), qnorm).ratio() * 0.5
+    return score
+
+
+def _wiki_candidates(query: str, lang: str) -> list:
+    titles: list = []
     try:
         r = requests.get(
             f"https://{lang}.wikipedia.org/w/api.php",
             params={
                 "action": "opensearch",
                 "search": query,
-                "limit": 1,
+                "limit": 2,
                 "namespace": 0,
                 "format": "json",
             },
             headers=HEADERS,
             timeout=TIMEOUT,
         )
-        titles = r.json()[1]
-        if not titles:
-            return None
-        title = titles[0]
-        s = requests.get(
-            f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{quote(title)}",
+        titles.extend(r.json()[1])
+    except Exception:
+        pass
+    try:
+        r = requests.get(
+            f"https://{lang}.wikipedia.org/w/api.php",
+            params={
+                "action": "query",
+                "list": "search",
+                "srsearch": query,
+                "srlimit": 2,
+                "format": "json",
+            },
             headers=HEADERS,
             timeout=TIMEOUT,
         )
-        data = s.json()
-        extract = (data.get("extract") or "").strip()
-        if len(extract) < 40:
-            return None
-        url = (
-            data.get("content_urls", {}).get("desktop", {}).get("page", "")
-            or f"https://{lang}.wikipedia.org/wiki/{quote(title)}"
-        )
-        return extract, url
+        titles.extend(h["title"] for h in r.json().get("query", {}).get("search", []))
     except Exception:
-        return None
+        pass
+    seen, out = set(), []
+    for t in titles:
+        if t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out[:3]
+
+
+def wikipedia_lookup(query: str, lang: str = "tr") -> Optional[tuple[str, str]]:
+    best, best_score = None, 0.0
+    for title in _wiki_candidates(query, lang):
+        try:
+            s = requests.get(
+                f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{quote(title)}",
+                headers=HEADERS,
+                timeout=TIMEOUT,
+            )
+            data = s.json()
+            extract = (data.get("extract") or "").strip()
+            if len(extract) < 40:
+                continue
+            score = _relevance_score(query, title, extract)
+            if score <= 0:
+                continue
+            url = (
+                data.get("content_urls", {}).get("desktop", {}).get("page", "")
+                or f"https://{lang}.wikipedia.org/wiki/{quote(title)}"
+            )
+            if score > best_score:
+                best_score, best = score, (extract, url)
+        except Exception:
+            continue
+    return best
 
 
 def duckduckgo_lookup(query: str) -> Optional[tuple[str, str]]:
+    """DuckDuckGo Instant Answer API (free, keyless)."""
     try:
         r = requests.get(
             "https://api.duckduckgo.com/",
@@ -239,23 +306,150 @@ def duckduckgo_lookup(query: str) -> Optional[tuple[str, str]]:
     return None
 
 
+def ddg_web_search(query: str) -> Optional[tuple[str, str]]:
+    """DuckDuckGo HTML web search — snippets from real search results.
+
+    GET is bot-challenged (HTTP 202); the POST form endpoint works.
+    """
+    try:
+        r = requests.post(
+            "https://html.duckduckgo.com/html/",
+            data={"q": query},
+            headers=HEADERS,
+            timeout=TIMEOUT,
+        )
+        html = r.text
+        links = re.findall(r'class="result__a"[^>]+href="([^"]+)"', html)
+        snippets = re.findall(
+            r'class="result__snippet"[^>]*>(.*?)</a>', html, flags=re.S
+        )
+        texts = []
+        for sn in snippets[:3]:
+            t = _strip_html(sn)
+            if len(t) > 30:
+                texts.append(t)
+        if not texts:
+            return None
+        answer = "\n\n".join(texts)[:1000]
+        url = ""
+        if links:
+            url = links[0]
+            m = re.search(r"uddg=([^&]+)", url)
+            if m:
+                from urllib.parse import unquote
+                url = unquote(m.group(1))
+            if url.startswith("//"):
+                url = "https:" + url
+        return answer, url
+    except Exception:
+        return None
+
+
+def stackoverflow_lookup(query: str) -> Optional[tuple[str, str]]:
+    """Stack Overflow accepted answers (free API quota, keyless)."""
+    try:
+        r = requests.get(
+            "https://api.stackexchange.com/2.3/search/advanced",
+            params={
+                "order": "desc",
+                "sort": "relevance",
+                "q": query,
+                "site": "stackoverflow",
+                "accepted": "True",
+                "pagesize": 1,
+            },
+            headers=HEADERS,
+            timeout=TIMEOUT,
+        )
+        items = r.json().get("items", [])
+        if not items:
+            return None
+        item = items[0]
+        answer_id = item.get("accepted_answer_id")
+        if not answer_id:
+            return None
+        a = requests.get(
+            f"https://api.stackexchange.com/2.3/answers/{answer_id}",
+            params={"site": "stackoverflow", "filter": "withbody"},
+            headers=HEADERS,
+            timeout=TIMEOUT,
+        )
+        answers = a.json().get("items", [])
+        if not answers:
+            return None
+        body = _strip_html(answers[0].get("body", ""))[:900]
+        if len(body) < 40:
+            return None
+        title = _strip_html(item.get("title", ""))
+        return f"**{title}**\n\n{body}", item.get("link", "")
+    except Exception:
+        return None
+
+
+CODE_HINT = re.compile(
+    r"(python|javascript|js|java|c\+\+|hata|error|exception|kod|modul|kutuphane|"
+    r"library|install|pip|npm|import|function|fonksiyon|framework|api|sql|regex)"
+)
+
+
 def research(question: str) -> Optional[dict]:
-    """Try free sources in order; return {'answer','url','provider'} or None."""
+    """Query all free sources in parallel; pick the best answer, list extras."""
+    from concurrent.futures import ThreadPoolExecutor
+
     query = _clean_query(question)
-    for provider, fn in (
-        ("Wikipedia (TR)", lambda: wikipedia_lookup(query, "tr")),
-        ("Wikipedia (EN)", lambda: wikipedia_lookup(query, "en")),
-        ("DuckDuckGo", lambda: duckduckgo_lookup(query)),
-    ):
-        found = fn()
-        if found:
-            answer, url = found
-            # keep answers concise
-            if len(answer) > 1200:
-                cut = answer[:1200]
-                answer = cut[: cut.rfind(".") + 1] or cut
-            return {"answer": answer, "url": url, "provider": provider}
-    return None
+    code_hint = bool(CODE_HINT.search(_norm(question)))
+
+    tasks: dict = {
+        "wiki_tr": lambda: wikipedia_lookup(query, "tr"),
+        "wiki_en": lambda: wikipedia_lookup(query, "en"),
+        "ddg": lambda: duckduckgo_lookup(query),
+        "ddg_web": lambda: ddg_web_search(query),
+    }
+    if code_hint:
+        tasks["so"] = lambda: stackoverflow_lookup(query)
+
+    results: dict = {}
+    with ThreadPoolExecutor(max_workers=len(tasks)) as ex:
+        futures = {name: ex.submit(fn) for name, fn in tasks.items()}
+        for name, fut in futures.items():
+            try:
+                results[name] = fut.result(timeout=7)
+            except Exception:
+                results[name] = None
+
+    providers = {
+        "so": "Stack Overflow",
+        "wiki_tr": "Wikipedia (TR)",
+        "wiki_en": "Wikipedia (EN)",
+        "ddg": "DuckDuckGo",
+        "ddg_web": "Web araması",
+    }
+    order = ["so", "wiki_tr", "wiki_en", "ddg", "ddg_web"] if code_hint else \
+            ["wiki_tr", "wiki_en", "ddg", "ddg_web", "so"]
+
+    primary_name = next((n for n in order if results.get(n)), None)
+    if not primary_name:
+        return None
+
+    answer, url = results[primary_name]
+    if len(answer) > 1200:
+        cut = answer[:1200]
+        answer = cut[: cut.rfind(".") + 1] or cut
+
+    # ek kaynak linkleri (farklı URL'ler)
+    extras = []
+    for name in order:
+        if name == primary_name or not results.get(name):
+            continue
+        _, extra_url = results[name]
+        if extra_url and extra_url != url and extra_url not in extras:
+            extras.append(extra_url)
+        if len(extras) >= 2:
+            break
+    if extras:
+        answer += "\n\n📚 Diğer kaynaklar:\n" + "\n".join(f"• {u}" for u in extras)
+
+    return {"answer": answer, "url": url, "provider": providers[primary_name]}
 
 
 learned = LearnedStore()
