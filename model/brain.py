@@ -1319,21 +1319,33 @@ class Brain:
                 return entry
         return None
 
+    @staticmethod
+    def _looks_possessive(content_words: set[str]) -> bool:
+        """'teorisi', 'boyutu' gibi iyelik ekli kelimeler → özne öncekilerde."""
+        return bool(content_words) and all(
+            w.endswith(("si", "su")) or (len(w) >= 4 and w[-1] in "iu")
+            for w in content_words
+        )
+
     def _topic_keywords(self, history: list, limit: int = 6) -> list[str]:
         """Extract the conversation topic from recent user messages.
 
         Works for ANY topic (KB, web-researched or unknown): pulls content
-        words from the most recent user message that has any, walking
-        backwards through history.
+        words from the most recent user message that introduced a topic,
+        skipping messages that were themselves follow-up questions.
         """
         stop = self.GENERIC_WORDS | self.FOLLOWUP_HINTS | self.QUESTION_WORDS
         out: list[str] = []
         for msg in reversed(self._last_user_messages(history)[-4:]):
+            words = set(_norm(msg).split())
+            content = {w for w in words if len(w) >= 3 and w not in stop}
+            # takip mesajları konuyu TAŞIMAZ; asıl konuyu geriye giderek bul
+            if not content or self._looks_possessive(content):
+                continue
             for w in _norm(msg).split():
                 if len(w) >= 3 and w not in stop and w not in out:
                     out.append(w)
-            if out:
-                break  # en yakın "içerikli" mesaj konuyu belirler
+            break
         return out[:limit]
 
     def _remember_name(self, history: list, current: str) -> Optional[str]:
@@ -1411,7 +1423,13 @@ class Brain:
         stop = self.GENERIC_WORDS | self.FOLLOWUP_HINTS | self.QUESTION_WORDS
         content_words = {w for w in words if len(w) >= 3 and w not in stop}
         topic = self._topic_keywords(history)
-        is_followup = bool(history) and (has_followup_hint or not content_words)
+        # "en ünlü teorisi ne", "boyutu kaç" gibi öznesiz sorular: tüm içerik
+        # kelimeleri iyelik eki taşıyorsa konu önceki mesajlardadır
+        is_followup = bool(history) and (
+            has_followup_hint
+            or not content_words
+            or self._looks_possessive(content_words)
+        )
 
         if is_followup and topic and not any(p in text for p in self.MORE_PATTERNS):
             # sadece selamlaşma/teşekkür ise normal sohbet cevabı ver
@@ -1429,7 +1447,8 @@ class Brain:
             if bare and bare_s >= 5.0:
                 return self._kb_result(bare[0][0])
             # aksi halde konuyu koruyarak web/öğrenilmiş bilgiye git —
-            # zayıf KB eşleşmelerinin konuyu kaçırmasına izin verme
+            # zayıf KB eşleşmelerinin konuyu kaçırmasına izin verme.
+            # Önce konu+soru, o başarısız olursa yalın soru denenir.
             return {
                 "reply": (
                     "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
@@ -1437,6 +1456,7 @@ class Brain:
                 ),
                 "source": "fallback",
                 "research_query": topic_str + " " + raw,
+                "context_query": raw,
             }
 
         # If the message clearly asks for code, prefer KB over chitchat
