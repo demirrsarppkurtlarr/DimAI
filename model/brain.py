@@ -1197,21 +1197,31 @@ class Brain:
 
     # -------------------- matching --------------------
 
+    GENERIC_WORDS = {
+        "nedir", "ne", "nasil", "yaz", "ornek", "ornegi", "kod", "goster",
+        "kullanilir", "icin", "yap", "olustur", "how", "write", "code",
+    }
+
     def _score_entry(self, text: str, words: set[str], entry: dict) -> float:
         score = 0.0
         for key in entry["nk"]:
-            if key in text:
+            # substring match only for long/multiword keys; short keys must be whole words
+            strong = key in words or (key in text and (len(key) >= 6 or " " in key))
+            if strong:
                 # longer, more specific keys outrank short generic ones
                 score += 3.0 + key.count(" ") * 2.0 + len(key) * 0.05
                 continue
             key_words = key.split()
+            specific = [kw for kw in key_words if kw not in self.GENERIC_WORDS]
             hits = sum(1 for kw in key_words if kw in words)
-            if hits and hits == len(key_words):
+            specific_hits = sum(1 for kw in specific if kw in words)
+            if hits == len(key_words) and hits:
                 score += 2.0 * hits
-            elif hits:
-                score += 0.6 * hits
-            else:
-                for kw in key_words:
+            elif specific_hits:
+                # only topic words count toward partial credit
+                score += 0.6 * specific_hits
+            elif specific:
+                for kw in specific:
                     close = difflib.get_close_matches(kw, words, n=1, cutoff=0.85)
                     if close:
                         score += 0.8
@@ -1233,7 +1243,7 @@ class Brain:
         for keys, answers in CHITCHAT:
             for key in keys:
                 nk = _norm(key)
-                if nk in text or nk in words:
+                if nk in words or (len(nk) >= 6 and nk in text):
                     return random.choice(answers)
         return None
 
