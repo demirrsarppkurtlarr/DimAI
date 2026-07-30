@@ -784,7 +784,7 @@ class Kedi(Canli):
 for c in (Kopek("Karabaş"), Kedi("Pamuk")):
     print(c.konus())''', "l": "python"},
 
-    {"k": ["sqlite yaz", "sqlite ornegi", "veritabani kodu"],
+    {"k": ["sqlite yaz", "sqlite ornegi", "sqlite örneği", "sqlite", "veritabani kodu", "sql ornegi"],
      "a": "SQLite ile tablo oluştur / ekle / oku:",
      "c": '''import sqlite3
 

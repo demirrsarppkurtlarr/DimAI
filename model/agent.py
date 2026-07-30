@@ -36,7 +36,10 @@ CODE_STRONG = {
 }
 CODE_WRITE = {"yaz", "write", "olustur", "uret", "generate"}
 CODE_EXAMPLE = {"ornek", "ornegi", "example", "goster", "show", "sample"}
-CODE_LANGS = {"python", "js", "javascript", "sql", "html", "css", "java", "cpp", "typescript"}
+CODE_LANGS = {
+    "python", "js", "javascript", "sql", "sqlite", "html", "css", "java",
+    "cpp", "typescript", "flask", "django", "react", "node",
+}
 
 RESEARCH_EXPLICIT = (
     "nedir", "kimdir", "ne demek", "hakkinda", "tarihi",
@@ -44,6 +47,11 @@ RESEARCH_EXPLICIT = (
     "nasil calisir", "nasil olusur", "ozellikleri", "anlami",
     "who is", "what is", "what are", "when was", "where is",
     "arastir", "araştir", "googlela", "internetten bak", "kaynak bul",
+    "anlat", "kisaca", "ozetle", "bilgi ver", "aciklar misin",
+)
+
+WEATHER_HINTS = (
+    "hava durumu", "hava nasil", "hava rapor", "weather", "forecast", "yagmur",
 )
 
 REFUSE_SEARCH = (
@@ -100,18 +108,47 @@ class Agent:
                 tools=["chat"], reason="kullanıcı araştırmayı reddetti",
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
-        if any(p in text for p in PERSONAL) or re.search(r"(?:benim )?(?:adim|ismim)\s+\w+", text):
+        name_intro = re.search(r"(?:benim )?(?:adim|ismim)\s+([a-zçğıöşü]+)", text)
+        if any(p in text for p in PERSONAL) or (
+            name_intro
+            and name_intro.group(1) not in ("ne", "neydi", "nedir", "sayisi", "sayi")
+            and not name_intro.group(1).isdigit()
+        ):
             return Decision(
                 intent="personal", allow_web=False, allow_memory=True, allow_kb=False,
                 tools=["memory", "chat"], reason="kişisel / isim",
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
 
-        # --- math ---
-        if self._looks_math(raw):
+        # --- math / units / clock / meta (local skills) ---
+        try:
+            from model import skills as _skills
+        except ImportError:
+            import skills as _skills  # type: ignore
+
+        if _skills.looks_like_math(raw) or _skills.convert_units(raw):
             return Decision(
                 intent="math", allow_web=False, allow_memory=False, allow_kb=False,
-                tools=["math"], reason="matematik ifadesi",
+                tools=["math"], reason="matematik / birim",
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
+        if _skills.looks_like_time(raw):
+            return Decision(
+                intent="math", allow_web=False, allow_memory=False, allow_kb=False,
+                tools=["math"], reason="saat / tarih",
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
+        if _skills.looks_like_meta(raw):
+            return Decision(
+                intent="help", allow_web=False, allow_memory=False, allow_kb=True,
+                tools=["chat"], reason="DimAI meta / adım sorusu",
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
+        if _skills.looks_like_weather(raw) or any(h in text for h in WEATHER_HINTS):
+            return Decision(
+                intent="research", allow_web=True, allow_memory=True, allow_kb=True,
+                tools=["web", "memory"], reason="hava durumu",
+                research_query=_skills.weather_query(raw),
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
 
@@ -161,7 +198,7 @@ class Agent:
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
 
-        # --- research (strict) ---
+        # --- research (olgu / soru kalıpları) ---
         if self._looks_research(text, words):
             return Decision(
                 intent="research", allow_web=True, allow_memory=True, allow_kb=True,
@@ -171,10 +208,20 @@ class Agent:
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
 
-        # default: conversational, NO web
+        # Soru gibi duran belirsiz mesaj → araştır (eskiden "anlamadım" oluyordu)
+        if self._looks_question(text, words):
+            return Decision(
+                intent="research", allow_web=True, allow_memory=True, allow_kb=True,
+                tools=["memory", "kb", "web"],
+                reason="soru kalıbı → araştırma",
+                research_query=raw,
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
+
+        # default: conversational + KB; web yok
         return Decision(
             intent="chat", allow_web=False, allow_memory=True, allow_kb=True,
-            tools=["chat", "kb"], reason="belirsiz → sohbet (web yok)",
+            tools=["chat", "kb"], reason="belirsiz → sohbet",
             context_summary=ctx.get("summary", ""), topic=topic,
         )
 
@@ -182,16 +229,29 @@ class Agent:
 
     @staticmethod
     def _looks_math(raw: str) -> bool:
-        cleaned = raw.lower()
-        for w in ["kac eder", "kaç eder", "hesapla", "sonucu ne", "=", "?"]:
-            cleaned = cleaned.replace(w, " ")
-        cleaned = cleaned.replace("x", "*").replace("çarpı", "*").replace("carpi", "*")
-        cleaned = cleaned.replace("artı", "+").replace("arti", "+")
-        cleaned = cleaned.replace("eksi", "-").replace("bölü", "/").replace("bolu", "/")
-        cleaned = cleaned.strip()
-        if not re.fullmatch(r"[\d\s+\-*/().%]+", cleaned or ""):
-            return False
-        return bool(re.search(r"\d", cleaned) and re.search(r"[+\-*/%]", cleaned))
+        try:
+            from model.skills import looks_like_math
+        except ImportError:
+            from skills import looks_like_math  # type: ignore
+        return looks_like_math(raw)
+
+    @staticmethod
+    def _looks_question(text: str, words: set[str]) -> bool:
+        """Factual/general questions that should not die as 'anlamadım'."""
+        q_marks = "?" in text or text.endswith(" mi") or text.endswith(" mu")
+        q_words = {
+            "nedir", "kimdir", "nasil", "neden", "niye", "nerede", "ne", "kim",
+            "hangi", "kac", "neydi", "midir", "mudur", "anlat", "acikla",
+            "what", "who", "why", "where", "when", "how",
+        }
+        if words & q_words:
+            return True
+        if q_marks and len(words) >= 2:
+            return True
+        # "X hakkında" / short topic requests
+        if "hakkinda" in text or "bilgi" in words:
+            return True
+        return False
 
     @staticmethod
     def _looks_chat(text: str, words: set[str]) -> bool:
@@ -228,15 +288,11 @@ class Agent:
     def _looks_research(text: str, words: set[str]) -> bool:
         if any(h in text for h in RESEARCH_EXPLICIT):
             return True
-        # multi-word named topic without code/chat — weak research signal only
-        # if it looks like an entity question with 2+ content words
-        stop = {
-            "bir", "ve", "ile", "icin", "bu", "o", "su", "de", "da", "mi", "mu",
-            "ben", "sen", "bana", "cok", "daha", "gibi",
-        }
-        content = [w for w in words if len(w) >= 4 and w not in stop]
-        # require explicit question mark style OR 'hakkinda bilgi' already covered
-        # Without explicit marker, do NOT research bare nouns (prevents spam).
+        if any(h in text for h in WEATHER_HINTS):
+            return True
+        # "X nedir" already covered; also "en büyük …", "ilk …"
+        if words & {"en", "ilk", "kac"} and len(words) >= 3:
+            return True
         return False
 
     @staticmethod

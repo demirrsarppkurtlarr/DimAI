@@ -1172,7 +1172,15 @@ CHITCHAT: list[tuple[list[str], list[str]]] = [
     (["gorusuruz", "bay bay", "hosca kal", "bye", "gule gule"],
      ["Görüşürüz! İyi çalışmalar."]),
     (["ne yapabilirsin", "neler yapabilirsin", "ozelliklerin", "yetenekler", "help", "yardim"],
-     ["Şunları yapabilirim:\n• Python / JS / SQL kodu yazarım\n• Algoritma ve örnekler veririm\n• Bilgi sorularında önce hafızama, gerekirse web'e bakarım\n• Konuşmayı hatırlarım ve takip sorularına bağlı kalırım\n\nÖrnek: \"sayı tahmin oyunu yaz\" veya \"karadelik nedir\""]),
+     ["Şunları yapabilirim:\n"
+      "• Kod: Python / JS / SQL / Flask / algoritma örnekleri\n"
+      "• Matematik: `2+2 kaç`, `12*8`, birim çevirme\n"
+      "• Saat/tarih ve bilgi soruları (gerekirse web)\n"
+      "• Hava durumu gibi güncel sorular (web)\n"
+      "• Konuşma hafızası + takip soruları\n\n"
+      "Örnek: \"fibonacci yaz\", \"100/4\", \"karadelik nedir\", \"saat kaç\""]),
+    (["sikildim", "sıkıldım", "ne yapalim", "ne yapalım", "oneri ver", "öneri ver"],
+     ["O zaman bir şey seçelim:\n1) Kısa bir oyun kodu yazayım\n2) Matematik sorusu çözeyim\n3) İlginç bir konuyu açıklayayım\n\nHangisi?"]),
     (["saka", "espri", "komik", "joke", "guldur"],
      ["Neden programcılar karanlıktan korkmaz? Çünkü ışığı `print`'lerler.",
       "İki byte bir barda karşılaşmış. Biri sormuş: \"Bit'ler nasıl?\""]),
@@ -1321,24 +1329,15 @@ class Brain:
         }
 
     def _try_math(self, raw: str) -> Optional[str]:
-        cleaned = raw.lower()
-        for w in ["kac eder", "kaç eder", "kac", "kaç", "hesapla", "sonucu ne", "=", "?"]:
-            cleaned = cleaned.replace(w, " ")
-        cleaned = cleaned.replace("x", "*").replace("çarpı", "*").replace("carpi", "*")
-        cleaned = cleaned.replace("artı", "+").replace("arti", "+")
-        cleaned = cleaned.replace("eksi", "-").replace("bölü", "/").replace("bolu", "/")
-        cleaned = cleaned.strip()
-        if not re.fullmatch(r"[\d\s+\-*/().%]+", cleaned or ""):
-            return None
-        if not re.search(r"\d", cleaned) or not re.search(r"[+\-*/%]", cleaned):
-            return None
         try:
-            result = eval(cleaned, {"__builtins__": {}}, {})  # noqa: S307 sanitized above
-        except Exception:
-            return None
-        if isinstance(result, float) and result.is_integer():
-            result = int(result)
-        return f"Sonuç: **{result}**\n\n`{cleaned.strip()} = {result}`"
+            from model import skills as _skills
+        except ImportError:
+            import skills as _skills  # type: ignore
+        return (
+            _skills.solve_math(raw)
+            or _skills.convert_units(raw)
+            or (_skills.answer_time(raw) if _skills.looks_like_time(raw) else None)
+        )
 
     @staticmethod
     def _kb_result(entry: dict) -> dict:
@@ -1506,10 +1505,16 @@ class Brain:
                 ),
                 "source": "chat",
             }
+        # Belirsiz mesaj → yönlendirici ama işe yarar menü (eski "anlamadım" yerine)
+        who = f"{name}, " if name else ""
         return {
             "reply": (
-                "Tam olarak ne istediğini yakalayamadım. "
-                "Örnek: \"fibonacci kodu yaz\", \"karadelik nedir\" veya sadece sohbet et."
+                f"{who}şunu deneyebilirsin:\n"
+                f"• **Kod:** `todo app yaz`, `fibonacci yaz`, `flask api yaz`\n"
+                f"• **Hesap:** `2+2 kaç`, `15*8`, `100 km kaç mile`\n"
+                f"• **Bilgi:** `karadelik nedir`, `Atatürk kimdir`\n"
+                f"• **Saat:** `saat kaç` / `bugünün tarihi`\n\n"
+                f"Ne yapmak istediğini bir cümlede yazman yeterli."
             ),
             "source": "chat",
         }
@@ -1725,11 +1730,27 @@ class Brain:
                 result["context"] = decision.context_summary
             return result
 
-        # math
-        if decision.intent == "math":
-            math_answer = self._try_math(raw)
-            if math_answer:
-                return _tag({"reply": math_answer, "source": "math"})
+        # local skills first (math / units / clock) — even if intent misfires
+        try:
+            from model import skills as _skills
+        except ImportError:
+            import skills as _skills  # type: ignore
+        skill_answer = (
+            _skills.solve_math(raw)
+            or _skills.convert_units(raw)
+            or (_skills.answer_time(raw) if _skills.looks_like_time(raw) else None)
+        )
+        if skill_answer:
+            return _tag({"reply": skill_answer, "source": "math"})
+
+        if decision.intent == "help" and _skills.looks_like_meta(raw):
+            steps = None
+            try:
+                from model.trainer import trainer as _tr
+                steps = int(_tr.state.steps)
+            except Exception:
+                steps = None
+            return _tag({"reply": _skills.answer_meta(raw, steps=steps), "source": "chat"})
 
         # name intro / recall
         intro = re.search(r"(?:benim )?(?:adim|ismim)\s+([a-zçğıöşü]+)", text)
@@ -1739,6 +1760,15 @@ class Brain:
                 "source": "chat",
             })
         if re.search(r"(adim|ismim|adimi)\s*(ne|neydi|nedir|hatirliyor)", text):
+            # "adım sayısı" meta — isim değil
+            if "sayi" in text or "step" in text or re.search(r"\d{3,}", text):
+                steps = None
+                try:
+                    from model.trainer import trainer as _tr
+                    steps = int(_tr.state.steps)
+                except Exception:
+                    steps = None
+                return _tag({"reply": _skills.answer_meta(raw, steps=steps), "source": "chat"})
             name = self._remember_name(history, raw)
             if name:
                 return _tag({"reply": f"Tabii, adın **{name}**.", "source": "chat"})
@@ -1754,6 +1784,10 @@ class Brain:
                 return _tag({"reply": chit, "source": "chat"})
             if decision.intent == "help" and kb:
                 return _tag(self._kb_result(kb))
+            # belirsiz chat: KB zayıf eşleşme dene, yoksa yumuşak yönlendir
+            ranked = self._rank_kb(text)
+            if ranked and ranked[0][1] >= 1.8:
+                return _tag(self._kb_result(ranked[0][0]))
             return _tag(self._soft_reply(text, history))
 
         # başka örnek
