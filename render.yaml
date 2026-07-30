@@ -1,0 +1,18 @@
+# DimAI on Render
+services:
+  - type: web
+    name: DimAI
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+    autoDeploy: true
+    envVars:
+      - key: DIMAI_AUTOLEARN
+        value: "1"
+      - key: DIMAI_AUTOLEARN_INTERVAL
+        value: "3"
+      - key: PYTHON_VERSION
+        value: "3.12.3"

@@ -1,6 +1,7 @@
-"""DimAI — local web server for the self-training code AI. No external AI APIs."""
+"""DimAI — web server for the self-training code AI. No external AI APIs."""
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -18,6 +19,11 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 @app.get("/")
 def index():
     return send_from_directory(app.static_folder, "index.html")
+
+
+@app.get("/api/health")
+def health():
+    return jsonify({"ok": True, "app": "DimAI"})
 
 
 @app.get("/api/status")
@@ -84,16 +90,21 @@ def save():
     return jsonify({"ok": True})
 
 
-if __name__ == "__main__":
-    # Initial light training if brand new
+def _startup() -> None:
+    """Warm model for gunicorn / Render cold starts."""
     if trainer.state.steps == 0:
-        print("Bootstrap training (first run)...")
-        trainer.bootstrap_train(steps=500)
-        print("Starting continuous self-learning...")
-        trainer.start_autolearn(interval_sec=2.0)
+        print("DimAI: bootstrap training (first run)...")
+        trainer.bootstrap_train(steps=int(os.environ.get("DIMAI_BOOTSTRAP_STEPS", "200")))
     else:
-        print(f"Resuming from checkpoint at step {trainer.state.steps}")
-        trainer.start_autolearn(interval_sec=2.0)
+        print(f"DimAI: checkpoint loaded at step {trainer.state.steps}")
+    if os.environ.get("DIMAI_AUTOLEARN", "1") == "1":
+        trainer.start_autolearn(interval_sec=float(os.environ.get("DIMAI_AUTOLEARN_INTERVAL", "3")))
 
-    print("Open http://127.0.0.1:5055")
-    app.run(host="0.0.0.0", port=5055, debug=False, threaded=True)
+
+_startup()
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", "5055"))
+    print(f"DimAI listening on http://0.0.0.0:{port}")
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)

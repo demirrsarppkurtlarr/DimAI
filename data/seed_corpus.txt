@@ -1,0 +1,551 @@
+def add(a, b):
+    return a + b
+
+def subtract(a, b):
+    return a - b
+
+def multiply(a, b):
+    return a * b
+
+def divide(a, b):
+    if b == 0:
+        return None
+    return a / b
+
+def factorial(n):
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+
+def fibonacci(n):
+    if n <= 1:
+        return n
+    a, b = 0, 1
+    for _ in range(2, n + 1):
+        a, b = b, a + b
+    return b
+
+def is_even(n):
+    return n % 2 == 0
+
+def is_odd(n):
+    return n % 2 != 0
+
+def max_of_two(a, b):
+    if a > b:
+        return a
+    return b
+
+def min_of_two(a, b):
+    if a < b:
+        return a
+    return b
+
+def clamp(value, low, high):
+    if value < low:
+        return low
+    if value > high:
+        return high
+    return value
+
+def absolute(n):
+    if n < 0:
+        return -n
+    return n
+
+def power(base, exp):
+    result = 1
+    for _ in range(exp):
+        result *= base
+    return result
+
+def sum_list(nums):
+    total = 0
+    for n in nums:
+        total += n
+    return total
+
+def product_list(nums):
+    result = 1
+    for n in nums:
+        result *= n
+    return result
+
+def average(nums):
+    if not nums:
+        return 0
+    return sum(nums) / len(nums)
+
+def count_items(items):
+    return len(items)
+
+def contains(items, target):
+    for item in items:
+        if item == target:
+            return True
+    return False
+
+def find_index(items, target):
+    for i, item in enumerate(items):
+        if item == target:
+            return i
+    return -1
+
+def reverse_list(items):
+    result = []
+    for i in range(len(items) - 1, -1, -1):
+        result.append(items[i])
+    return result
+
+def unique(items):
+    seen = []
+    for item in items:
+        if item not in seen:
+            seen.append(item)
+    return seen
+
+def flatten(nested):
+    result = []
+    for row in nested:
+        for item in row:
+            result.append(item)
+    return result
+
+def square(n):
+    return n * n
+
+def cube(n):
+    return n * n * n
+
+def is_palindrome(text):
+    cleaned = text.lower()
+    return cleaned == cleaned[::-1]
+
+def reverse_string(text):
+    return text[::-1]
+
+def count_vowels(text):
+    vowels = "aeiouAEIOU"
+    count = 0
+    for ch in text:
+        if ch in vowels:
+            count += 1
+    return count
+
+def to_upper(text):
+    return text.upper()
+
+def to_lower(text):
+    return text.lower()
+
+def join_words(words):
+    return " ".join(words)
+
+def split_words(text):
+    return text.split()
+
+def starts_with(text, prefix):
+    return text.startswith(prefix)
+
+def ends_with(text, suffix):
+    return text.endswith(suffix)
+
+def repeat_string(text, times):
+    return text * times
+
+def safe_get(mapping, key, default=None):
+    if key in mapping:
+        return mapping[key]
+    return default
+
+def merge_dicts(a, b):
+    result = {}
+    for key in a:
+        result[key] = a[key]
+    for key in b:
+        result[key] = b[key]
+    return result
+
+def keys_list(mapping):
+    return list(mapping.keys())
+
+def values_list(mapping):
+    return list(mapping.values())
+
+def range_list(n):
+    return list(range(n))
+
+def filter_positive(nums):
+    result = []
+    for n in nums:
+        if n > 0:
+            result.append(n)
+    return result
+
+def filter_negative(nums):
+    result = []
+    for n in nums:
+        if n < 0:
+            result.append(n)
+    return result
+
+def map_double(nums):
+    result = []
+    for n in nums:
+        result.append(n * 2)
+    return result
+
+def map_square(nums):
+    result = []
+    for n in nums:
+        result.append(n * n)
+    return result
+
+def any_true(flags):
+    for flag in flags:
+        if flag:
+            return True
+    return False
+
+def all_true(flags):
+    for flag in flags:
+        if not flag:
+            return False
+    return True
+
+def gcd(a, b):
+    while b:
+        a, b = b, a % b
+    return a
+
+def lcm(a, b):
+    if a == 0 or b == 0:
+        return 0
+    return abs(a * b) // gcd(a, b)
+
+def is_prime(n):
+    if n < 2:
+        return False
+    for i in range(2, int(n ** 0.5) + 1):
+        if n % i == 0:
+            return False
+    return True
+
+def primes_until(limit):
+    result = []
+    for n in range(2, limit):
+        if is_prime(n):
+            result.append(n)
+    return result
+
+def bubble_sort(items):
+    arr = list(items)
+    n = len(arr)
+    for i in range(n):
+        for j in range(0, n - i - 1):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
+    return arr
+
+def linear_search(items, target):
+    for i, item in enumerate(items):
+        if item == target:
+            return i
+    return -1
+
+def binary_search(items, target):
+    low = 0
+    high = len(items) - 1
+    while low <= high:
+        mid = (low + high) // 2
+        if items[mid] == target:
+            return mid
+        if items[mid] < target:
+            low = mid + 1
+        else:
+            high = mid - 1
+    return -1
+
+def stack_push(stack, value):
+    stack.append(value)
+    return stack
+
+def stack_pop(stack):
+    if not stack:
+        return None
+    return stack.pop()
+
+def queue_enqueue(queue, value):
+    queue.append(value)
+    return queue
+
+def queue_dequeue(queue):
+    if not queue:
+        return None
+    return queue.pop(0)
+
+class Counter:
+    def __init__(self, start=0):
+        self.value = start
+
+    def inc(self):
+        self.value += 1
+        return self.value
+
+    def dec(self):
+        self.value -= 1
+        return self.value
+
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def move(self, dx, dy):
+        self.x += dx
+        self.y += dy
+
+class Rectangle:
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+
+    def area(self):
+        return self.width * self.height
+
+    def perimeter(self):
+        return 2 * (self.width + self.height)
+
+def read_lines(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read().splitlines()
+
+def write_text(path, text):
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+def try_parse_int(text):
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+def try_parse_float(text):
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+def main():
+    numbers = [1, 2, 3, 4, 5]
+    print(sum_list(numbers))
+    print(average(numbers))
+
+if __name__ == "__main__":
+    main()
+
+def greet(name):
+    return f"Hello, {name}!"
+
+def format_pair(a, b):
+    return f"{a}={b}"
+
+def make_pair(a, b):
+    return (a, b)
+
+def first(items):
+    if not items:
+        return None
+    return items[0]
+
+def last(items):
+    if not items:
+        return None
+    return items[-1]
+
+def head_tail(items):
+    if not items:
+        return None, []
+    return items[0], items[1:]
+
+def zip_sum(a, b):
+    result = []
+    n = min(len(a), len(b))
+    for i in range(n):
+        result.append(a[i] + b[i])
+    return result
+
+def running_total(nums):
+    result = []
+    total = 0
+    for n in nums:
+        total += n
+        result.append(total)
+    return result
+
+def chunk_list(items, size):
+    result = []
+    for i in range(0, len(items), size):
+        result.append(items[i:i + size])
+    return result
+
+def repeat_list(items, times):
+    result = []
+    for _ in range(times):
+        for item in items:
+            result.append(item)
+    return result
+
+def identity(x):
+    return x
+
+def compose_add_square(x):
+    return square(add(x, 1))
+
+def distance(x1, y1, x2, y2):
+    dx = x2 - x1
+    dy = y2 - y1
+    return (dx * dx + dy * dy) ** 0.5
+
+def lerp(a, b, t):
+    return a + (b - a) * t
+
+def sign(n):
+    if n > 0:
+        return 1
+    if n < 0:
+        return -1
+    return 0
+
+def swap(a, b):
+    return b, a
+
+def normalize_list(nums):
+    total = sum_list(nums)
+    if total == 0:
+        return list(nums)
+    return [n / total for n in nums]
+
+def median(nums):
+    if not nums:
+        return 0
+    arr = sorted(nums)
+    mid = len(arr) // 2
+    if len(arr) % 2 == 0:
+        return (arr[mid - 1] + arr[mid]) / 2
+    return arr[mid]
+
+def mode(nums):
+    if not nums:
+        return None
+    counts = {}
+    for n in nums:
+        counts[n] = counts.get(n, 0) + 1
+    best = nums[0]
+    best_count = 0
+    for key, value in counts.items():
+        if value > best_count:
+            best = key
+            best_count = value
+    return best
+
+def pad_left(text, width, fill=" "):
+    if len(text) >= width:
+        return text
+    return fill * (width - len(text)) + text
+
+def pad_right(text, width, fill=" "):
+    if len(text) >= width:
+        return text
+    return text + fill * (width - len(text))
+
+def remove_spaces(text):
+    result = []
+    for ch in text:
+        if ch != " ":
+            result.append(ch)
+    return "".join(result)
+
+def char_count(text):
+    counts = {}
+    for ch in text:
+        counts[ch] = counts.get(ch, 0) + 1
+    return counts
+
+def word_count(text):
+    return len(text.split())
+
+def line_count(text):
+    if not text:
+        return 0
+    return len(text.splitlines())
+
+def indent_block(text, spaces=4):
+    pad = " " * spaces
+    lines = text.splitlines()
+    return "\n".join(pad + line for line in lines)
+
+def dedent_line(line):
+    return line.lstrip()
+
+def boolean_and(a, b):
+    return bool(a and b)
+
+def boolean_or(a, b):
+    return bool(a or b)
+
+def boolean_not(a):
+    return not a
+
+def choose(cond, left, right):
+    if cond:
+        return left
+    return right
+
+def retry(fn, times):
+    last_error = None
+    for _ in range(times):
+        try:
+            return fn()
+        except Exception as exc:
+            last_error = exc
+    raise last_error
+
+def apply_all(fns, value):
+    result = value
+    for fn in fns:
+        result = fn(result)
+    return result
+
+def memo_square(cache, n):
+    if n in cache:
+        return cache[n]
+    cache[n] = n * n
+    return cache[n]
+
+def matrix_add(a, b):
+    result = []
+    for i in range(len(a)):
+        row = []
+        for j in range(len(a[i])):
+            row.append(a[i][j] + b[i][j])
+        result.append(row)
+    return result
+
+def matrix_shape(matrix):
+    if not matrix:
+        return 0, 0
+    return len(matrix), len(matrix[0])
+
+def transpose(matrix):
+    if not matrix:
+        return []
+    rows = len(matrix)
+    cols = len(matrix[0])
+    result = []
+    for j in range(cols):
+        row = []
+        for i in range(rows):
+            row.append(matrix[i][j])
+        result.append(row)
+    return result

@@ -1,0 +1,11 @@
+{
+  "steps": 800,
+  "self_train_rounds": 0,
+  "accepted": 0,
+  "rejected": 0,
+  "last_loss": 2.401478110026097,
+  "last_accepted": "",
+  "running": false,
+  "message": "bootstrap done, loss=2.401",
+  "history": []
+}
