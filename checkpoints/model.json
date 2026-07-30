@@ -1,7 +1,6 @@
 {
   "vocab": {
     "chars": [
-      "\t",
       "\n",
       " ",
       "!",
@@ -97,16 +96,14 @@
       "{",
       "|",
       "}",
-      "~",
-      "≤",
-      "➞"
+      "~"
     ]
   },
   "meta": {
-    "steps": 5939,
-    "accepted": 5,
-    "rejected": 25,
+    "steps": 30427,
+    "accepted": 12,
+    "rejected": 18,
     "self_train_rounds": 30,
-    "last_loss": 1.3549392032238579
+    "last_loss": 1.4126376206076965
   }
 }
