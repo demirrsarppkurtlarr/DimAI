@@ -844,6 +844,61 @@ if __name__ == "__main__":
     {"k": ["python kim buldu", "python kim yaratti", "guido", "python mucidi"],
      "a": "**Python**'u **Guido van Rossum** 1989–1991 yıllarında geliştirdi; ilk resmi sürüm 1991'de çıktı. İsmini Monty Python'dan alır. Guido uzun süre “Benevolent Dictator For Life” (BDFL) unvanıyla dilin yönünü belirledi."},
 
+    {"k": ["docker compose yaz", "docker-compose", "dockerfile yaz", "docker yaz"],
+     "a": "Basit Dockerfile + Compose:",
+     "c": '''# Dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["python", "server.py"]
+
+# docker-compose.yml
+services:
+  web:
+    build: .
+    ports:
+      - "5055:5055"
+    environment:
+      - PORT=5055''', "l": "yaml"},
+
+    {"k": ["typescript interface yaz", "typescript yaz", "ts interface", "interface yaz"],
+     "a": "TypeScript interface örneği:",
+     "c": '''interface User {
+  id: number;
+  name: string;
+  email?: string;
+  active: boolean;
+}
+
+function greet(user: User): string {
+  return `Merhaba, ${user.name}`;
+}
+
+const u: User = { id: 1, name: "Demir", active: true };
+console.log(greet(u));''', "l": "typescript"},
+
+    {"k": ["api key sakla", "secret sakla", "env dosya", ".env yaz", "api anahtari"],
+     "a": "API anahtarını koda gömme — ortam değişkeni kullan:",
+     "c": '''# .env  (git'e EKLEME)
+API_KEY=sk-ornek-anahtar
+
+# Python
+import os
+from dotenv import load_dotenv  # pip install python-dotenv
+
+load_dotenv()
+api_key = os.environ["API_KEY"]
+
+# asla: api_key = "sk-..."  ❌''', "l": "python"},
+
+    {"k": ["http nedir", "http ne demek", "https nedir"],
+     "a": "**HTTP**, tarayıcı ile sunucunun konuştuğu protokoldür.\n\n• **İstek (request):** GET (oku), POST (gönder), PUT/PATCH (güncelle), DELETE\n• **Yanıt (response):** durum kodu — 200 OK, 404 Not Found, 500 Server Error\n• **HTTPS** = HTTP + şifreleme (TLS)\n\nÖrnek: tarayıcı `GET /api/status` der, sunucu JSON döner. Kod örneği için \"requests get\" yaz."},
+
+    {"k": ["python vs javascript", "python mi js mi", "python mi javascript mi", "python vs java", "hangisi daha iyi python"],
+     "a": "**Kısa cevap:** yeni başlayan / AI / veri → **Python**. Web arayüzü / tarayıcı → **JavaScript**.\n\n| | Python | JavaScript |\n|---|---|---|\n| Nerede | Sunucu, script, AI | Tarayıcı + Node.js |\n| Sözdizimi | Sade | Esnek, her yerde |\n| Tipik iş | ML, otomasyon, API | Frontend, realtime |\n\nİkisini de öğrenmek yaygın; önce hedefine yakın olanı seç."},
+
     {"k": ["rest api yaz", "flask api yaz", "mini api"],
      "a": "Flask ile mini REST API:",
      "c": '''from flask import Flask, jsonify, request

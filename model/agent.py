@@ -38,7 +38,8 @@ CODE_WRITE = {"yaz", "write", "olustur", "uret", "generate"}
 CODE_EXAMPLE = {"ornek", "ornegi", "example", "goster", "show", "sample"}
 CODE_LANGS = {
     "python", "js", "javascript", "sql", "sqlite", "html", "css", "java",
-    "cpp", "typescript", "flask", "django", "react", "node",
+    "cpp", "typescript", "ts", "flask", "django", "react", "node", "docker",
+    "yaml", "pandas", "numpy",
 }
 
 RESEARCH_EXPLICIT = (
@@ -48,6 +49,7 @@ RESEARCH_EXPLICIT = (
     "who is", "what is", "what are", "when was", "where is",
     "arastir", "araştir", "googlela", "internetten bak", "kaynak bul",
     "anlat", "kisaca", "ozetle", "bilgi ver", "aciklar misin",
+    "nufus", "nufusu", "population", "kac kisi", "kac milyon",
 )
 
 WEATHER_HINTS = (
@@ -156,6 +158,12 @@ class Agent:
                 tools=["chat"], reason="kısa onay / ret",
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
+        if _skills.looks_like_casual(raw):
+            return Decision(
+                intent="chat", allow_web=False, allow_memory=False, allow_kb=False,
+                tools=["chat"], reason="günlük tepki",
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
         if _skills.looks_like_meta(raw):
             return Decision(
                 intent="help", allow_web=False, allow_memory=False, allow_kb=True,
@@ -216,11 +224,18 @@ class Agent:
         # --- followup (needs prior topic) ---
         if history and self._looks_followup(text, words, topic):
             main = " ".join(topic[:2])
+            # "daha anlat" tek başına roman/film sonuçlarına sapmasın
+            if words <= {"daha", "anlat", "devam", "acikla", "detay"} or text in {
+                "daha anlat", "devam", "devam et", "anlat", "detay",
+            }:
+                rq = f"{main} nedir açıklama".strip()
+            else:
+                rq = f"{main} {raw}".strip()
             return Decision(
                 intent="followup", allow_web=True, allow_memory=True, allow_kb=True,
                 tools=["memory", "kb", "web"],
                 reason=f"önceki konuya bağlı: «{main}»",
-                research_query=f"{main} {raw}".strip(),
+                research_query=rq,
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
 
@@ -271,7 +286,7 @@ class Agent:
         q_words = {
             "nedir", "kimdir", "nasil", "neden", "niye", "nerede", "ne", "kim",
             "hangi", "kac", "neydi", "midir", "mudur", "anlat", "acikla",
-            "what", "who", "why", "where", "when", "how",
+            "what", "who", "why", "where", "when", "how", "nufus", "nufusu",
         }
         # "neden/nasıl" tek başına yetmez — en az bir içerik kelimesi iste
         content = words - q_words - {"bir", "ve", "ile", "icin", "bu", "cok", "daha", "mi", "mu"}
@@ -280,6 +295,9 @@ class Agent:
         if q_marks and len(words) >= 2 and content:
             return True
         if "hakkinda" in text or ("bilgi" in words and content):
+            return True
+        # "İstanbul nüfusu" gibi isim + olgu
+        if content and words & {"nufus", "nufusu", "population", "tarihi", "baskenti"}:
             return True
         return False
 

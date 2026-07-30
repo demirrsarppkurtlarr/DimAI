@@ -19,7 +19,11 @@ def _norm(text: str) -> str:
     text = (text or "").lower()
     text = text.translate(str.maketrans("çğıöşü", "cgiosu"))
     text = unicodedata.normalize("NFKD", text)
-    text = re.sub(r"[^a-z0-9+\-*/=<>.%()^\s]", " ", text)
+    # preserve != and European decimals before stripping punctuation
+    text = text.replace("!=", "⟦ne⟧")
+    text = re.sub(r"(\d),(\d)", r"\1.\2", text)
+    text = re.sub(r"[^a-z0-9+\-*/=<>.%()^\s⟦⟧]", " ", text)
+    text = text.replace("⟦ne⟧", "!=")
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -104,7 +108,6 @@ _WORD_OPS = (
     ("arti", "+"),
     ("eksi", "-"),
     ("bolu", "/"),
-    ("mod", "%"),
     ("uzeri", "**"),
     ("plus", "+"),
     ("minus", "-"),
@@ -165,49 +168,54 @@ def extract_math_expr(raw: str) -> Optional[str]:
     text = _norm(raw)
     if not text:
         return None
+    # European decimals: 3,5 → 3.5 (only digit,digit)
+    text = re.sub(r"(\d),(\d)", r"\1.\2", text)
     text = _replace_tr_numbers(text)
-    text = re.sub(r"[?!]+", " ", text)
+    text = re.sub(r"[?]+", " ", text)
     for phrase in _STRIP_PHRASES:
         p = _norm(phrase)
-        if len(p) < 2:  # never replace empty / 1-char (corrupts digits)
+        if len(p) < 2:
             continue
         text = text.replace(p, " ")
+    # modulo word BEFORE percent handling (avoid 17 mod 5 → percent)
+    text = re.sub(r"\bmod\b", " % ", text)
     for a, b in _WORD_OPS:
         text = re.sub(rf"\b{a}\b", f" {b} ", text)
     text = re.sub(r"(\d)\s*x\s*(\d)", r"\1 * \2", text)
     text = text.replace("×", "*").replace("÷", "/").replace("^", "**")
-    text = re.sub(r"\b(kok|sqrt)\s*\(?\s*(\d+(?:\.\d+)?)\s*\)?", r" sqrt(\2) ", text)
+    text = re.sub(r"\b(kok|sqrt)\s*\(?\s*(-?\d+(?:\.\d+)?)\s*\)?", r" sqrt(\2) ", text)
 
+    # yüzde only with explicit word (not bare a%b from mod)
     mperc = re.search(r"\byuzde\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)", text)
     if mperc:
         return f"({mperc.group(2)}*{mperc.group(1)}/100)"
-    mperc2 = re.search(r"(\d+(?:\.\d+)?)\s*%\s*(?:of|nin|inin)?\s*(\d+(?:\.\d+)?)", text)
+    mperc2 = re.search(
+        r"(\d+(?:\.\d+)?)\s*%\s*(?:of|si|su|nin|inin)\s*(\d+(?:\.\d+)?)",
+        text,
+    )
     if mperc2:
         return f"({mperc2.group(2)}*{mperc2.group(1)}/100)"
 
-    m = re.search(r"sqrt\((\d+(?:\.\d+)?)\)", text)
+    m = re.search(r"sqrt\((-?\d+(?:\.\d+)?)\)", text)
     if m:
         return f"sqrt({m.group(1)})"
 
-    # Pull the longest arithmetic-looking span (parens + ops + **)
-    m = re.search(
-        r"(?:\d+(?:\.\d+)?|\([^()]*\))(?:\s*(?:\*\*|[+\-*/%])\s*(?:\d+(?:\.\d+)?|\([^()]*\)))+",
-        text,
-    )
-    if not m:
-        # also "(3+5)*2" where paren group is followed by op
-        m = re.search(
-            r"\([^()]*\)(?:\s*(?:\*\*|[+\-*/%])\s*(?:\d+(?:\.\d+)?|\([^()]*\)))+",
-            text,
-        )
+    # Longest math-looking span: allow nested parens + unary minus
+    m = re.search(r"[-+]?(?:\d|\()[\d+\-*/%.()\s*]{0,120}[\d)]", text)
     if not m:
         return None
     cand = re.sub(r"\s+", "", m.group(0))
+    # trim trailing ops
+    cand = cand.rstrip("+-*/%")
     has_op = "**" in cand or bool(re.search(r"[+\-*/%]", cand.replace("**", "")))
     if not has_op:
         return None
-    # basic safety: only allowed chars (** temporarily as single *)
     if not re.fullmatch(r"[0-9+\-*/().%]+", cand.replace("**", "*")):
+        return None
+    # must parse
+    try:
+        _safe_eval(cand)
+    except Exception:
         return None
     return cand
 
@@ -296,6 +304,10 @@ def looks_like_time(raw: str) -> bool:
         return True
     if "yarin" in t and "gun" in t:
         return True
+    if "ayin kaci" in t or "ayin kaçi" in t or ("ayin" in t and "kac" in t):
+        return True
+    if "bugun" in t and ("kac" in t or "tarih" in t):
+        return True
     return False
 
 
@@ -307,10 +319,19 @@ def answer_time(raw: str = "") -> str:
         now = datetime.now(timezone.utc)
         tz = "UTC"
     gunler = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+    aylar = [
+        "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+        "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+    ]
     text = _norm(raw)
     if "yarin" in text:
         d = now + timedelta(days=1)
         return f"Yarın **{d.day:02d}.{d.month:02d}.{d.year}**, **{gunler[d.weekday()]}**.\n\n({tz})"
+    if "ayin" in text or ("bugun" in text and "kac" in text and "saat" not in text):
+        return (
+            f"Bugün ayın **{now.day}**'i — "
+            f"**{now.day} {aylar[now.month - 1]} {now.year}**, {gunler[now.weekday()]}.\n\n({tz})"
+        )
     if "tarih" in text or ("gun" in text and "saat" not in text):
         return (
             f"Bugün **{now.day:02d}.{now.month:02d}.{now.year}**, "
@@ -373,15 +394,23 @@ _EN_TR.update({
 
 def looks_like_translate(raw: str) -> bool:
     t = _norm(raw)
-    if any(x in t for x in ("ne demek", "nedir turkce", "turkcesi", "english", "ingilizce", "cevir", "translate", "meaning of")):
+    if any(
+        x in t
+        for x in (
+            "ne demek", "nedir turkce", "turkcesi", "turkce", "english",
+            "ingilizce", "ingilizcesi", "cevir", "translate", "meaning of",
+        )
+    ):
         return True
     return False
 
 
 def translate(raw: str) -> Optional[str]:
     t = _norm(raw)
-    # "X ne demek" / "X english" / "X ingilizce"
-    m = re.search(r"^(.+?)\s+(ne demek|english|ingilizcesi|ingilizce|turkcesi|turkce)$", t)
+    m = re.search(
+        r"^(.+?)\s+(ne demek|english|ingilizcesi|ingilizce|turkcesi|turkce)$",
+        t,
+    )
     if not m:
         m = re.search(r"^(cevir|translate)\s+(.+)$", t)
         if m:
@@ -391,20 +420,26 @@ def translate(raw: str) -> Optional[str]:
     else:
         word = m.group(1).strip()
     word = re.sub(r"^(kelime|word)\s+", "", word).strip()
-    if word in _TR_EN:
-        return f"**{word}** → İngilizce: **{_TR_EN[word]}**"
+    to_tr = any(x in t for x in ("turkce", "turkcesi", "ne demek")) and word in _EN_TR or word in _EN_TR
+    if word in _TR_EN and not (word in _EN_TR and "turkce" in t):
+        # default TR→EN unless explicitly asking turkish
+        if "turkce" in t or "turkcesi" in t:
+            pass
+        else:
+            return f"**{word}** → İngilizce: **{_TR_EN[word]}**"
     if word in _EN_TR:
         return f"**{word}** → Türkçe: **{_EN_TR[word]}**"
-    # multiword en
+    if word in _TR_EN:
+        return f"**{word}** → İngilizce: **{_TR_EN[word]}**"
     for en, tr in sorted(_EN_TR.items(), key=lambda x: -len(x[0])):
-        if en in word and len(en) > 2:
+        if en == word or (len(en) > 2 and en in word):
             return f"**{en}** → Türkçe: **{tr}**"
     for tr, en in sorted(_TR_EN.items(), key=lambda x: -len(x[0])):
-        if tr in word and len(tr) > 2:
+        if tr == word or (len(tr) > 2 and tr in word):
             return f"**{tr}** → İngilizce: **{en}**"
     return (
         f"«{word}» için hazır sözlüğümde tam karşılık yok. "
-        f"Başka bir kelime dene veya web’den bakmam için «{word} nedir» yaz."
+        f"Başka bir kelime dene veya «{word} nedir» diye sor."
     )
 
 
@@ -496,13 +531,14 @@ def convert_units(raw: str) -> Optional[str]:
 # -------------------- tiny talk / noise --------------------
 
 _AFFIRM = {"evet", "hayir", "tamam", "ok", "okay", "anladim", "peki", "olur", "yok", "var"}
+_CASUAL = {"lol", "lmao", "haha", "hahaha", "hmm", "hm", "hehe", "wow", "nice", "cool", "süper", "super"}
 
 
 def looks_like_noise(raw: str) -> bool:
     t = (raw or "").strip()
     if not t:
         return True
-    if re.fullmatch(r"[.?!\s…]+", t):
+    if re.fullmatch(r"[.?!\s…🤷😂😅]+", t):
         return True
     if len(t) == 1 and t.isalpha():
         return True
@@ -522,6 +558,10 @@ def looks_like_affirm(raw: str) -> bool:
     return _norm(raw) in _AFFIRM
 
 
+def looks_like_casual(raw: str) -> bool:
+    return _norm(raw) in _CASUAL
+
+
 def answer_affirm(raw: str) -> str:
     t = _norm(raw)
     if t in {"evet", "tamam", "ok", "okay", "olur", "peki", "anladim", "var"}:
@@ -529,3 +569,12 @@ def answer_affirm(raw: str) -> str:
     if t in {"hayir", "yok"}:
         return "Peki. Başka bir şey sorabilirsin; örneğin kod, matematik veya bilgi."
     return "Tamam — sıradaki adım ne olsun?"
+
+
+def answer_casual(raw: str) -> str:
+    t = _norm(raw)
+    if t in {"lol", "lmao", "haha", "hahaha", "hehe"}:
+        return "😄 Güzel — şimdi ciddi bir şey yapalım mı? Kod, hesap veya bilgi sor."
+    if t in {"hmm", "hm"}:
+        return "Düşünürken yardımcı olayım: neyin üzerinde takıldın?"
+    return "👍 Ne yapmak istersin — kod, matematik veya bir konu?"

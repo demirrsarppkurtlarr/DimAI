@@ -1372,7 +1372,8 @@ class Brain:
         "olabilir", "var", "yok", "gibi", "bana", "bize", "biraz",
     }
     MORE_PATTERNS = ("baska ornek", "bir ornek daha", "devam et", "daha fazla",
-                     "birtane daha", "bir tane daha", "baska bir", "yenisini")
+                     "birtane daha", "bir tane daha", "baska bir", "yenisini",
+                     "baska", "ornek ver")
 
     # İnternete bakmayı reddeden ifadeler
     NO_SEARCH = (
@@ -1745,6 +1746,8 @@ class Brain:
             return _tag({"reply": _skills.answer_noise(), "source": "chat"})
         if _skills.looks_like_affirm(raw):
             return _tag({"reply": _skills.answer_affirm(raw), "source": "chat"})
+        if _skills.looks_like_casual(raw):
+            return _tag({"reply": _skills.answer_casual(raw), "source": "chat"})
         if _skills.looks_like_translate(raw):
             tr = _skills.translate(raw)
             if tr:
@@ -1805,6 +1808,20 @@ class Brain:
                     ),
                     "source": "chat",
                 })
+            # "başka örnek" geçmiş yoksa yönlendir (MORE_PATTERNS bloğundan önce)
+            if any(p in text for p in self.MORE_PATTERNS):
+                prev = self._last_topic_entry(history)
+                if prev:
+                    result = self._kb_result(prev)
+                    result["reply"] = "İlgili örnek:\n\n" + result["reply"]
+                    return _tag(result)
+                return _tag({
+                    "reply": (
+                        "Hangi konuda başka örnek istersin?\n"
+                        "Örn: `fibonacci yaz`, `flask api yaz`, `regex örneği`"
+                    ),
+                    "source": "chat",
+                })
             if decision.intent == "help" and kb:
                 return _tag(self._kb_result(kb))
             # belirsiz chat: KB zayıf eşleşme dene, yoksa yumuşak yönlendir
@@ -1830,6 +1847,13 @@ class Brain:
                         result["reply"] = "İlgili başka bir örnek:\n\n" + result["reply"]
                         return _tag(result)
                 return _tag(self._kb_result(prev))
+            return _tag({
+                "reply": (
+                    "Hangi konuda başka örnek istersin?\n"
+                    "Örn: `fibonacci yaz`, `flask api yaz`, `regex örneği`"
+                ),
+                "source": "chat",
+            })
 
         # followup — önce KB, gerekirse web'e izin bayrağı
         if decision.intent == "followup" and decision.topic:
