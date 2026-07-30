@@ -1,3 +1,30 @@
+const $ = (id) => document.getElementById(id);
+
+const els = {
+  prompt: $("prompt"),
+  temp: $("temp"),
+  tempVal: $("temp-val"),
+  output: $("output"),
+  badge: $("valid-badge"),
+  steps: $("s-steps"),
+  rounds: $("s-rounds"),
+  ok: $("s-ok"),
+  bad: $("s-bad"),
+  loss: $("s-loss"),
+  lossFill: $("loss-fill"),
+  msg: $("s-msg"),
+  history: $("history"),
+  btnGen: $("btn-generate"),
+  btnTrain: $("btn-train"),
+  btnSelf: $("btn-self"),
+  btnAuto: $("btn-auto"),
+  liveDot: $("live-dot"),
+  liveLabel: $("live-label"),
+};
+
+let autoOn = false;
+let lastValues = {};
+
 async function api(path, body) {
   const res = await fetch(path, {
     method: body === undefined ? "GET" : "POST",
@@ -8,114 +35,180 @@ async function api(path, body) {
   return res.json();
 }
 
-const els = {
-  prompt: document.getElementById("prompt"),
-  temp: document.getElementById("temp"),
-  output: document.getElementById("output"),
-  badge: document.getElementById("valid-badge"),
-  steps: document.getElementById("s-steps"),
-  rounds: document.getElementById("s-rounds"),
-  ok: document.getElementById("s-ok"),
-  bad: document.getElementById("s-bad"),
-  loss: document.getElementById("s-loss"),
-  msg: document.getElementById("s-msg"),
-  history: document.getElementById("history"),
-  btnGen: document.getElementById("btn-generate"),
-  btnTrain: document.getElementById("btn-train"),
-  btnSelf: document.getElementById("btn-self"),
-  btnAuto: document.getElementById("btn-auto"),
-};
+/* ---- helpers ---- */
 
-let autoOn = false;
+function setNum(el, key, value) {
+  const text = String(value);
+  if (lastValues[key] !== text) {
+    lastValues[key] = text;
+    el.textContent = text;
+    el.classList.remove("bump");
+    void el.offsetWidth;
+    el.classList.add("bump");
+  }
+}
+
+function setBadge(state, text) {
+  els.badge.className = `pill ${state}`;
+  els.badge.textContent = text;
+}
+
+function typeCode(text) {
+  els.output.classList.add("swapping");
+  setTimeout(() => {
+    els.output.textContent = "";
+    els.output.classList.remove("swapping");
+    let i = 0;
+    const step = Math.max(2, Math.floor(text.length / 90));
+    const tick = () => {
+      i = Math.min(text.length, i + step);
+      els.output.textContent = text.slice(0, i);
+      if (i < text.length) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, 180);
+}
+
+function withLoading(btn, fn) {
+  return async (...args) => {
+    btn.disabled = true;
+    btn.classList.add("loading");
+    try {
+      await fn(...args);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove("loading");
+    }
+  };
+}
+
+/* ---- state rendering ---- */
 
 function renderState(state) {
   if (!state) return;
-  els.steps.textContent = state.steps;
-  els.rounds.textContent = state.self_train_rounds;
-  els.ok.textContent = state.accepted;
-  els.bad.textContent = state.rejected;
-  els.loss.textContent = Number.isFinite(state.last_loss) ? state.last_loss.toFixed(3) : "—";
+  setNum(els.steps, "steps", state.steps);
+  setNum(els.rounds, "rounds", state.self_train_rounds);
+  setNum(els.ok, "ok", state.accepted);
+  setNum(els.bad, "bad", state.rejected);
+
+  const loss = Number(state.last_loss) || 0;
+  setNum(els.loss, "loss", loss ? loss.toFixed(3) : "—");
+  els.lossFill.style.width = `${Math.min(100, (loss / 3) * 100)}%`;
+
   els.msg.textContent = state.message || "—";
+
   autoOn = !!state.running;
-  els.btnAuto.textContent = autoOn ? "Sürekli öğren: KAPAT" : "Sürekli öğren: AÇ";
-  els.btnAuto.classList.toggle("accent", !autoOn);
+  els.btnAuto.classList.toggle("on", autoOn);
+  els.btnAuto.textContent = autoOn ? "Sürekli öğrenme · açık" : "Sürekli öğrenme";
+
+  renderHistory(state.history || []);
+}
+
+let lastHistoryKey = "";
+
+function renderHistory(items) {
+  const recent = items.slice(-14).reverse();
+  const key = JSON.stringify(recent.map((h) => [h.t, h.ok]));
+  if (key === lastHistoryKey) return;
+  lastHistoryKey = key;
 
   els.history.innerHTML = "";
-  (state.history || []).slice().reverse().forEach((h) => {
+  if (!recent.length) {
     const li = document.createElement("li");
-    li.className = h.ok ? "ok" : "bad";
-    li.textContent = `${h.ok ? "✓" : "✗"} [${h.prompt}] ${h.preview || ""}`;
+    li.className = "h-empty";
+    li.textContent = "Henüz öğrenme kaydı yok";
     els.history.appendChild(li);
-  });
+    return;
+  }
+  for (const h of recent) {
+    const li = document.createElement("li");
+    const icon = document.createElement("span");
+    icon.className = `h-icon ${h.ok ? "ok" : "bad"}`;
+    icon.textContent = h.ok ? "✓" : "✕";
+    const text = document.createElement("span");
+    text.className = "h-text";
+    text.textContent = `${h.prompt || ""}  ${h.preview || ""}`.trim();
+    li.append(icon, text);
+    els.history.appendChild(li);
+  }
+}
+
+function setLive(on) {
+  els.liveDot.className = `dot ${on ? "on" : "off"}`;
+  els.liveLabel.textContent = on ? (autoOn ? "öğreniyor" : "çevrimiçi") : "çevrimdışı";
 }
 
 async function refresh() {
   try {
     const state = await api("/api/status");
     renderState(state);
-  } catch (_) {
-    /* ignore transient errors while server trains */
+    setLive(true);
+  } catch {
+    setLive(false);
   }
 }
 
-els.btnGen.addEventListener("click", async () => {
-  els.btnGen.disabled = true;
-  try {
+/* ---- events ---- */
+
+els.temp.addEventListener("input", () => {
+  els.tempVal.textContent = Number(els.temp.value).toFixed(2);
+  const pct = ((els.temp.value - 0.2) / 1.2) * 100;
+  els.temp.style.setProperty("--fill", `${pct}%`);
+});
+els.temp.dispatchEvent(new Event("input"));
+
+els.btnGen.addEventListener(
+  "click",
+  withLoading(els.btnGen, async () => {
+    setBadge("neutral", "üretiliyor…");
     const data = await api("/api/generate", {
       prompt: els.prompt.value || "def ",
       temperature: Number(els.temp.value),
-      n_chars: 200,
+      n_chars: 220,
     });
-    els.output.textContent = data.valid_prefix || data.text;
-    els.badge.textContent = data.valid_python ? "geçerli Python" : "geçersiz / yarım";
-    els.badge.className = "badge " + (data.valid_python ? "ok" : "bad");
-  } catch (err) {
-    els.output.textContent = String(err);
-  } finally {
-    els.btnGen.disabled = false;
+    typeCode(data.valid_prefix || data.text);
+    if (data.valid_python) setBadge("ok", "geçerli Python");
+    else setBadge("bad", "geçersiz — model hâlâ öğreniyor");
     refresh();
-  }
-});
+  })
+);
 
-els.btnTrain.addEventListener("click", async () => {
-  els.btnTrain.disabled = true;
-  try {
-    const data = await api("/api/train", { steps: 50 });
-    renderState(data.state);
-  } finally {
-    els.btnTrain.disabled = false;
-  }
-});
-
-els.btnSelf.addEventListener("click", async () => {
-  els.btnSelf.disabled = true;
-  try {
+els.btnSelf.addEventListener(
+  "click",
+  withLoading(els.btnSelf, async () => {
     const data = await api("/api/self_train", {});
     if (data.result?.snippet) {
-      els.output.textContent = data.result.snippet;
-      els.badge.textContent = data.result.ok ? "kabul edildi" : "reddedildi";
-      els.badge.className = "badge " + (data.result.ok ? "ok" : "bad");
+      typeCode(data.result.snippet);
+      if (data.result.ok) setBadge("ok", "kabul edildi · corpus'a eklendi");
+      else setBadge("bad", "reddedildi · tekrar deneniyor");
     }
     renderState(data.state);
-  } finally {
-    els.btnSelf.disabled = false;
-  }
-});
+  })
+);
 
-els.btnAuto.addEventListener("click", async () => {
-  els.btnAuto.disabled = true;
-  try {
-    if (autoOn) {
-      const data = await api("/api/autolearn/stop", {});
-      renderState(data.state);
-    } else {
-      const data = await api("/api/autolearn/start", { interval: 2 });
-      renderState(data.state);
-    }
-  } finally {
-    els.btnAuto.disabled = false;
-  }
+els.btnTrain.addEventListener(
+  "click",
+  withLoading(els.btnTrain, async () => {
+    const data = await api("/api/train", { steps: 50 });
+    renderState(data.state);
+  })
+);
+
+els.btnAuto.addEventListener(
+  "click",
+  withLoading(els.btnAuto, async () => {
+    const data = autoOn
+      ? await api("/api/autolearn/stop", {})
+      : await api("/api/autolearn/start", { interval: 3 });
+    renderState(data.state);
+  })
+);
+
+els.prompt.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") els.btnGen.click();
 });
 
 refresh();
-setInterval(refresh, 2000);
+setInterval(refresh, 2500);
