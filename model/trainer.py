@@ -416,23 +416,27 @@ class CodeTrainer:
 
             target = self.job["target"]
             start = self.job["start_steps"]
-            next_collect = start
+            # önce eğitim görünür şekilde başlasın, veri toplama sonra
+            next_collect = start + 200
             next_save = start + 1000
+            print(f"[job] training {start} -> {target}", flush=True)
             try:
                 while self.state.steps < target and not self._job_stop.is_set():
                     # her ~2000 adımda bir taze veri topla
                     if self.state.steps >= next_collect:
                         self.job["message"] = "veri toplanıyor (Hugging Face)…"
+                        print("[job] collecting data...", flush=True)
                         try:
                             text, next_off = data_collector.fetch_batch(self.state.hf_offset)
+                            print(f"[job] collected {len(text)} chars", flush=True)
                             if text:
                                 with self.lock:
                                     self.corpus = (self.corpus + "\n\n" + text)[-3_000_000:]
                                     self._rebuild_cache()
                                 self.state.hf_offset = next_off
                                 self.job["collected_chars"] += len(text)
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            print(f"[job] collect failed: {exc}", flush=True)
                         next_collect += 2000
                     p = (self.state.steps - start) / max(1, target - start)
                     lr = 0.02 * (0.2 ** p)
@@ -447,6 +451,7 @@ class CodeTrainer:
                     if self.state.steps >= next_save:
                         self.save()
                         next_save += 1000
+                print(f"[job] finished at {self.state.steps} steps, saving...", flush=True)
                 self.save()
                 uploaded = persist.upload_checkpoint(CHECKPOINT.parent)
                 if self._job_stop.is_set():

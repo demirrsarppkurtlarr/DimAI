@@ -12,7 +12,7 @@ import requests
 
 API = "https://datasets-server.huggingface.co/rows"
 HEADERS = {"User-Agent": "DimAI/1.0 (learning assistant)"}
-TIMEOUT = 20
+TIMEOUT = (5, 12)  # (connect, read) — asılı kalmayı önler
 
 # dataset -> (config, split, field containing code/markdown)
 SOURCES = [
@@ -47,8 +47,14 @@ def fetch_batch(offset: int, rows_per_source: int = 40) -> tuple[str, int]:
 
     Returns (new_corpus_text, next_offset).
     """
+    import time
+
+    budget_end = time.time() + 60  # toplam bütçe: 60 sn
     chunks: list[str] = []
     for dataset, config, split, field in SOURCES:
+        if time.time() > budget_end:
+            print("[collect] time budget exceeded, skipping rest", flush=True)
+            break
         try:
             r = requests.get(
                 API,
@@ -63,11 +69,15 @@ def fetch_batch(offset: int, rows_per_source: int = 40) -> tuple[str, int]:
                 timeout=TIMEOUT,
             )
             if r.status_code != 200:
+                print(f"[collect] {dataset}: HTTP {r.status_code}", flush=True)
                 continue
+            n0 = len(chunks)
             for item in r.json().get("rows", []):
                 raw = str(item.get("row", {}).get(field) or "")
                 chunks.extend(_extract_code(raw))
-        except Exception:
+            print(f"[collect] {dataset}: +{len(chunks) - n0} chunks", flush=True)
+        except Exception as exc:
+            print(f"[collect] {dataset}: {exc}", flush=True)
             continue
     text = "\n\n".join(chunks)
     return text, offset + rows_per_source
