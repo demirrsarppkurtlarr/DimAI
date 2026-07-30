@@ -1186,8 +1186,12 @@ SUGGESTIONS = [
 
 class Brain:
     def __init__(self) -> None:
+        try:
+            from model.brain_extra import EXTRA_KB
+        except ImportError:
+            from brain_extra import EXTRA_KB  # type: ignore
         self._kb = []
-        for entry in KB:
+        for entry in KB + EXTRA_KB:
             keys = [_norm(k) for k in entry["k"]]
             self._kb.append({**entry, "nk": keys})
 
@@ -1197,7 +1201,8 @@ class Brain:
         score = 0.0
         for key in entry["nk"]:
             if key in text:
-                score += 3.0 + key.count(" ") * 2.0
+                # longer, more specific keys outrank short generic ones
+                score += 3.0 + key.count(" ") * 2.0 + len(key) * 0.05
                 continue
             key_words = key.split()
             hits = sum(1 for kw in key_words if kw in words)
@@ -1252,6 +1257,14 @@ class Brain:
             result = int(result)
         return f"Sonuç: **{result}**\n\n`{cleaned.strip()} = {result}`"
 
+    @staticmethod
+    def _kb_result(entry: dict) -> dict:
+        result = {"reply": entry["a"], "source": "kb"}
+        if entry.get("c"):
+            result["code"] = entry["c"]
+            result["lang"] = entry.get("l", "python")
+        return result
+
     # -------------------- public API --------------------
 
     def reply(self, message: str) -> dict:
@@ -1273,21 +1286,11 @@ class Brain:
         wants_code = any(s in text for s in code_signals)
 
         if kb and (wants_code or not chit):
-            return {
-                "reply": kb["a"],
-                "code": kb["c"],
-                "lang": kb.get("l", "python"),
-                "source": "kb",
-            }
+            return self._kb_result(kb)
         if chit:
             return {"reply": chit, "source": "chat"}
         if kb:
-            return {
-                "reply": kb["a"],
-                "code": kb["c"],
-                "lang": kb.get("l", "python"),
-                "source": "kb",
-            }
+            return self._kb_result(kb)
 
         return {
             "reply": (

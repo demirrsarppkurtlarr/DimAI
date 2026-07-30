@@ -90,7 +90,7 @@ function renderMarkdownish(text) {
     .replace(/`([^`]+)`/g, "<code style=\"font-family:var(--mono);font-size:13px;background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:5px\">$1</code>");
 }
 
-function addAiMsg({ reply, code, lang, source }) {
+function addAiMsg({ reply, code, lang, source, url, neural_sample }) {
   const typing = document.getElementById("typing-msg");
   if (typing) typing.remove();
 
@@ -136,7 +136,28 @@ function addAiMsg({ reply, code, lang, source }) {
     bubble.appendChild(block);
   }
 
-  const srcNames = { kb: "bilgi tabanı", chat: "sohbet", math: "hesap", fallback: "öneri", neural: "nöral (deneysel)" };
+  if (url) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "Kaynağı aç ↗";
+    link.style.cssText = "display:inline-block;margin-top:10px;font-size:12.5px;color:var(--blue);text-decoration:none";
+    bubble.appendChild(document.createElement("br"));
+    bubble.appendChild(link);
+  }
+
+  if (neural_sample) {
+    const nb = document.createElement("div");
+    nb.className = "codeblock";
+    nb.innerHTML = `<div class="codeblock-head"><span class="codeblock-lang">nöral · deneysel</span></div>`;
+    const pre = document.createElement("pre");
+    pre.textContent = neural_sample;
+    nb.appendChild(pre);
+    bubble.appendChild(nb);
+  }
+
+  const srcNames = { kb: "bilgi tabanı", chat: "sohbet", math: "hesap", fallback: "öneri", web: "internet araştırması 🌐", learned: "öğrenilmiş bilgi 💾", neural: "nöral (deneysel)" };
   if (source) {
     const tag = document.createElement("span");
     tag.className = "src-tag";
@@ -266,6 +287,35 @@ els.btnAuto.addEventListener("click", async () => {
   } catch {}
 });
 
+/* ---------- mobile drawer ---------- */
+
+const sidebar = document.getElementById("sidebar");
+const overlay = document.getElementById("overlay");
+const btnMenu = document.getElementById("btn-menu");
+const liveDotM = document.getElementById("live-dot-m");
+
+function closeDrawer() {
+  sidebar.classList.remove("open");
+  overlay.classList.remove("show");
+}
+
+btnMenu?.addEventListener("click", () => {
+  sidebar.classList.toggle("open");
+  overlay.classList.toggle("show", sidebar.classList.contains("open"));
+});
+overlay?.addEventListener("click", closeDrawer);
+
+// chip tıklanınca mobilde menüyü kapat
+document.addEventListener("click", (e) => {
+  if (e.target.closest(".chip") && window.innerWidth <= 800) closeDrawer();
+});
+
+const origSetLive = setLive;
+setLive = (on) => {
+  origSetLive(on);
+  if (liveDotM) liveDotM.className = `dot ${on ? "on" : "off"}`;
+};
+
 refresh();
 setInterval(refresh, 3000);
-els.input.focus();
+if (window.innerWidth > 800) els.input.focus();

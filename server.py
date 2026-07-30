@@ -11,8 +11,10 @@ if str(ROOT) not in sys.path:
 
 from flask import Flask, jsonify, request, send_from_directory
 
+from model import web_research
 from model.brain import brain
 from model.trainer import trainer
+from model.web_research import learned
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 
@@ -71,7 +73,28 @@ def chat():
     message = str(data.get("message", ""))[:2000]
     result = brain.reply(message)
 
-    # Attach experimental neural output on fallback or when requested
+    if result.get("source") == "fallback":
+        # 1) previously learned web knowledge
+        hit = learned.lookup(message)
+        if hit:
+            result = {
+                "reply": f"{hit['a']}",
+                "source": "learned",
+                "url": hit.get("url", ""),
+            }
+        else:
+            # 2) live web research (free sources), then remember it
+            found = web_research.research(message)
+            if found:
+                learned.add(message, found["answer"], found.get("url", ""))
+                result = {
+                    "reply": found["answer"],
+                    "source": "web",
+                    "url": found.get("url", ""),
+                    "provider": found.get("provider", ""),
+                }
+
+    # Attach experimental neural output when requested or still unanswered
     if data.get("neural") or result.get("source") == "fallback":
         try:
             sample = trainer.generate(prompt="def ", n_chars=160, temperature=0.5)
@@ -80,6 +103,7 @@ def chat():
             result["neural_valid"] = valid is not None
         except Exception:
             pass
+    result["learned_count"] = learned.count()
     return jsonify({"ok": True, **result})
 
 
