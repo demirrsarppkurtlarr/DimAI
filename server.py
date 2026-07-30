@@ -88,20 +88,29 @@ def chat():
 
     result = None
 
-    # --- Knowledge Retrieval: güçlü geçmiş başarıyı önce dene ---
+    # Selamlaşma / sohbet → memory retrieval ve web YOK
+    _norm_msg = None
     try:
-        prior = improve.retrieve(message)
-        if prior and float(prior.get("overall") or 0) >= 0.72 and prior.get("from") == "episode":
-            # episode match requires high overlap (see retrieve); reuse as answer
-            if float(prior.get("match") or 0) >= 0.78:
-                result = {
-                    "reply": prior["reply"],
-                    "source": "memory",
-                    "url": prior.get("url", ""),
-                    "thinking": "geçmiş başarılı çözümden",
-                }
+        from model.brain import _norm as _bn
+        _norm_msg = _bn(message)
+        is_chitchat = bool(brain._match_chitchat(_norm_msg)) and not brain._wants_code(_norm_msg)
     except Exception:
-        result = None
+        is_chitchat = False
+
+    # --- Knowledge Retrieval: güçlü geçmiş başarıyı önce dene ---
+    if not is_chitchat:
+        try:
+            prior = improve.retrieve(message)
+            if prior and float(prior.get("overall") or 0) >= 0.72 and prior.get("from") == "episode":
+                if float(prior.get("match") or 0) >= 0.78:
+                    result = {
+                        "reply": prior["reply"],
+                        "source": "memory",
+                        "url": prior.get("url", ""),
+                        "thinking": "geçmiş başarılı çözümden",
+                    }
+        except Exception:
+            result = None
 
     if result is None:
         result = brain.reply(message, history=history[-10:])

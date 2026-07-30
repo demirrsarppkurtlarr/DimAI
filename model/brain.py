@@ -1257,9 +1257,62 @@ class Brain:
         for keys, answers in CHITCHAT:
             for key in keys:
                 nk = _norm(key)
-                if nk in words or (len(nk) >= 6 and nk in text):
+                # çok kelimeli: alt string; tek kelime: tam kelime eşleşmesi
+                if " " in nk:
+                    if nk in text:
+                        return random.choice(answers)
+                elif nk in words:
                     return random.choice(answers)
         return None
+
+    def _has_word(self, text: str, word: str) -> bool:
+        """Substring değil, kelime sınırıyla eşleş."""
+        return bool(re.search(rf"(?:^|\s){re.escape(word)}(?:\s|$)", text))
+
+    def _wants_code(self, text: str) -> bool:
+        """Kod yazma isteği mi? 'nasılsın' içindeki 'nasıl' ile karışmaz."""
+        words = set(text.split())
+        strong = {"kod", "kodu", "code", "script", "program", "fonksiyon", "function", "class"}
+        write = {"yaz", "write", "olustur", "yap", "uret"}
+        example = {"ornek", "ornegi", "example", "goster", "show", "sample"}
+        langs = {"python", "js", "javascript", "sql", "html", "css", "java", "cpp"}
+        if words & strong:
+            return True
+        if (words & write) and (words & (example | langs | strong)):
+            return True
+        if any(p in text for p in ("kod yaz", "write code", "python kod", "js kod", "code write")):
+            return True
+        if (words & example) and (words & (langs | strong | {"liste", "dosya", "class", "fonksiyon"})):
+            return True
+        return False
+
+    def _default_code_reply(self, text: str) -> dict:
+        """Belirsiz 'kod yaz' istekleri için somut bir başlangıç örneği."""
+        if "python" in text or "kod" in text or "code" in text or "write" in text:
+            return {
+                "reply": (
+                    "Tabii — işte basit bir Python başlangıç örneği. "
+                    "Daha spesifik istersen söyle: \"fibonacci kodu yaz\", "
+                    "\"sayı tahmin oyunu yaz\", \"dosya oku\"…"
+                ),
+                "code": (
+                    'def merhaba(isim: str = "Dünya") -> str:\n'
+                    '    mesaj = f"Merhaba, {isim}!"\n'
+                    '    print(mesaj)\n'
+                    '    return mesaj\n'
+                    '\n'
+                    'if __name__ == "__main__":\n'
+                    '    merhaba("DimAI")\n'
+                    '    for i in range(1, 6):\n'
+                    '        print(i, "→", i * i)\n'
+                ),
+                "lang": "python",
+                "source": "kb",
+            }
+        return {
+            "reply": "Ne tür kod yazayım? Örnek: \"fibonacci kodu yaz\", \"flask web uygulaması yaz\".",
+            "source": "chat",
+        }
 
     def _try_math(self, raw: str) -> Optional[str]:
         cleaned = raw.lower()
@@ -1368,8 +1421,11 @@ class Brain:
         """
         if self._refuses_search(text) or self._is_personal(text):
             return False
-        # kod yazma isteği → KB / öneri, web değil
-        if any(s in text for s in ("kod", "yaz", "ornek", "goster", "code", "write", "function")):
+        # sohbet / selamlaşma → asla web
+        if self._match_chitchat(text):
+            return False
+        # kod yazma isteği → KB / örnek, web değil
+        if self._wants_code(text):
             return False
         if any(h in text for h in self.RESEARCH_HINTS):
             return True
@@ -1576,14 +1632,14 @@ class Brain:
 
         if self._refuses_search(text) or self._is_personal(text):
             intent = "personal" if self._is_personal(text) else "refuse"
-        elif any(s in text for s in ("kod", "yaz", "ornek", "goster", "code", "write")):
+        elif self._match_chitchat(text) and not self._wants_code(text):
+            intent = "chat"
+        elif self._wants_code(text):
             intent = "code"
         elif followup and topic:
             intent = "followup"
         elif self._should_research(text, content):
             intent = "research"
-        elif self._match_chitchat(text) and not nouns:
-            intent = "chat"
         else:
             intent = "chat"
 
@@ -1654,12 +1710,17 @@ class Brain:
         chit = self._match_chitchat(text)
         words = set(text.split())
         is_short = len(words) <= 6
+        wants_code = self._wants_code(text)
 
         # kişisel / arama yasağı
         if thought["intent"] in ("personal", "refuse"):
             out = self._soft_reply(text, history)
             out["thinking"] = thought["reason"]
             return out
+
+        # Sohbet / selamlaşma — web'e ve soft_reply'a düşmeden HEMEN cevap
+        if chit and thought["intent"] == "chat" and not wants_code:
+            return {"reply": chit, "source": "chat", "thinking": thought["reason"]}
 
         # "başka örnek / devam et" → aynı KB konusundan farklı kayıt
         if is_short and any(p in text for p in self.MORE_PATTERNS):
@@ -1726,12 +1787,8 @@ class Brain:
             return out
 
         # ---- YENİ KONU / KOD / SOHBET ----
-        code_signals = ["kod", "yaz", "nasil", "ornek", "goster", "code", "how", "write"]
-        wants_code = any(s in text for s in code_signals)
-
         # Takip değilse bile geçmiş varsa zayıf KB eşleşmesinin konuyu çalmasını engelle
         if kb and (wants_code or not chit):
-            # geçmişteki konudan tamamen kopuk zayıf eşleşme? reddet
             if history and thought["topic"] and not wants_code:
                 kb_keys = " ".join(kb.get("nk", []))
                 overlap = any(t in kb_keys for t in thought["topic"])
@@ -1742,7 +1799,14 @@ class Brain:
                 result = self._kb_result(kb)
                 result["thinking"] = thought["reason"]
                 return result
-        if chit and thought["intent"] in ("chat", "code") and not wants_code:
+
+        # Belirsiz kod isteği ("kod yaz", "python kodu yaz") → somut örnek ver
+        if wants_code or thought["intent"] == "code":
+            result = self._default_code_reply(text)
+            result["thinking"] = thought["reason"]
+            return result
+
+        if chit:
             return {"reply": chit, "source": "chat", "thinking": thought["reason"]}
         if kb:
             result = self._kb_result(kb)
@@ -1759,7 +1823,6 @@ class Brain:
                 "research_query": raw,
                 "thinking": thought["reason"],
             }
-            # Yeni konu: eski konuyu yedek olarak EKLEME (konu karışmasın)
             return result
 
         out = self._soft_reply(text, history)

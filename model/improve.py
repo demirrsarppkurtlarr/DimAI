@@ -230,6 +230,15 @@ class SelfImprove:
 
     def retrieve(self, question: str) -> Optional[dict]:
         """Past successful solutions first — before generating a new answer."""
+        # Selamlaşma / sohbet asla memory'den dictionary spam'i getirmez
+        qn = _norm(question)
+        chatty = {
+            "nasilsin", "naber", "merhaba", "selam", "hello", "hi", "hey",
+            "sa", "slm", "thanks", "tesekkur", "sagol", "bye", "gorusuruz",
+        }
+        words = set(qn.split())
+        if words & chatty or qn in chatty:
+            return None
         kw = _keywords(question)
         if not kw:
             return None
