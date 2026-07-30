@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import os
 import re
 import threading
 import time
@@ -21,6 +22,19 @@ import requests
 ROOT = Path(__file__).resolve().parents[1]
 LEARNED_PATH = ROOT / "data" / "learned.json"
 
+# Optional Supabase persistence (survives Render restarts/deploys)
+SUPABASE_URL = (os.environ.get("SUPABASE_URL") or "").rstrip("/")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_KEY") or ""
+SUPABASE_TABLE = os.environ.get("SUPABASE_TABLE", "learned")
+
+
+def _sb_headers() -> dict:
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+
 HEADERS = {"User-Agent": "DimAI/1.0 (self-hosted learning assistant)"}
 TIMEOUT = 4
 
@@ -28,6 +42,8 @@ STOPWORDS = {
     "nedir", "ne", "nasil", "kim", "kimdir", "hakkinda", "bilgi", "ver",
     "anlat", "bana", "bir", "the", "what", "is", "who", "ile", "mi", "mu",
     "midir", "acaba", "ki", "ya", "ve", "de", "da", "icin", "yaz",
+    "neresi", "nerede", "nerededir", "nerededir", "kac", "kactir", "kacdir",
+    "hangisi", "hangi", "neden", "niye", "zaman", "kadar", "soyle", "bul",
 }
 
 
@@ -54,24 +70,57 @@ def _clean_query(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 class LearnedStore:
+    """Learned web knowledge. Persists to Supabase when configured, else local JSON."""
+
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._items: list[dict] = []
+        self.configured = bool(SUPABASE_URL and SUPABASE_KEY)
+        self.backend = "supabase" if self.configured else "file"
         self._load()
 
+    # ---------- persistence backends ----------
+
     def _load(self) -> None:
+        if self.backend == "supabase":
+            try:
+                r = requests.get(
+                    f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}",
+                    params={"select": "q,kw,a,url", "order": "id.desc", "limit": "2000"},
+                    headers=_sb_headers(),
+                    timeout=8,
+                )
+                r.raise_for_status()
+                self._items = list(reversed(r.json()))
+                return
+            except Exception:
+                self.backend = "file"  # graceful fallback
         if LEARNED_PATH.exists():
             try:
                 self._items = json.loads(LEARNED_PATH.read_text(encoding="utf-8"))
             except Exception:
                 self._items = []
 
-    def _save(self) -> None:
+    def _save_file(self) -> None:
         LEARNED_PATH.parent.mkdir(parents=True, exist_ok=True)
         LEARNED_PATH.write_text(
             json.dumps(self._items, ensure_ascii=False, indent=1),
             encoding="utf-8",
         )
+
+    def _save_supabase(self, entry: dict) -> None:
+        r = requests.post(
+            f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}",
+            headers={**_sb_headers(), "Prefer": "return=minimal"},
+            json={
+                "q": entry["q"],
+                "kw": entry["kw"],
+                "a": entry["a"],
+                "url": entry["url"],
+            },
+            timeout=8,
+        )
+        r.raise_for_status()
 
     def add(self, question: str, answer: str, url: str = "") -> None:
         with self._lock:
@@ -85,7 +134,16 @@ class LearnedStore:
             self._items.append(entry)
             if len(self._items) > 2000:
                 self._items = self._items[-2000:]
-            self._save()
+            # Self-healing: if Supabase is configured, keep trying it even after
+            # an earlier failure (e.g. table created after boot).
+            if self.configured:
+                try:
+                    self._save_supabase(entry)
+                    self.backend = "supabase"
+                    return
+                except Exception:
+                    self.backend = "file"
+            self._save_file()
 
     def lookup(self, question: str) -> Optional[dict]:
         kw = _keywords(question)

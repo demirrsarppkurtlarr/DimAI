@@ -74,7 +74,24 @@ class CodeTrainer:
         self.vocab: Optional[Vocab] = None
         self.model: Optional[CharRNN] = None
         self.replay: List[str] = []
+        self._ids: Optional[np.ndarray] = None
+        self._ids_for_len = -1
+        self._anchors: List[int] = []
         self._load_or_init()
+
+    def _rebuild_cache(self) -> None:
+        """Pre-encode corpus once; makes training ~10x faster on big corpora."""
+        assert self.vocab
+        self._ids = np.array(self.vocab.encode(self.corpus), dtype=np.int32)
+        self._ids_for_len = len(self.corpus)
+        # anchor positions valid only if no character was skipped during encode
+        if len(self._ids) == len(self.corpus):
+            import re as _re
+            self._anchors = [
+                m.start() for m in _re.finditer(r"(?m)^(?:def |class |if __name__)", self.corpus)
+            ]
+        else:
+            self._anchors = []
 
     def _load_or_init(self) -> None:
         if not CORPUS_PATH.exists():
@@ -108,29 +125,19 @@ class CodeTrainer:
 
     def _random_slice_ids(self) -> List[int]:
         assert self.vocab
+        if self._ids is None or self._ids_for_len != len(self.corpus):
+            self._rebuild_cache()
+        ids = self._ids
+        n = len(ids)
+        if n <= self.seq_len + 1:
+            return ids.tolist()
         # Bias training windows toward real code starts for faster structure learning
-        if self.rng.random() < 0.55:
-            anchors = ["def ", "class ", "if __name__"]
-            anchor = anchors[int(self.rng.integers(0, len(anchors)))]
-            positions = []
-            start_at = 0
-            while True:
-                found = self.corpus.find(anchor, start_at)
-                if found < 0:
-                    break
-                positions.append(found)
-                start_at = found + len(anchor)
-            if positions:
-                pos = positions[int(self.rng.integers(0, len(positions)))]
-                chunk = self.corpus[pos : pos + self.seq_len + 1]
-                ids = self.vocab.encode(chunk)
-                if len(ids) >= 16:
-                    return ids
-        ids = self.vocab.encode(self.corpus)
-        if len(ids) <= self.seq_len + 1:
-            return ids
-        start = int(self.rng.integers(0, len(ids) - self.seq_len - 1))
-        return ids[start : start + self.seq_len + 1]
+        if self._anchors and self.rng.random() < 0.55:
+            pos = self._anchors[int(self.rng.integers(0, len(self._anchors)))]
+            if pos < n - self.seq_len - 1:
+                return ids[pos : pos + self.seq_len + 1].tolist()
+        start = int(self.rng.integers(0, n - self.seq_len - 1))
+        return ids[start : start + self.seq_len + 1].tolist()
 
     def train_steps(self, n: int = 50, lr: float = 0.05) -> float:
         with self.lock:

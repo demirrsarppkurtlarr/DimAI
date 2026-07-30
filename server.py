@@ -31,7 +31,10 @@ def health():
 
 @app.get("/api/status")
 def status():
-    return jsonify(trainer.state.to_dict())
+    payload = trainer.state.to_dict()
+    payload["learned_count"] = learned.count()
+    payload["learned_backend"] = learned.backend
+    return jsonify(payload)
 
 
 @app.post("/api/bootstrap")
