@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import json
 import random
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -71,6 +72,7 @@ class CodeTrainer:
         self.corpus = ""
         self.vocab: Optional[Vocab] = None
         self.model: Optional[CharRNN] = None
+        self.replay: List[str] = []
         self._load_or_init()
 
     def _load_or_init(self) -> None:
@@ -197,39 +199,99 @@ class CodeTrainer:
             f.write(block)
         self.corpus += block
 
+    # ------------------------------------------------------------------
+    # Improved self-training: adaptive temperature/lr, quality filter,
+    # replay buffer of accepted snippets, deduplication.
+    # ------------------------------------------------------------------
+
+    def _acceptance_rate(self) -> float:
+        total = self.state.accepted + self.state.rejected
+        return self.state.accepted / total if total else 0.0
+
+    def _adaptive_lr(self) -> float:
+        # Cool down as the model matures
+        base = 0.05
+        decay = 0.9997 ** max(self.state.steps - 2000, 0)
+        return max(base * decay, 0.008)
+
+    def _adaptive_temperature(self) -> float:
+        # Explore more when the model is accepting a lot; play safe when failing
+        rate = self._acceptance_rate()
+        if rate < 0.15:
+            return 0.4
+        if rate < 0.35:
+            return 0.55
+        return 0.7
+
+    @staticmethod
+    def _quality_score(code: str) -> float:
+        """Heuristic quality: reward structure, penalize repetition."""
+        lines = [ln for ln in code.splitlines() if ln.strip()]
+        if not lines:
+            return 0.0
+        score = 0.0
+        if code.startswith(("def ", "class ")):
+            score += 1.0
+        if "return" in code or "print(" in code:
+            score += 0.6
+        if len(lines) >= 3:
+            score += 0.5
+        # repetition penalty: many identical lines = degenerate output
+        unique_ratio = len(set(lines)) / len(lines)
+        score *= unique_ratio
+        # nonsense identifier penalty: too many 1-2 char words
+        words = re.findall(r"[a-zA-Z_]{1,}", code)
+        if words:
+            short = sum(1 for w in words if len(w) <= 2 and w not in ("a", "b", "i", "j", "n", "x", "y", "s", "f", "k", "v"))
+            score *= max(0.2, 1.0 - short / max(len(words), 1))
+        return score
+
     def self_train_once(self) -> dict:
         prompt = random.choice(PROMPTS)
-        # Lower temperature early; explore more as model improves
-        temp = 0.45 if self.state.accepted < 5 else 0.65
+        temp = self._adaptive_temperature()
         generated = self.generate(prompt=prompt, n_chars=220, temperature=temp)
         snippet = generated.strip()
         parts = snippet.split("\n\n")
         if len(parts) > 1 and len(parts[0]) > 30:
             snippet = parts[0]
         valid = self.longest_valid_prefix(snippet)
-        ok = valid is not None
-        if ok:
+        quality = self._quality_score(valid) if valid else 0.0
+        ok = valid is not None and quality >= 0.8
+        if valid:
             snippet = valid
-        result = {"prompt": prompt, "ok": ok, "snippet": snippet[:400]}
+        result = {"prompt": prompt, "ok": ok, "snippet": snippet[:400], "quality": round(quality, 2)}
+        lr = self._adaptive_lr()
         with self.lock:
             self.state.self_train_rounds += 1
             if ok:
                 self.state.accepted += 1
                 self.state.last_accepted = snippet
-                self.append_to_corpus(snippet)
-                self.state.message = "accepted valid code, reinforcing"
+                # dedup: only grow corpus with genuinely new snippets
+                if snippet not in self.corpus:
+                    self.append_to_corpus(snippet)
+                self.replay.append(snippet)
+                if len(self.replay) > 200:
+                    self.replay.pop(0)
+                self.state.message = f"kabul (kalite {quality:.1f}) — pekiştiriliyor"
                 ids = self.vocab.encode(snippet) if self.vocab else []
                 if self.model and len(ids) >= 2:
-                    for _ in range(5):
-                        self.model.train_sequence(ids[: min(len(ids), self.seq_len + 1)], lr=0.035)
+                    reps = 3 + int(min(quality, 2.0) * 2)  # better code → more reinforcement
+                    for _ in range(reps):
+                        self.model.train_sequence(ids[: min(len(ids), self.seq_len + 1)], lr=lr * 0.8)
                         self.state.steps += 1
-                loss = self.train_steps(n=10, lr=0.04)
-                result["loss"] = loss
+                loss = self.train_steps(n=8, lr=lr)
             else:
                 self.state.rejected += 1
-                self.state.message = "rejected invalid code; rehearsing seed data"
-                loss = self.train_steps(n=16, lr=0.05)
-                result["loss"] = loss
+                self.state.message = "red — temel veriyle tekrar çalışılıyor"
+                loss = self.train_steps(n=14, lr=lr)
+                # replay: rehearse previously accepted good code
+                if self.replay and self.model and self.vocab:
+                    sample = random.choice(self.replay)
+                    ids = self.vocab.encode(sample)
+                    if len(ids) >= 2:
+                        self.model.train_sequence(ids[: self.seq_len + 1], lr=lr * 0.6)
+                        self.state.steps += 1
+            result["loss"] = loss
             self.state.history.append(
                 {
                     "t": time.time(),

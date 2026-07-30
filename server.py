@@ -71,8 +71,8 @@ def chat():
     message = str(data.get("message", ""))[:2000]
     result = brain.reply(message)
 
-    # Neural experimental extra when requested
-    if data.get("neural"):
+    # Attach experimental neural output on fallback or when requested
+    if data.get("neural") or result.get("source") == "fallback":
         try:
             sample = trainer.generate(prompt="def ", n_chars=160, temperature=0.5)
             valid = trainer.longest_valid_prefix(sample)

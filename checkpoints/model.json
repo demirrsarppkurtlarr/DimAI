@@ -103,10 +103,10 @@
     ]
   },
   "meta": {
-    "steps": 800,
-    "accepted": 0,
-    "rejected": 0,
-    "self_train_rounds": 0,
-    "last_loss": 2.401478110026097
+    "steps": 5939,
+    "accepted": 5,
+    "rejected": 25,
+    "self_train_rounds": 30,
+    "last_loss": 1.3549392032238579
   }
 }

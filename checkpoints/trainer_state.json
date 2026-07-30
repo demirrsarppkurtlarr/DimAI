@@ -1,11 +1,222 @@
 {
-  "steps": 800,
-  "self_train_rounds": 0,
-  "accepted": 0,
-  "rejected": 0,
-  "last_loss": 2.401478110026097,
-  "last_accepted": "",
+  "steps": 5939,
+  "self_train_rounds": 30,
+  "accepted": 5,
+  "rejected": 25,
+  "last_loss": 1.3549392032238579,
+  "last_accepted": "def filter_pain():\n        self.cance = name",
   "running": false,
-  "message": "bootstrap done, loss=2.401",
-  "history": []
+  "message": "trained 14 steps, loss=1.355",
+  "history": [
+    {
+      "t": 1785411678.6887352,
+      "ok": false,
+      "prompt": "def main",
+      "preview": "def maind(self):",
+      "loss": 1.2894569425013314
+    },
+    {
+      "t": 1785411679.006837,
+      "ok": true,
+      "prompt": "def is_",
+      "preview": "def is_list_pist_pathe(self):\n        self.corent_path()",
+      "loss": 1.9734975163030979
+    },
+    {
+      "t": 1785411679.406904,
+      "ok": false,
+      "prompt": "def add",
+      "preview": "def add_vesthalser(text):\n        return 1''\n            return Ire ast the mote: + 1\n    return [\"\n    return arlict = ",
+      "loss": 1.4759075083481137
+    },
+    {
+      "t": 1785411679.8199542,
+      "ok": false,
+      "prompt": "def main",
+      "preview": "def main(lectar):\n    def __init__(self, sase, path):\n    def __init__(self, madel.solteateripates:\n    if ent in ind f ",
+      "loss": 1.8048185686751257
+    },
+    {
+      "t": 1785411680.2370043,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__ == \"__main__\":\n    main()",
+      "loss": 1.981148646006869
+    },
+    {
+      "t": 1785411680.6536462,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__ == \"__main__\":\n    main()",
+      "loss": 1.4548744598008854
+    },
+    {
+      "t": 1785411681.049471,
+      "ok": false,
+      "prompt": "def ",
+      "preview": "def some__aple_pith_pre(sert):\n    def __init__(self, x, ast):\n        self.erate(priger):\n    if _print__pathe(s, pot))",
+      "loss": 1.5102420055910888
+    },
+    {
+      "t": 1785411681.4593563,
+      "ok": false,
+      "prompt": "def add",
+      "preview": "def add(xext):\n    def __init__(self, x, path):\n        self.codel_const(file_path):\n    def __init__(self):\n        sel",
+      "loss": 1.2298846691666145
+    },
+    {
+      "t": 1785411681.8604255,
+      "ok": false,
+      "prompt": "def filter_",
+      "preview": "def filter__inthinge(self):\n        self.__init__(self, araderane):\n        self._paite__path):\n        self._paine_fret",
+      "loss": 1.1954042862499625
+    },
+    {
+      "t": 1785411682.2680962,
+      "ok": false,
+      "prompt": "def map_",
+      "preview": "def map_erate_pathe(self):\n        self.__init__(self, name):\n        self._paine__pathes(self):\n            self.reates",
+      "loss": 1.8487990238024319
+    },
+    {
+      "t": 1785411682.6601727,
+      "ok": false,
+      "prompt": "def map_",
+      "preview": "def map_init_pathe(self):\n        self.corent_porse(file_path):\n    def __init__(self):\n        self._paise_porse_paice(",
+      "loss": 1.6058128153421518
+    },
+    {
+      "t": 1785411683.0431507,
+      "ok": false,
+      "prompt": "def filter_",
+      "preview": "def filter__pathe(self):\n        self.count_pathe(self):\n        self._pain()",
+      "loss": 1.5227168029662994
+    },
+    {
+      "t": 1785411683.4292574,
+      "ok": false,
+      "prompt": "def is_",
+      "preview": "def is_list_pathe(self):\n        self.coust = arrorint in inges.\n    def __init__(self, name, and_laselast):\n    \"\"\"\"\n  ",
+      "loss": 1.5791849126336643
+    },
+    {
+      "t": 1785411683.8369722,
+      "ok": false,
+      "prompt": "def sum_",
+      "preview": "def sum_lost_path():\n        return finge:\n        self.corent_self.conse(self):\n        self.const = self.orat(self):\n ",
+      "loss": 1.9198903123075064
+    },
+    {
+      "t": 1785411684.2609148,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__ == '__main__':\n    from django.core.management import execute_from_command_line\n    execute_from_command_lin",
+      "loss": 1.5230014895971593
+    },
+    {
+      "t": 1785411684.6575766,
+      "ok": false,
+      "prompt": "def ",
+      "preview": "def aplest__init(self):\n        self.pare = arrer:\n        self.= x = nathenges.couter(self):\n        self.corent_prest(",
+      "loss": 1.578258490760507
+    },
+    {
+      "t": 1785411685.0622032,
+      "ok": false,
+      "prompt": "class ",
+      "preview": "class Serand_lint():\n    def __init__(self, name, tale):\n        return 'xtronse(numbers, text):\n    for i in range()",
+      "loss": 1.428543949502057
+    },
+    {
+      "t": 1785411685.4794035,
+      "ok": false,
+      "prompt": "def sum_",
+      "preview": "def sum_lase_path():\n        return '\n        self.care = self.coder(')",
+      "loss": 1.6860376482087056
+    },
+    {
+      "t": 1785411685.7299144,
+      "ok": true,
+      "prompt": "def main",
+      "preview": "def maine_paine():\n        self.pathe = 0",
+      "loss": 1.3588690003556534
+    },
+    {
+      "t": 1785411686.1012552,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__ == \"__main__\":\n    main()",
+      "loss": 1.6961793083888324
+    },
+    {
+      "t": 1785411686.3600624,
+      "ok": true,
+      "prompt": "def main",
+      "preview": "def main_tast_pais():\n        self.data = name",
+      "loss": 0.869113651118055
+    },
+    {
+      "t": 1785411686.7456915,
+      "ok": false,
+      "prompt": "def map_",
+      "preview": "def map__init(self):\n        self.clast = stappe(sert):\n        self.cade = name = 1\n        self.grame = stain()\n      ",
+      "loss": 1.4828850936435758
+    },
+    {
+      "t": 1785411687.0257668,
+      "ok": true,
+      "prompt": "def ",
+      "preview": "def main__pain():\n        self.main = andengingrestaras",
+      "loss": 1.5529359556614462
+    },
+    {
+      "t": 1785411687.4414685,
+      "ok": false,
+      "prompt": "def add",
+      "preview": "def add_pathex():\n        self.path = prinet(numbers):\n    def mein__pain()",
+      "loss": 1.782347651875913
+    },
+    {
+      "t": 1785411687.8527613,
+      "ok": false,
+      "prompt": "def main",
+      "preview": "def main__pain():\n        self.cast(seaf):\n            return clor.\n    def main__pain():\n        self.clion athe in enc",
+      "loss": 1.5695287662468458
+    },
+    {
+      "t": 1785411688.3038218,
+      "ok": false,
+      "prompt": "def ",
+      "preview": "def paintion():\n        self.ca = nt0",
+      "loss": 1.8111175013406686
+    },
+    {
+      "t": 1785411688.711184,
+      "ok": false,
+      "prompt": "class ",
+      "preview": "class My(lame):\n        self.conder = ancenthart if lask\n    class = clase",
+      "loss": 1.7780678544048205
+    },
+    {
+      "t": 1785411689.0543716,
+      "ok": false,
+      "prompt": "def add",
+      "preview": "def add(ate):\n        self.corent_pathe(')\n        self.cast = strint arr a in rathe arr a inder = 0",
+      "loss": 1.557810706216824
+    },
+    {
+      "t": 1785411689.3370445,
+      "ok": true,
+      "prompt": "def filter_",
+      "preview": "def filter_pain():\n        self.cance = name",
+      "loss": 1.7320345420280765
+    },
+    {
+      "t": 1785411689.7233531,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__ == '__main__':\n    from django.core.management import execute_from_command_line\n    execute_from_command_lin",
+      "loss": 1.3549392032238579
+    }
+  ]
 }

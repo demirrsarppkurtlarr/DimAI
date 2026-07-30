@@ -14327,3 +14327,28 @@ def contains_uppercase(text):
 
 def limit_char(string):
     if len(string) >
+
+
+def is_list_pist_pathe(self):
+        self.corent_path()
+
+
+
+def maine_paine():
+        self.pathe = 0
+
+
+
+def main_tast_pais():
+        self.data = name
+
+
+
+def main__pain():
+        self.main = andengingrestaras
+
+
+
+def filter_pain():
+        self.cance = name
+
