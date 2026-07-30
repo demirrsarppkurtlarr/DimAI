@@ -1155,8 +1155,12 @@ CHITCHAT: list[tuple[list[str], list[str]]] = [
     (["nasilsin", "naber", "ne haber", "iyi misin", "how are you"],
      ["İyiyim, corpus'umda geziniyordum 😄 Sen hangi kodu yazmak istiyorsun?",
       "Harikayım — az önce kendimi biraz daha eğittim. Ne kodlayalım?"]),
-    (["adin ne", "kimsin", "sen nesin", "who are you", "ismin"],
+    (["adin ne", "kimsin", "sen nesin", "who are you", "ismin", "sen kimsin"],
      ["Ben DimAI — dış API kullanmayan, kendi kendini eğiten bir kod asistanıyım. Bilgi tabanım + küçük nöral modelim var."]),
+    (["ben kimim", "kimim ben", "ben kim", "who am i"],
+     ["Sen benim kullanıcımın! Adını henüz bilmiyorsam \"Benim adım ...\" dersen aklımda tutarım. Ne yapmak istersin?"]),
+    (["beni taniyor musun", "beni biliyor musun", "beni hatirliyor musun", "beni ani"],
+     ["Konuştuğumuz kadarını hatırlıyorum. Adını söylersen kalıcı tutarım — \"Benim adım ...\""]),
     (["seni kim yapti", "kim gelistirdi", "yaraticin"],
      ["Beni Demir geliştirdi. Bilgi tabanım ve nöral modelim tamamen yerel çalışıyor — ChatGPT falan karışmıyor 😎"]),
     (["tesekkur", "sagol", "sag ol", "thanks", "eyvallah", "tskler"],
@@ -1304,6 +1308,107 @@ class Brain:
     MORE_PATTERNS = ("baska ornek", "bir ornek daha", "devam et", "daha fazla",
                      "birtane daha", "bir tane daha", "baska bir", "yenisini")
 
+    # İnternete bakmayı reddeden ifadeler
+    NO_SEARCH = (
+        "arastirma yapma", "arama yapma", "aramasin", "arastirmasin",
+        "internetten bakma", "internete bakma", "googlelama", "google yapma",
+        "webde arama", "aramayin", "kaynak arama", "bakma arastir",
+        "dont search", "do not search", "don't search", "no search",
+    )
+
+    # Kullanıcı hakkında kişisel sorular — web'de aranmaz
+    PERSONAL = (
+        "ben kimim", "kimim ben", "ben kim", "who am i",
+        "beni taniyor", "beni biliyor", "beni hatirliyor", "beni ani",
+        "hakkimda ne", "beni tan", "adimi biliyor", "beni biliyorsun",
+    )
+
+    # Bilgi sorusu sinyalleri — ancak bunlarda (veya net konuda) araştır
+    RESEARCH_HINTS = (
+        "nedir", "kimdir", "ne demek", "hakkinda", "tarihi",
+        "ne zaman", "nerede", "neresi", "neden", "niye",
+        "nasil calisir", "nasil olusur", "nasil yapilir",
+        "ozellikleri", "anlami", "anlamı", "who is", "what is",
+        "ne oldu", "kac yil", "kac km", "kac kisi",
+    )
+
+    def _refuses_search(self, text: str) -> bool:
+        return any(p in text for p in self.NO_SEARCH)
+
+    def _is_personal(self, text: str) -> bool:
+        return any(p in text for p in self.PERSONAL)
+
+    def _should_research(self, text: str, content_words: set[str]) -> bool:
+        """Sadece gerçek bilgi sorularında internete bak.
+
+        Sohbet, kişisel soru, kod isteği veya 'araştırma yapma' → False.
+        """
+        if self._refuses_search(text) or self._is_personal(text):
+            return False
+        # kod yazma isteği → KB / öneri, web değil
+        if any(s in text for s in ("kod", "yaz", "ornek", "goster", "code", "write", "function")):
+            return False
+        if any(h in text for h in self.RESEARCH_HINTS):
+            return True
+        # Net konu adı (en az 2 anlamlı kelime) — ör. "mars gezegeni"
+        chatty = self.QUESTION_WORDS | self.FOLLOWUP_HINTS | self.GENERIC_WORDS | {
+            "ben", "sen", "bana", "sana", "biz", "siz", "miyim", "misin",
+            "musun", "hayir", "evet", "tamam", "ok", "pekala",
+        }
+        topic = {w for w in content_words if w not in chatty and len(w) >= 4}
+        return len(topic) >= 2 and len(content_words) <= 6
+
+    def _soft_reply(self, text: str, history: list) -> dict:
+        """Web'e gitmeden mantıklı sohbet cevabı üret."""
+        if self._refuses_search(text):
+            # reddedince kişisel soru da varsa ona cevap ver
+            if self._is_personal(text):
+                name = self._remember_name(history, "")
+                if name:
+                    return {
+                        "reply": (
+                            f"Tamam, internete bakmadan konuşuyorum. "
+                            f"Sen **{name}**'sin — daha önce söylemiştin 😊 "
+                            f"Ne yapmak istersin?"
+                        ),
+                        "source": "chat",
+                    }
+                return {
+                    "reply": (
+                        "Tamam, internete bakmadan konuşuyorum. "
+                        "Sen benim kullanıcımın! Adını henüz bilmiyorum — "
+                        "\"Benim adım ...\" dersen aklımda tutarım. "
+                        "Başka ne sormak istersin?"
+                    ),
+                    "source": "chat",
+                }
+            return {
+                "reply": "Tamam, internete bakmadan konuşalım. Ne sormak istiyorsun?",
+                "source": "chat",
+            }
+        if self._is_personal(text):
+            name = self._remember_name(history, "")
+            if name:
+                return {
+                    "reply": f"Sen **{name}**'sin! 😊 Konuşmalarımızdan hatırlıyorum. Ne yapmak istersin?",
+                    "source": "chat",
+                }
+            return {
+                "reply": (
+                    "Sen benim kullanıcımın! Adını henüz bilmiyorum — "
+                    "\"Benim adım ...\" dersen aklımda tutarım. "
+                    "Kod, bilgi veya sohbet — ne istersen sor."
+                ),
+                "source": "chat",
+            }
+        return {
+            "reply": (
+                "Bunu sohbet olarak anladım ama net bir konu yakalayamadım. "
+                "Daha somut sor — ör. \"karadelik nedir\" veya \"fibonacci kodu yaz\"."
+            ),
+            "source": "chat",
+        }
+
     def _last_user_messages(self, history: list) -> list[str]:
         return [
             str(h.get("content", ""))
@@ -1383,6 +1488,10 @@ class Brain:
                 return {"reply": f"Tabii, adın **{name}** 😊", "source": "chat"}
             return {"reply": "Daha söylemedin! \"Benim adım ...\" dersen aklımda tutarım.", "source": "chat"}
 
+        # İnternete bakma / kişisel soru → önce mantık, asla web araması yok
+        if self._refuses_search(text) or self._is_personal(text):
+            return self._soft_reply(text, history)
+
         kb = self._match_kb(text)
         chit = self._match_chitchat(text)
 
@@ -1449,15 +1558,17 @@ class Brain:
             # aksi halde konuyu koruyarak web/öğrenilmiş bilgiye git —
             # zayıf KB eşleşmelerinin konuyu kaçırmasına izin verme.
             # Önce konu+soru, o başarısız olursa yalın soru denenir.
-            return {
-                "reply": (
-                    "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
-                    + "\n".join(f"• {s}" for s in random.sample(SUGGESTIONS, 4))
-                ),
-                "source": "fallback",
-                "research_query": topic_str + " " + raw,
-                "context_query": raw,
-            }
+            if self._should_research(text, content_words | set(topic)):
+                return {
+                    "reply": (
+                        "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
+                        + "\n".join(f"• {s}" for s in random.sample(SUGGESTIONS, 4))
+                    ),
+                    "source": "fallback",
+                    "research_query": topic_str + " " + raw,
+                    "context_query": raw,
+                }
+            return self._soft_reply(text, history)
 
         # If the message clearly asks for code, prefer KB over chitchat
         code_signals = ["kod", "yaz", "nasil", "ornek", "goster", "code", "how", "write"]
@@ -1470,20 +1581,20 @@ class Brain:
         if kb:
             return self._kb_result(kb)
 
-        # Hiç eşleşme yok → web/öğrenilmiş bilgi araştırması.
-        # Kısa/az içerikli mesajlarda sunucu önce soruyu, bulamazsa
-        # konu + soruyu dener (iki aşamalı bağlam).
-        result = {
-            "reply": (
-                "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
-                + "\n".join(f"• {s}" for s in random.sample(SUGGESTIONS, 4))
-            ),
-            "source": "fallback",
-            "research_query": raw,
-        }
-        if topic and len(content_words) <= 2:
-            result["context_query"] = " ".join(topic) + " " + raw
-        return result
+        # Hiç eşleşme yok → sadece bilgi sorularında web araştırması
+        if self._should_research(text, content_words):
+            result = {
+                "reply": (
+                    "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
+                    + "\n".join(f"• {s}" for s in random.sample(SUGGESTIONS, 4))
+                ),
+                "source": "fallback",
+                "research_query": raw,
+            }
+            if topic and len(content_words) <= 2:
+                result["context_query"] = " ".join(topic) + " " + raw
+            return result
+        return self._soft_reply(text, history)
 
 
 brain = Brain()

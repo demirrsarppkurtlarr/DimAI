@@ -562,7 +562,20 @@ def research(question: str) -> Optional[dict]:
 def _split_sentences(text: str) -> list[str]:
     text = re.sub(r"📰[^\n]*|📚[^\n]*|^•.*$", " ", text, flags=re.M)
     parts = re.split(r"(?<=[.!?])\s+", text)
-    return [p.strip() for p in parts if 40 <= len(p.strip()) <= 400]
+    junk = re.compile(
+        r"(provided to youtube|released on:|composer:|lyricist:|"
+        r"diğer muhtemel|izle 1080|℗|pasaj|subscribe|cookie)",
+        re.I,
+    )
+    out = []
+    for p in parts:
+        s = p.strip()
+        if not (40 <= len(s) <= 400):
+            continue
+        if junk.search(s):
+            continue
+        out.append(s)
+    return out
 
 
 def research_deep(question: str) -> Optional[dict]:
@@ -627,21 +640,15 @@ def research_deep(question: str) -> Optional[dict]:
     summary = " ".join(c["sent"] for c in picked)[:1500]
 
     seen_urls: list[str] = []
-    src_lines: list[str] = []
     for name, _ans, url in found:
         if url and url not in seen_urls:
             seen_urls.append(url)
-            src_lines.append(f"• {PROVIDERS.get(name, name)}: {url}")
-    answer = (
-        f"🔎 **Çoklu kaynak araştırması** ({len(found)} kaynak tarandı)\n\n"
-        f"{summary}\n\n"
-        f"📚 **Kaynaklar ({len(src_lines)}):**\n" + "\n".join(src_lines[:6])
-    )
+    # Başlık yok — sadece özet; kaynak linkleri UI'da "Kaynağı aç" ile gelir
     primary_url = text_sources[0][2] or (seen_urls[0] if seen_urls else "")
     return {
-        "answer": answer,
+        "answer": summary,
         "url": primary_url,
-        "provider": f"{len(found)} kaynak sentezi",
+        "provider": "web",
         "sources": seen_urls[:6],
     }
 
