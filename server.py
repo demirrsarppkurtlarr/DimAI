@@ -22,6 +22,16 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 # Self-improvement engine (retrieve → evaluate → reflect → queue → promote)
 improve = init_improve(learned)
 
+# Optional Tulu instruct seed (produced by data/ingest_tulu_chat.py)
+_TULU_SEED = ROOT / "data" / "tulu_learned_seed.json"
+try:
+    _seeded = learned.seed_from_file(_TULU_SEED, limit=1500)
+    if _seeded:
+        print(f"[DimAI] seeded {_seeded} Tulu Q&A into learned store", flush=True)
+except Exception as _exc:
+    print(f"[DimAI] tulu seed skipped: {_exc}", flush=True)
+
+
 @app.get("/")
 def index():
     return send_from_directory(app.static_folder, "index.html")

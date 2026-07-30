@@ -164,8 +164,8 @@ class LearnedStore:
             if quality is not None:
                 entry["quality"] = float(quality)
             self._items.append(entry)
-            if len(self._items) > 2000:
-                self._items = self._items[-2000:]
+            if len(self._items) > 5000:
+                self._items = self._items[-5000:]
             # Self-healing: if Supabase is configured, keep trying it even after
             # an earlier failure (e.g. table created after boot).
             if self.configured:
@@ -176,6 +176,43 @@ class LearnedStore:
                 except Exception:
                     self.backend = "file"
             self._save_file()
+
+    def seed_from_file(self, path: Path, limit: int = 1500) -> int:
+        """Load curated Q&A seed (e.g. Tulu chat) into memory without flooding Supabase."""
+        path = Path(path)
+        if not path.exists():
+            return 0
+        try:
+            items = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return 0
+        added = 0
+        with self._lock:
+            existing_q = { (it.get("q") or "")[:80].lower() for it in self._items }
+            for raw in items[:limit]:
+                q = str(raw.get("q") or "").strip()
+                a = str(raw.get("a") or "").strip()
+                if len(q) < 8 or len(a) < 20:
+                    continue
+                key = q[:80].lower()
+                if key in existing_q:
+                    continue
+                entry = {
+                    "q": q[:300],
+                    "kw": sorted(_keywords(q)),
+                    "a": self._clean_answer(a)[:3000],
+                    "url": str(raw.get("url") or "")[:300],
+                    "t": time.time(),
+                    "quality": float(raw.get("quality") or 0.8),
+                }
+                self._items.append(entry)
+                existing_q.add(key)
+                added += 1
+            if len(self._items) > 5000:
+                self._items = self._items[-5000:]
+            if added and self.backend == "file":
+                self._save_file()
+        return added
 
     def lookup(self, question: str) -> Optional[dict]:
         """Match only when the stored entry answers (nearly) the SAME question.

@@ -15,5 +15,8 @@ data/train_corpus.txt
 data/deploy_corpus.txt
 data/corpus.txt
 data/hf_python_corpus.txt
+data/tulu_chat_corpus.txt
+data/tulu_learned_seed.json
+data/tulu_chat_corpus.tmp
 .pytest_cache/
 .mypy_cache/
