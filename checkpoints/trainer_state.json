@@ -1,279 +1,363 @@
 {
-  "steps": 213598,
-  "self_train_rounds": 9548,
-  "accepted": 7599,
-  "rejected": 1949,
-  "last_loss": 1.138827634326653,
-  "last_accepted": "def sum_time(self, num):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return results.append(a)",
+  "steps": 367480,
+  "self_train_rounds": 12802,
+  "accepted": 9795,
+  "rejected": 3007,
+  "last_loss": 1.2038328496809225,
+  "last_accepted": "def read_password(image_path, validate_email):\n    conntch = []\n    for i in range(10): \n        return 1",
   "running": false,
-  "message": "trained 20 steps, loss=1.139",
-  "hf_offset": 80,
+  "message": "trained 10 steps, loss=1.204",
+  "hf_offset": 120,
   "history": [
     {
-      "t": 1785420029.9534488,
+      "t": 1785433274.5635371,
       "ok": false,
       "prompt": "if __name__",
-      "preview": "if __name__ == '_'main: '''}' to self.start\n    \n    def __init__(self, name, age, key=rigent, title) apd.repiaredir, pa",
-      "loss": 1.1931944801039778
+      "preview": "if __name__ == \"__array_max:            return False\n        if s <= 0:\n            return \"\"\n        return 'args:\n    ",
+      "loss": 1.0234501916741876
     },
     {
-      "t": 1785420030.228494,
-      "ok": true,
-      "prompt": "def add",
-      "preview": "def add_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(item)\n    return res",
-      "loss": 1.0590081827106828
+      "t": 1785433274.917808,
+      "ok": false,
+      "prompt": "def parse_",
+      "preview": "def parse_command(self, parent):\n    # Example recrested and retrieve and return the main\n    self.age = 0",
+      "loss": 1.2388514618240443
     },
     {
-      "t": 1785420030.489331,
+      "t": 1785433275.2682738,
       "ok": false,
       "prompt": "if __name__",
-      "preview": "if __name__ == '__main__':\n        if extins[i] == book:\n        return match(text)\n    elif num <= 1:\n        return su",
-      "loss": 1.2048729055714027
+      "preview": "if __name__ == \": inty:\n            if url in None:\n                        high = torch.lower(os_path.items())  # Conte",
+      "loss": 1.1568562532554845
     },
     {
-      "t": 1785420030.7868423,
-      "ok": true,
-      "prompt": "def map_",
-      "preview": "def map_dict(numbers):\n    result = []\n    for i in range(len(arr)):\n        return results.append(ater)\n    return resu",
-      "loss": 1.5065191998586696
-    },
-    {
-      "t": 1785420031.0297153,
-      "ok": true,
+      "t": 1785433275.611899,
+      "ok": false,
       "prompt": "def filter_",
-      "preview": "def filter_dict(numbers):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return resu",
-      "loss": 1.0160217645122867
+      "preview": "def filter_dilets(alport):\n    # Point the direction  # Placeholder from the required result\n            result.value_ba",
+      "loss": 1.2724981438860152
     },
     {
-      "t": 1785420031.2229567,
-      "ok": true,
+      "t": 1785433275.9673622,
+      "ok": false,
       "prompt": "def main",
-      "preview": "def main():\n    return results.append(a)",
-      "loss": 1.2120647516327254
+      "preview": "def main():\n    count = []\n    for i in range(0, len(arr)):\n        return 1",
+      "loss": 0.9535427373615111
     },
     {
-      "t": 1785420031.5006933,
-      "ok": true,
-      "prompt": "def is_",
-      "preview": "def is_patc_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(item)\n    return",
-      "loss": 1.0633757999561722
-    },
-    {
-      "t": 1785420031.794838,
-      "ok": true,
-      "prompt": "class ",
-      "preview": "class String:\n    def __init__(self, name, age):\n        self.name = name\n        self.marad = {}\n        self.sentinge_",
-      "loss": 1.4432880692686103
-    },
-    {
-      "t": 1785420032.066063,
-      "ok": true,
-      "prompt": "def map_",
-      "preview": "def map_dict(numbers):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return results",
-      "loss": 0.8856157026965933
-    },
-    {
-      "t": 1785420032.3075044,
-      "ok": true,
-      "prompt": "def ",
-      "preview": "def map_dict(numbers):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return results",
-      "loss": 1.0303101797708263
-    },
-    {
-      "t": 1785420032.6369815,
-      "ok": true,
-      "prompt": "def try_",
-      "preview": "def try_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return result",
-      "loss": 1.1220619670868823
-    },
-    {
-      "t": 1785420032.863563,
-      "ok": true,
-      "prompt": "def add",
-      "preview": "def add_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return result",
-      "loss": 1.0732724387016765
-    },
-    {
-      "t": 1785420033.1069317,
-      "ok": true,
-      "prompt": "def sum_",
-      "preview": "def sum_time(self, num):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)",
-      "loss": 1.2835313702635154
-    },
-    {
-      "t": 1785420033.3522599,
-      "ok": true,
-      "prompt": "def try_",
-      "preview": "def try_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)",
-      "loss": 1.6447373149978444
-    },
-    {
-      "t": 1785420033.6118,
+      "t": 1785433276.3314486,
       "ok": false,
       "prompt": "if __name__",
-      "preview": "if __name__ == '__main__':\n                count += 10",
-      "loss": 1.1451510910977316
+      "preview": "if __name__ == \"__main______________ == \"\"",
+      "loss": 1.4703176604649761
     },
     {
-      "t": 1785420033.8741105,
+      "t": 1785433276.6765292,
       "ok": false,
-      "prompt": "def main",
-      "preview": "def main():\n    return results.append(a)\n    return results.append(a)\n    return results.append(a)\n    return results.ap",
-      "loss": 1.0644991658521143
+      "prompt": "def filter_",
+      "preview": "def filter_direction(timestamp: block, values):\n    try:\n        return make_data",
+      "loss": 1.089076722049329
     },
     {
-      "t": 1785420034.1035535,
-      "ok": true,
-      "prompt": "def sum_",
-      "preview": "def sum_time(self, num):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return resul",
-      "loss": 1.1286471118964316
+      "t": 1785433277.012872,
+      "ok": false,
+      "prompt": "def map_",
+      "preview": "def map_dict(arr):\n    mid = []",
+      "loss": 1.1450432776566137
     },
     {
-      "t": 1785420034.3292983,
-      "ok": true,
-      "prompt": "def try_",
-      "preview": "def try_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return result",
-      "loss": 1.1736007159489155
+      "t": 1785433277.3709216,
+      "ok": false,
+      "prompt": "def sort_",
+      "preview": "def sort_dict(file_path, num_pid_list): \n    print(\"Component {testfr highests\"\")\n    for i in range(len(lf._, session):",
+      "loss": 1.2275050186079457
     },
     {
-      "t": 1785420034.5752194,
-      "ok": true,
+      "t": 1785433277.7151313,
+      "ok": false,
+      "prompt": "def read_",
+      "preview": "def read_position(self, i):\n        if len(arr) // len(lst) \n            if arr[j] == b in enumerate(name)  # Calculate ",
+      "loss": 1.0561020196297441
+    },
+    {
+      "t": 1785433321.9030714,
+      "ok": false,
+      "prompt": "def read_",
+      "preview": "def read_test_request(result):\n    while True: \n        password = re.findall(arr)",
+      "loss": 1.1907821259188907
+    },
+    {
+      "t": 1785433322.2554624,
+      "ok": false,
+      "prompt": "class Stack",
+      "preview": "class Stack:\n    def __init__(self, name, string):\n        self.format = Poficies",
+      "loss": 1.1898022715029841
+    },
+    {
+      "t": 1785433322.5992284,
+      "ok": false,
+      "prompt": "def search_",
+      "preview": "def search_id_differences(self, task_tip:, file_names: List[Tuple[int], raisest_rangot']):\n        code == 100    total_",
+      "loss": 1.4406250116464339
+    },
+    {
+      "t": 1785433322.9488325,
+      "ok": false,
+      "prompt": "def read_",
+      "preview": "def read_html(self, end, result):\n    if color == \"\"\"\n        for i in range(2, num):\n            if num == 0\n        pr",
+      "loss": 1.0495410186951992
+    },
+    {
+      "t": 1785433323.2977216,
+      "ok": false,
+      "prompt": "def write_",
+      "preview": "def write_even(self, labels):\n    s = shout - 1\n    return self.key",
+      "loss": 1.2311113846273884
+    },
+    {
+      "t": 1785433323.6583622,
+      "ok": false,
+      "prompt": "def sort_",
+      "preview": "def sort_prefrom_count_string(string):\n    if len(prime_by_list) // 1:\n        return -1",
+      "loss": 1.1519129268791415
+    },
+    {
+      "t": 1785433324.0136633,
+      "ok": false,
       "prompt": "def add",
-      "preview": "def add_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return result",
-      "loss": 1.417667891072171
+      "preview": "def add_string(string):\n    return self.string",
+      "loss": 1.2510043220839393
     },
     {
-      "t": 1785420034.8214343,
-      "ok": true,
-      "prompt": "def is_",
-      "preview": "def is_patc_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)",
-      "loss": 1.3495416315262965
-    },
-    {
-      "t": 1785420035.0788102,
-      "ok": true,
-      "prompt": "def main",
-      "preview": "def main():\n    return results.append(a)\n    return results.append(a)",
-      "loss": 1.2037862626159952
-    },
-    {
-      "t": 1785420035.3054948,
-      "ok": true,
+      "t": 1785433324.374425,
+      "ok": false,
       "prompt": "def sum_",
-      "preview": "def sum_time(self, num):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return resul",
-      "loss": 1.1437720790700014
+      "preview": "def sum_vistage(self, end_babod, num_start, start):\n    if len(arr) < len(str2):\n        if prime = 1\n    for x in range",
+      "loss": 0.917547313840136
     },
     {
-      "t": 1785420035.5759714,
-      "ok": true,
+      "t": 1785433324.7035208,
+      "ok": false,
+      "prompt": "class Stack",
+      "preview": "class Stack:\n    def __init__(self, stack, name, amount):\n        self.new_path = os.path.jobity(n)",
+      "loss": 1.0645282918079224
+    },
+    {
+      "t": 1785433325.055613,
+      "ok": false,
       "prompt": "class ",
-      "preview": "class String:\n    def __init__(self, name, age):\n        self.name = name\n        self.y = y",
-      "loss": 0.9144300955554447
+      "preview": "class Stack:\n    def __init__(self):\n        self.name = name\n        self.foldec_string = path",
+      "loss": 1.1359406232691192
     },
     {
-      "t": 1785420035.783779,
-      "ok": true,
-      "prompt": "def is_",
-      "preview": "def is_patc_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return re",
-      "loss": 1.3088315354388624
-    },
-    {
-      "t": 1785420035.9911153,
-      "ok": true,
-      "prompt": "def sum_",
-      "preview": "def sum_time(self, num):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return resul",
-      "loss": 1.1559016863817928
-    },
-    {
-      "t": 1785420036.197522,
-      "ok": true,
-      "prompt": "def sum_",
-      "preview": "def sum_time(self, num):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return resul",
-      "loss": 1.2223045014538312
-    },
-    {
-      "t": 1785420036.4038718,
-      "ok": true,
-      "prompt": "def add",
-      "preview": "def add_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return result",
-      "loss": 0.7565288959528798
-    },
-    {
-      "t": 1785420036.617002,
-      "ok": true,
+      "t": 1785433325.4149303,
+      "ok": false,
       "prompt": "class ",
-      "preview": "class String:\n    def __init__(self, name, age):\n        self.name = name",
-      "loss": 1.2441624083841913
+      "preview": "class Node:\n    def __init__(self):\n        self._diaps = {}",
+      "loss": 1.2372180941078235
     },
     {
-      "t": 1785420036.7853122,
-      "ok": true,
-      "prompt": "def add",
-      "preview": "def add_string(string):\n    result = []",
-      "loss": 1.3817899871358126
+      "t": 1785433325.754266,
+      "ok": false,
+      "prompt": "def map_",
+      "preview": "def map_dict(arr):\n    for j in range(len(arr)):\n        if num % i == 0: \n                count += 1",
+      "loss": 1.2881737181134962
     },
     {
-      "t": 1785420037.0673783,
-      "ok": true,
-      "prompt": "class ",
-      "preview": "class String:\n    def __init__(self, name, age):\n        self.name = name\n        self.name = name\n        self.name = n",
-      "loss": 1.183956536125513
+      "t": 1785433326.1151798,
+      "ok": false,
+      "prompt": "def search_",
+      "preview": "def search_array(left):\n    for i in range(points):\n        words = string.append(x)  # Calculate the grabe parameters t",
+      "loss": 1.3115737841940873
     },
     {
-      "t": 1785420037.3596404,
+      "t": 1785433326.4608169,
       "ok": false,
       "prompt": "if __name__",
-      "preview": "if __name__ == '__main__':\n    list['aviauiz][0]] += []",
-      "loss": 1.3425295494362595
+      "preview": "if __name_________________() \n  \n    # Convert the number in server.\n        fields = ['..' if not path]",
+      "loss": 1.3215454719136959
     },
     {
-      "t": 1785420037.6387155,
-      "ok": true,
-      "prompt": "def map_",
-      "preview": "def map_dict(numbers):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return results",
-      "loss": 1.0537277982561235
+      "t": 1785433326.8096514,
+      "ok": false,
+      "prompt": "def main",
+      "preview": "def main():\n    if len(string) < 1:\n        return []\n    for i in range(2 in list1):\n        if num == 0:\n            r",
+      "loss": 1.3516435629375005
     },
     {
-      "t": 1785420037.8666768,
-      "ok": true,
-      "prompt": "def try_",
-      "preview": "def try_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return result",
-      "loss": 1.3177699636916904
+      "t": 1785433327.1689136,
+      "ok": false,
+      "prompt": "def write_",
+      "preview": "def write_file(path):\n    commends = []",
+      "loss": 0.959653822389896
     },
     {
-      "t": 1785420038.0944314,
-      "ok": true,
+      "t": 1785433327.5204542,
+      "ok": false,
+      "prompt": "def is_",
+      "preview": "def is_prime(num):\n    if node in os.path:\n    return max_sum(and simmantewack = max_ex_prob == amount * output_path\n   ",
+      "loss": 1.1016524977843942
+    },
+    {
+      "t": 1785433327.8660796,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__ == '='and_':':' for c, n in x in card_nums[i] + i + 1 < n + i + 1\n        elif n == 2:\n            return Fa",
+      "loss": 1.4637420478593826
+    },
+    {
+      "t": 1785433328.2088907,
+      "ok": false,
       "prompt": "def ",
-      "preview": "def is_patc_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return re",
-      "loss": 1.2019936589210818
+      "preview": "def calculate_to_nFind(f'):\n    return f.readline()\n    # Send the validatabase balance\n    return i",
+      "loss": 1.3830064792693073
     },
     {
-      "t": 1785420038.3591397,
-      "ok": true,
+      "t": 1785433328.5560524,
+      "ok": false,
+      "prompt": "def is_",
+      "preview": "def is_palindrome(input_string):\n    return output_string",
+      "loss": 1.1757989600848509
+    },
+    {
+      "t": 1785433328.9126263,
+      "ok": false,
+      "prompt": "def write_",
+      "preview": "def write_files(self):\n    filename = np.array(array) * 2",
+      "loss": 1.1802309905231319
+    },
+    {
+      "t": 1785433329.2558775,
+      "ok": false,
       "prompt": "def map_",
-      "preview": "def map_dict(numbers):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return results",
-      "loss": 0.8403651505401226
+      "preview": "def map_dict(data_time, explosit_string2, language_name: str) -> None:\n        or None if the distance in the result \n  ",
+      "loss": 1.411365221573081
     },
     {
-      "t": 1785420038.5962522,
+      "t": 1785433329.6095688,
+      "ok": false,
+      "prompt": "def write_",
+      "preview": "def write_file(parent, path):\n    return []",
+      "loss": 1.4737168158634621
+    },
+    {
+      "t": 1785433329.958174,
       "ok": false,
       "prompt": "class ",
-      "preview": "class String:\n    def __init__(self, name, age):\n        self.name = name\n        self.name = name\n        self.name = n",
-      "loss": 1.1446059213766084
+      "preview": "class Banarror:\n    def __init__(self, name, amount):\n        self.expression = requests.get(url, response)",
+      "loss": 1.5053411348485648
     },
     {
-      "t": 1785420038.9475818,
-      "ok": true,
+      "t": 1785433330.3098752,
+      "ok": false,
+      "prompt": "def filter_",
+      "preview": "def filter_files(file_path):\n    import router",
+      "loss": 1.315181557293396
+    },
+    {
+      "t": 1785433330.6596684,
+      "ok": false,
+      "prompt": "def map_",
+      "preview": "def map_dict(string):\n    return nn.",
+      "loss": 1.0655280621207317
+    },
+    {
+      "t": 1785433331.0153363,
+      "ok": false,
+      "prompt": "class Stack",
+      "preview": "class Stack:\n    def __init__(self, name, cleaned_term):\n        self.string = self.pattern = input(\"Invalid allow[\"\"\"\"\n",
+      "loss": 1.3022490444340318
+    },
+    {
+      "t": 1785433331.374336,
+      "ok": false,
+      "prompt": "def fibonacci",
+      "preview": "def fibonacci_n(n):\n    i = 0\n    right = temp[-1] * age(nums[i]) - dict[str] + 1",
+      "loss": 1.3408076868339096
+    },
+    {
+      "t": 1785433331.7209208,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__ == '_1: input_string:\n            return \"not existing models\")\n            return False\n            arr[j] ",
+      "loss": 1.0013910512873363
+    },
+    {
+      "t": 1785433332.0736194,
+      "ok": false,
+      "prompt": "def read_",
+      "preview": "def read_to_string(string):\n    if let(input_string1) == 0:\n        return 1",
+      "loss": 1.2712020908100585
+    },
+    {
+      "t": 1785433332.4313493,
+      "ok": false,
+      "prompt": "def try_",
+      "preview": "def try_pages(grid):\n    imin = string.split(\"+\")",
+      "loss": 1.2662526652029524
+    },
+    {
+      "t": 1785433332.7565267,
+      "ok": false,
+      "prompt": "def binary_",
+      "preview": "def binary_sort(arr):\n    min = len(matrix_int) and i - i] == int(initial_string1))",
+      "loss": 1.1742356624991164
+    },
+    {
+      "t": 1785433333.092685,
+      "ok": false,
+      "prompt": "def map_",
+      "preview": "def map_dict(arr):\n    words = string.read(int) and index - list[i][j]",
+      "loss": 1.1424144236642737
+    },
+    {
+      "t": 1785433333.4418201,
+      "ok": false,
+      "prompt": "def read_",
+      "preview": "def read_params(arr):\n    os_string = arr[0] + count_distance + 1 - 2 \n    return right",
+      "loss": 1.2820157171897208
+    },
+    {
+      "t": 1785433333.7858772,
+      "ok": false,
       "prompt": "def add",
-      "preview": "def add_string(string):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return result",
-      "loss": 1.3075267983621952
+      "preview": "def add_string(string):\n    return loss",
+      "loss": 1.4594445773467843
     },
     {
-      "t": 1785420042.0164454,
-      "ok": true,
+      "t": 1785433334.1326792,
+      "ok": false,
+      "prompt": "class ",
+      "preview": "class Queule:\n    def __init__(self, version_data):\n        self._convert = get * common.logim.token()",
+      "loss": 1.0930077536863387
+    },
+    {
+      "t": 1785433334.4865606,
+      "ok": false,
+      "prompt": "def ",
+      "preview": "def sum_index(numbers):\n    return 0",
+      "loss": 1.2238506382948706
+    },
+    {
+      "t": 1785433334.8307052,
+      "ok": false,
+      "prompt": "if __name__",
+      "preview": "if __name__ == '_train_data_result:\n            self.data.append(item)",
+      "loss": 1.2004194033261337
+    },
+    {
+      "t": 1785433335.1807578,
+      "ok": false,
       "prompt": "def sum_",
-      "preview": "def sum_time(self, num):\n    result = []\n    for i in range(len(arr)):\n        return results.append(a)\n    return resul",
-      "loss": 1.2305110754091477
+      "preview": "def sum_time(self, string):\n    # Contatize the image the index to send mest for the array letter in the order\n        i",
+      "loss": 1.2504967652307077
+    },
+    {
+      "t": 1785433335.5347607,
+      "ok": false,
+      "prompt": "def ",
+      "preview": "def calculate_dictionary(self, enamy_transqus, and_entry: float, year: str) -> dict:\n    if number == nums:\n            ",
+      "loss": 1.2038328496809225
     }
   ]
 }

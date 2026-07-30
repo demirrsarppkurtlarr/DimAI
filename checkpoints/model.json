@@ -100,11 +100,11 @@
     ]
   },
   "meta": {
-    "steps": 213598,
-    "accepted": 7599,
-    "rejected": 1949,
-    "self_train_rounds": 9548,
-    "last_loss": 1.138827634326653,
-    "hf_offset": 80
+    "steps": 367480,
+    "accepted": 9795,
+    "rejected": 3007,
+    "self_train_rounds": 12802,
+    "last_loss": 1.2038328496809225,
+    "hf_offset": 120
   }
 }
