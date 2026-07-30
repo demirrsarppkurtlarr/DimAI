@@ -192,8 +192,10 @@ class CodeTrainer:
 
     def append_to_corpus(self, code: str) -> None:
         block = "\n\n" + code.strip() + "\n\n"
+        # Always append on disk so in-memory stale corpus cannot wipe HF data
+        with CORPUS_PATH.open("a", encoding="utf-8") as f:
+            f.write(block)
         self.corpus += block
-        CORPUS_PATH.write_text(self.corpus, encoding="utf-8")
 
     def self_train_once(self) -> dict:
         prompt = random.choice(PROMPTS)

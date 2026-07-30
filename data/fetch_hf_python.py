@@ -118,35 +118,6 @@ def fetch_humaneval(bucket: list[str], total: list[int], max_chars: int) -> None
     print(f"  humaneval chars={total[0]}")
 
 
-def fetch_code_search_net(bucket: list[str], total: list[int], max_chars: int) -> None:
-    from datasets import load_dataset
-
-    print("→ code_search_net (python, streaming)")
-    ds = load_dataset(
-        "code_search_net",
-        "python",
-        split="train",
-        streaming=True,
-        trust_remote_code=True,
-    )
-    n = 0
-    for row in ds:
-        if total[0] >= max_chars:
-            break
-        code = row.get("func_code_string") or row.get("whole_func_string") or ""
-        doc = (row.get("func_documentation_string") or "").strip()
-        if doc and code:
-            # detailed: docstring + function
-            combined = f'"""{doc[:400]}"""\n{code}'
-            add_raw_if_valid(bucket, combined[:MAX_CHUNK_CHARS], total, max_chars)
-        else:
-            add_raw_if_valid(bucket, code, total, max_chars)
-        n += 1
-        if n % 400 == 0:
-            print(f"  csn rows={n} chars={total[0]}")
-    print(f"  csn done rows={n} chars={total[0]}")
-
-
 def fetch_magicoder(bucket: list[str], total: list[int], max_chars: int) -> None:
     from datasets import load_dataset
 
