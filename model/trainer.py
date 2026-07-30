@@ -26,12 +26,21 @@ PROMPTS = [
     "def add",
     "def sum_",
     "def is_",
-    "class ",
-    "if __name__",
+    "def fibonacci",
+    "def sort_",
+    "def binary_",
+    "def search_",
+    "def parse_",
+    "def read_",
+    "def write_",
     "def main",
     "def filter_",
     "def map_",
     "def try_",
+    "class ",
+    "class Node",
+    "class Stack",
+    "if __name__",
 ]
 
 
@@ -172,7 +181,7 @@ class CodeTrainer:
         if n <= self.seq_len + 1:
             return ids.tolist()
         # Bias training windows toward real code starts for faster structure learning
-        if self._anchors and self.rng.random() < 0.55:
+        if self._anchors and self.rng.random() < 0.75:
             pos = self._anchors[int(self.rng.integers(0, len(self._anchors)))]
             if pos < n - self.seq_len - 1:
                 return ids[pos : pos + self.seq_len + 1].tolist()
@@ -273,9 +282,21 @@ class CodeTrainer:
 
     @staticmethod
     def _quality_score(code: str) -> float:
-        """Heuristic quality: reward structure, penalize repetition."""
+        """Heuristic quality: reward structure, penalize repetition / nonsense."""
         lines = [ln for ln in code.splitlines() if ln.strip()]
         if not lines:
+            return 0.0
+        # Hard rejects — common char-RNN failure modes
+        low = code.lower()
+        if re.search(r"return\s+\w+\.(?:append|extend|add|pop|remove|update)\s*\(", low):
+            return 0.0
+        if "return results.append" in low or "return result.append" in low:
+            return 0.0
+        if low.count("return results.append") + low.count("return result.append") > 0:
+            return 0.0
+        # Same body line repeated → degenerate
+        body_lines = [ln.strip() for ln in lines[1:] if ln.strip() and not ln.strip().startswith("#")]
+        if body_lines and len(set(body_lines)) == 1 and len(body_lines) >= 2:
             return 0.0
         score = 0.0
         if code.startswith(("def ", "class ")):
@@ -284,13 +305,96 @@ class CodeTrainer:
             score += 0.6
         if len(lines) >= 3:
             score += 0.5
+        if len(lines) >= 5:
+            score += 0.3
+        # Prefer real control flow / data structures
+        if any(k in code for k in ("for ", "while ", "if ", "elif ", "try:", "with ")):
+            score += 0.4
+        # AST structural checks
+        try:
+            tree = ast.parse(code)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Return) and isinstance(node.value, ast.Call):
+                    func = node.value.func
+                    if isinstance(func, ast.Attribute) and func.attr in (
+                        "append",
+                        "extend",
+                        "add",
+                        "pop",
+                        "remove",
+                        "update",
+                        "insert",
+                    ):
+                        return 0.0
+                # undefined-ish: using `arr` when never assigned / not a param
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    params = {a.arg for a in node.args.args}
+                    assigned: set[str] = set()
+                    used: set[str] = set()
+                    for child in ast.walk(node):
+                        if isinstance(child, ast.Name):
+                            if isinstance(child.ctx, ast.Store):
+                                assigned.add(child.id)
+                            elif isinstance(child.ctx, ast.Load):
+                                used.add(child.id)
+                    free = used - params - assigned - {
+                        "True",
+                        "False",
+                        "None",
+                        "range",
+                        "len",
+                        "int",
+                        "str",
+                        "list",
+                        "dict",
+                        "set",
+                        "tuple",
+                        "print",
+                        "sum",
+                        "min",
+                        "max",
+                        "abs",
+                        "sorted",
+                        "enumerate",
+                        "zip",
+                        "map",
+                        "filter",
+                        "open",
+                        "Exception",
+                        "ValueError",
+                        "TypeError",
+                        "KeyError",
+                        "IndexError",
+                        "isinstance",
+                        "hasattr",
+                        "getattr",
+                        "setattr",
+                        "super",
+                        "property",
+                        "staticmethod",
+                        "classmethod",
+                        "self",
+                        "cls",
+                    }
+                    # heavy free-name use without definition → likely hallucinated vars
+                    if len(free) >= 2:
+                        score *= 0.35
+                    elif len(free) == 1 and next(iter(free)) in ("arr", "a", "results", "data", "nums"):
+                        score *= 0.5
+        except SyntaxError:
+            return 0.0
         # repetition penalty: many identical lines = degenerate output
         unique_ratio = len(set(lines)) / len(lines)
         score *= unique_ratio
         # nonsense identifier penalty: too many 1-2 char words
         words = re.findall(r"[a-zA-Z_]{1,}", code)
         if words:
-            short = sum(1 for w in words if len(w) <= 2 and w not in ("a", "b", "i", "j", "n", "x", "y", "s", "f", "k", "v"))
+            short = sum(
+                1
+                for w in words
+                if len(w) <= 2 and w not in ("a", "b", "i", "j", "n", "x", "y", "s", "f", "k", "v", "id", "ok")
+            )
             score *= max(0.2, 1.0 - short / max(len(words), 1))
         return score
 
@@ -308,7 +412,8 @@ class CodeTrainer:
             snippet = parts[0]
         valid = self.longest_valid_prefix(snippet)
         quality = self._quality_score(valid) if valid else 0.0
-        ok = valid is not None and quality >= 0.8
+        # Stricter bar: syntax alone is not enough — need real structure
+        ok = valid is not None and quality >= 1.4
         if valid:
             snippet = valid
         result = {"prompt": prompt, "ok": ok, "snippet": snippet[:400], "quality": round(quality, 2)}
@@ -322,28 +427,28 @@ class CodeTrainer:
                 if snippet not in self.corpus:
                     self.append_to_corpus(snippet)
                 self.replay.append(snippet)
-                if len(self.replay) > 200:
+                if len(self.replay) > 300:
                     self.replay.pop(0)
                 self.state.message = f"kabul (kalite {quality:.1f}) — pekiştiriliyor"
                 ids = self.vocab.encode(snippet) if self.vocab else []
                 if self.model and len(ids) >= 2:
-                    reps = 3 + int(min(quality, 2.0) * 2)  # better code → more reinforcement
+                    reps = 4 + int(min(quality, 3.0) * 2)  # better code → more reinforcement
                     if self.LIGHT_MODE:
                         reps = min(reps, 2)
                     for _ in range(reps):
-                        self.model.train_sequence(ids[: min(len(ids), self.seq_len + 1)], lr=lr * 0.8)
+                        self.model.train_sequence(ids[: min(len(ids), self.seq_len + 1)], lr=lr * 0.85)
                         self.state.steps += 1
                 loss = self.train_steps(n=2 if self.LIGHT_MODE else 8, lr=lr)
             else:
                 self.state.rejected += 1
                 self.state.message = "red — temel veriyle tekrar çalışılıyor"
                 loss = self.train_steps(n=4 if self.LIGHT_MODE else 14, lr=lr)
-                # replay: rehearse previously accepted good code
+                # replay: rehearse previously accepted good code (prefer high quality)
                 if self.replay and self.model and self.vocab:
                     sample = random.choice(self.replay)
                     ids = self.vocab.encode(sample)
                     if len(ids) >= 2:
-                        self.model.train_sequence(ids[: self.seq_len + 1], lr=lr * 0.6)
+                        self.model.train_sequence(ids[: self.seq_len + 1], lr=lr * 0.7)
                         self.state.steps += 1
             result["loss"] = loss
             self.state.history.append(

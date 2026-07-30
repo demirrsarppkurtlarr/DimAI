@@ -627,4 +627,249 @@ print(romaya(2024))   # MMXXIV''', "l": "python"},
 
     {"k": ["frontend backend", "front end back end", "fullstack"],
      "a": "**Frontend** = kullanıcının gördüğü kısım (tarayıcıda çalışır)\n→ HTML, CSS, JavaScript, React, Vue\n\n**Backend** = sunucuda dönen kısım (veri, hesap, güvenlik)\n→ Python, Node.js, Java, Go + veritabanı\n\n**Full-stack** = ikisini de yapan geliştirici\n\nÖrnek: Instagram'da gördüğün arayüz frontend; fotoğrafın yüklenmesi, beğenilerin sayılması backend."},
+
+    # --- Yoğun kod paketi (eğitim + sohbet kalitesi) ---
+    {"k": ["kod yaz", "python kodu yaz", "write code", "bir kod yaz", "ornek kod"],
+     "a": "İşte temiz, çalışır bir Python başlangıç paketi — fonksiyon + sınıf + ana blok:",
+     "c": '''from __future__ import annotations
+
+def merhaba(isim: str = "Dünya") -> str:
+    mesaj = f"Merhaba, {isim}!"
+    print(mesaj)
+    return mesaj
+
+def kareler(n: int) -> list[int]:
+    return [i * i for i in range(1, n + 1)]
+
+class Sayac:
+    def __init__(self) -> None:
+        self.n = 0
+    def artir(self) -> int:
+        self.n += 1
+        return self.n
+
+if __name__ == "__main__":
+    merhaba("DimAI")
+    print(kareler(5))
+    s = Sayac()
+    print(s.artir(), s.artir())''', "l": "python"},
+
+    {"k": ["todo app", "yapilacaklar listesi", "todo listesi", "gorev listesi yaz"],
+     "a": "Basit terminal TODO uygulaması:",
+     "c": '''tasks: list[str] = []
+
+while True:
+    print("\\n1) Ekle  2) Listele  3) Sil  4) Çık")
+    secim = input("> ").strip()
+    if secim == "1":
+        tasks.append(input("Görev: ").strip())
+    elif secim == "2":
+        for i, t in enumerate(tasks, 1):
+            print(f"{i}. {t}")
+    elif secim == "3":
+        i = int(input("No: ")) - 1
+        if 0 <= i < len(tasks):
+            tasks.pop(i)
+    elif secim == "4":
+        break''', "l": "python"},
+
+    {"k": ["hesap makinesi yaz", "calculator", "hesap makinesi kodu"],
+     "a": "Basit hesap makinesi:",
+     "c": '''def hesapla(a: float, op: str, b: float) -> float:
+    if op == "+": return a + b
+    if op == "-": return a - b
+    if op == "*": return a * b
+    if op == "/":
+        if b == 0: raise ZeroDivisionError("sıfıra bölme")
+        return a / b
+    raise ValueError(f"bilinmeyen işlem: {op}")
+
+if __name__ == "__main__":
+    x = float(input("a: "))
+    op = input("işlem (+ - * /): ").strip()
+    y = float(input("b: "))
+    print("sonuç:", hesapla(x, op, y))''', "l": "python"},
+
+    {"k": ["http istek", "requests get", "api cagir", "json api"],
+     "a": "`requests` ile JSON API çağrısı:",
+     "c": '''import requests
+
+def get_json(url: str) -> dict:
+    r = requests.get(url, timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+data = get_json("https://httpbin.org/get")
+print(data.get("url"))''', "l": "python"},
+
+    {"k": ["decorator yaz", "dekorator", "decorator ornegi"],
+     "a": "Decorator ile fonksiyonu sarmalama:",
+     "c": '''import time
+from functools import wraps
+
+def sure_olc(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        t0 = time.time()
+        sonuc = fn(*args, **kwargs)
+        print(f"{fn.__name__}: {time.time() - t0:.4f}s")
+        return sonuc
+    return wrapper
+
+@sure_olc
+def yavas():
+    time.sleep(0.2)
+    return "ok"
+
+print(yavas())''', "l": "python"},
+
+    {"k": ["generator yaz", "yield", "generator ornegi"],
+     "a": "Generator (`yield`) ile bellek dostu akış:",
+     "c": '''def sayac(n: int):
+    i = 0
+    while i < n:
+        yield i
+        i += 1
+
+def dosya_satirlari(path: str):
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            yield line.rstrip("\\n")
+
+for x in sayac(5):
+    print(x)''', "l": "python"},
+
+    {"k": ["regex yaz", "duzenli ifade", "re search", "regex ornegi"],
+     "a": "Regex ile e-posta / sayı yakalama:",
+     "c": '''import re
+
+text = "Mail: demir@ornek.com, yaş 16, tel +90 555"
+print(re.findall(r"[\\w.-]+@[\\w.-]+", text))
+print(re.findall(r"\\d+", text))
+m = re.search(r"yaş (\\d+)", text)
+print(m.group(1) if m else None)''', "l": "python"},
+
+    {"k": ["threading yaz", "coklu is parcacigi", "thread ornegi"],
+     "a": "Basit threading örneği:",
+     "c": '''import threading
+import time
+
+def isci(ad: str, n: int) -> None:
+    for i in range(n):
+        print(ad, i)
+        time.sleep(0.1)
+
+t1 = threading.Thread(target=isci, args=("A", 3))
+t2 = threading.Thread(target=isci, args=("B", 3))
+t1.start(); t2.start()
+t1.join(); t2.join()
+print("bitti")''', "l": "python"},
+
+    {"k": ["oop yaz", "nesne yonelimli", "class ornegi gelismis"],
+     "a": "OOP: kalıtım + encapsulation:",
+     "c": '''class Canli:
+    def __init__(self, isim: str):
+        self.isim = isim
+    def konus(self) -> str:
+        return "..."
+
+class Kopek(Canli):
+    def konus(self) -> str:
+        return f"{self.isim}: hav!"
+
+class Kedi(Canli):
+    def konus(self) -> str:
+        return f"{self.isim}: miyav!"
+
+for c in (Kopek("Karabaş"), Kedi("Pamuk")):
+    print(c.konus())''', "l": "python"},
+
+    {"k": ["sqlite yaz", "sqlite ornegi", "veritabani kodu"],
+     "a": "SQLite ile tablo oluştur / ekle / oku:",
+     "c": '''import sqlite3
+
+conn = sqlite3.connect("app.db")
+cur = conn.cursor()
+cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)")
+cur.execute("INSERT INTO users (name) VALUES (?)", ("Demir",))
+conn.commit()
+for row in cur.execute("SELECT id, name FROM users"):
+    print(row)
+conn.close()''', "l": "python"},
+
+    {"k": ["async await", "asyncio yaz", "asenkron python"],
+     "a": "asyncio ile eşzamanlı işler:",
+     "c": '''import asyncio
+
+async def is_yap(ad: str, sn: float) -> str:
+    await asyncio.sleep(sn)
+    return f"{ad} bitti"
+
+async def main():
+    sonuclar = await asyncio.gather(
+        is_yap("A", 0.3),
+        is_yap("B", 0.2),
+        is_yap("C", 0.1),
+    )
+    print(sonuclar)
+
+asyncio.run(main())''', "l": "python"},
+
+    {"k": ["rest api yaz", "flask api yaz", "mini api"],
+     "a": "Flask ile mini REST API:",
+     "c": '''from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+items = []
+
+@app.get("/items")
+def list_items():
+    return jsonify(items)
+
+@app.post("/items")
+def add_item():
+    data = request.get_json(force=True) or {}
+    items.append(data)
+    return jsonify(data), 201
+
+if __name__ == "__main__":
+    app.run(port=5000)''', "l": "python"},
+
+    {"k": ["unit test yaz", "pytest yaz", "test kodu yaz"],
+     "a": "pytest ile birim test:",
+     "c": '''def topla(a, b):
+    return a + b
+
+def test_topla():
+    assert topla(2, 3) == 5
+    assert topla(-1, 1) == 0
+
+# çalıştır: pytest -q''', "l": "python"},
+
+    {"k": ["cli yaz", "komut satiri uygulama", "argparse yaz"],
+     "a": "argparse ile CLI:",
+     "c": '''import argparse
+
+parser = argparse.ArgumentParser(description="Dosya araçları")
+parser.add_argument("path", help="dosya yolu")
+parser.add_argument("-n", "--lines", type=int, default=10)
+args = parser.parse_args()
+
+with open(args.path, encoding="utf-8") as f:
+    for i, line in enumerate(f):
+        if i >= args.lines:
+            break
+        print(line, end="")''', "l": "python"},
+
+    {"k": ["json oku yaz", "json dosya", "json dump load"],
+     "a": "JSON dosyası okuma / yazma:",
+     "c": '''import json
+
+data = {"isim": "Demir", "diller": ["Python", "JS"]}
+with open("data.json", "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+
+with open("data.json", "r", encoding="utf-8") as f:
+    loaded = json.load(f)
+print(loaded["isim"])''', "l": "python"},
 ]

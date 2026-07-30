@@ -214,6 +214,11 @@ class Agent:
             return True
         if (words & CODE_EXAMPLE) and (words & (CODE_LANGS | CODE_STRONG | {"liste", "dosya", "class"})):
             return True
+        # "X yaz" / "write X" — kısa uygulama istekleri
+        if (words & CODE_WRITE) and len(words) <= 6:
+            return True
+        if text.startswith("write ") and len(words) <= 6:
+            return True
         # "X nasıl yazılır/yapılır" programming how-to — still code-ish if lang present
         if (words & CODE_LANGS) and any(x in text for x in ("nasil", "yazilir", "yapilir", "kullanilir")):
             return True
