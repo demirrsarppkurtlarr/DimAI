@@ -126,12 +126,26 @@ class LearnedStore:
         )
         r.raise_for_status()
 
+    @staticmethod
+    def _clean_answer(text: str) -> str:
+        """Eski kayıtlardaki '🔎 Çoklu kaynak…' başlığını ve kaynak listesini sil."""
+        if not text:
+            return text
+        text = re.sub(
+            r"^🔎\s*\*?\*?Çoklu kaynak araştırması\*?\*?\s*\([^)]*\)\s*\n+",
+            "",
+            text.strip(),
+            flags=re.I,
+        )
+        text = re.sub(r"\n*📚\s*\*?\*?Kaynaklar[^\n]*\n(?:•[^\n]*\n?)*", "", text)
+        return text.strip()
+
     def add(self, question: str, answer: str, url: str = "") -> None:
         with self._lock:
             entry = {
                 "q": question.strip()[:300],
                 "kw": sorted(_keywords(question)),
-                "a": answer.strip()[:3000],
+                "a": self._clean_answer(answer.strip())[:3000],
                 "url": url,
                 "t": time.time(),
             }
@@ -174,7 +188,10 @@ class LearnedStore:
                 if score > best_score:
                     best, best_score = item, score
         if best and best_score >= 0.75:
-            return best
+            return {
+                **best,
+                "a": self._clean_answer(best.get("a", "")),
+            }
         return None
 
     def count(self) -> int:
