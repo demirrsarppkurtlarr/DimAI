@@ -111,11 +111,15 @@ def chat():
                 break
         else:
             # hiçbir kaynak bulamadıysa ve düşünce "followup" ise konuyu hatırlat
-            if result.get("thinking", "").startswith("önceki konuya"):
+            if (result.get("thinking") or "").startswith("önceki konuya"):
+                # research_query'den ana konuyu çıkar
+                tip = (result.get("thinking") or "")
+                konu = tip.split("«")[-1].split("»")[0] if "«" in tip else "bu konu"
                 result["source"] = "chat"
                 result["reply"] = (
-                    "Bu konuda net bir kaynak bulamadım. "
-                    "Soruyu biraz daha açar mısın — ya da yeni bir konu sor."
+                    f"**{konu}** hakkında sorduğunu anladım ama net bir sonuç "
+                    f"çekemedim. Soruyu biraz açar mısın — ör. \"{konu} nasıl oluşur\" "
+                    f"veya \"{konu} ne işe yarar\"?"
                 )
 
     # Attach experimental neural output when requested or still unanswered

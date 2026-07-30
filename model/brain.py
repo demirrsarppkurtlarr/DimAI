@@ -1471,33 +1471,52 @@ class Brain:
             for w in content_words
         )
 
-    def _topic_keywords(self, history: list, limit: int = 6) -> list[str]:
-        """Extract the conversation topic from recent user (+ AI) messages."""
-        stop = self.GENERIC_WORDS | self.FOLLOWUP_HINTS | self.QUESTION_WORDS
-        out: list[str] = []
-        for msg in reversed(self._last_user_messages(history)[-6:]):
-            words = set(_norm(msg).split())
-            content = {w for w in words if len(w) >= 3 and w not in stop}
-            nouns = self._noun_entities(content)
-            if not content or (not nouns and self._looks_possessive(content)):
+    def _topic_keywords(self, history: list, limit: int = 3) -> list[str]:
+        """Kullanıcının son KONU AÇAN mesajından 1–3 isim çıkar.
+
+        Takip soruları ("nasıl oluşur", "ışık neden kaçamaz") konu sayılmaz.
+        """
+        stop = self.GENERIC_WORDS | self.FOLLOWUP_HINTS | self.QUESTION_WORDS | {
+            "bir", "bu", "su", "cok", "daha", "kadar", "icin", "ile", "gibi",
+            "olarak", "olan", "sonra", "once", "simdi",
+        }
+        user_msgs = self._last_user_messages(history)[-8:]
+        for idx, msg in enumerate(reversed(user_msgs)):
+            nmsg = _norm(msg)
+            words = nmsg.split()
+            # Takip şeklindeki mesajları atla — asıl konuyu daha geride ara
+            if user_msgs[: len(user_msgs) - idx - 1] and self._looks_like_followup_msg(nmsg, words):
                 continue
-            if not nouns and len(content) <= 2:
+            content = [w for w in words if len(w) >= 3 and w not in stop]
+            nouns = [w for w in content if w in self._noun_entities(set(content))]
+            if not nouns:
+                if len(content) <= 2:
+                    continue
+                nouns = [w for w in content if len(w) >= 4][:limit]
+            if not nouns:
                 continue
-            for w in _norm(msg).split():
-                if len(w) >= 3 and w not in stop and w not in out:
+            out = []
+            for w in nouns:
+                if w not in out:
                     out.append(w)
-            nouns_list = [w for w in out if w in nouns]
-            rest = [w for w in out if w not in nouns]
-            out = nouns_list + rest
-            break
-        # Son AI cevabından konuyla ilgili isimleri de ekle (ışık, kutlecekimi…)
-        if out:
-            ai = _norm(self._last_ai_message(history))[:500]
-            ai_nouns = self._noun_entities(self._content_words(ai))
-            for w in ai_nouns:
-                if w not in out and len(w) >= 5 and len(out) < limit:
-                    out.append(w)
-        return out[:limit]
+            return out[:limit]
+        return []
+
+    def _looks_like_followup_msg(self, text: str, words: list[str]) -> bool:
+        """Konu çıkarıcı için: bu mesaj yeni konu mu, yoksa takip mi?"""
+        wset = set(words)
+        if wset & self.FOLLOWUP_HINTS:
+            return True
+        # açık yeni konu: "X nedir/kimdir"
+        if any(h in text for h in ("nedir", "kimdir", "ne demek", "who is", "what is", "hakkinda")):
+            return False
+        q_bits = ("neden", "niye", "nasil", "ne zaman", "nerede", "kac", "hangi",
+                  "hangisi", "ne kadar", "ne olur", "ne ise", "ne icin", "boyutu")
+        if len(words) <= 8 and any(q in text for q in q_bits):
+            return True
+        if len(words) <= 5:
+            return True
+        return False
 
     def _is_followup(self, text: str, history: list) -> bool:
         """Önceki mesaja bağlı mı? Varsayılan: geçmiş varsa konuyu koru."""
@@ -1569,9 +1588,10 @@ class Brain:
             intent = "chat"
 
         if intent == "followup":
-            # Önce konu+soru; yalın soru ASLA önce denenmez
-            research_q = f"{topic_str} {raw}".strip()
-            reason = f"önceki konuya bağlı: «{topic_str}»"
+            # Sadece ana konu kelimesi + soru (kirli uzun sorgular aramayı bozar)
+            main = " ".join(topic[:2]) if topic else ""
+            research_q = f"{main} {raw}".strip()
+            reason = f"önceki konuya bağlı: «{main}»"
         elif intent == "research":
             research_q = raw
             reason = f"yeni bilgi sorusu: «{' '.join(sorted(nouns)[:3]) or raw[:40]}»"
@@ -1687,8 +1707,9 @@ class Brain:
                     result["thinking"] = thought["reason"]
                     return result
 
-            # Web: her zaman konu+soru ile ara (yalın soru yok)
+            # Web: konu+soru ile ara; bulamazsa sadece ana konu kelimesiyle dene
             if self._should_research(text + " " + topic_str, thought["content"] | set(thought["topic"])):
+                main = " ".join(thought["topic"][:1])
                 return {
                     "reply": (
                         "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
@@ -1696,8 +1717,8 @@ class Brain:
                     ),
                     "source": "fallback",
                     "research_query": thought["research_query"],
-                    # yalın soruyu ikinci deneme olarak bile KOYMA —
-                    # konu kaybına yol açıyor
+                    # yedek: sadece ana konu + soru (daha temiz)
+                    "context_query": f"{main} {raw}".strip() if main else None,
                     "thinking": thought["reason"],
                 }
             out = self._soft_reply(text, history)
@@ -1738,9 +1759,7 @@ class Brain:
                 "research_query": raw,
                 "thinking": thought["reason"],
             }
-            # geçmiş konu varsa onu YEDEK olarak ekle (önce yeni soru)
-            if thought["topic"] and len(thought["content"]) <= 2:
-                result["context_query"] = thought["topic_str"] + " " + raw
+            # Yeni konu: eski konuyu yedek olarak EKLEME (konu karışmasın)
             return result
 
         out = self._soft_reply(text, history)
