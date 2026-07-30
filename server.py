@@ -117,14 +117,28 @@ def chat():
             prior = improve.retrieve(message)
             if prior and float(prior.get("overall") or 0) >= 0.72 and prior.get("from") == "episode":
                 if float(prior.get("match") or 0) >= 0.78:
-                    result = {
-                        "reply": prior["reply"],
-                        "source": "memory",
-                        "url": prior.get("url", ""),
-                        "thinking": "geçmiş başarılı çözümden",
-                        "intent": getattr(decision, "intent", "memory"),
-                        "allow_web": False,
-                    }
+                    msg_l = message.lower()
+                    reply_l = (prior.get("reply") or "").lower()
+                    # Tanım sorularında kod örnekli eski memory'yi ezme (örn. "HTTP nedir")
+                    definitional = any(
+                        x in msg_l
+                        for x in ("nedir", "kimdir", "ne demek", "what is", "who is")
+                    )
+                    looks_codey = any(
+                        x in reply_l
+                        for x in ("import ", "def ", "```", "pip install", "console.log")
+                    )
+                    if definitional and looks_codey:
+                        prior = None
+                    if prior:
+                        result = {
+                            "reply": prior["reply"],
+                            "source": "memory",
+                            "url": prior.get("url", ""),
+                            "thinking": "geçmiş başarılı çözümden",
+                            "intent": getattr(decision, "intent", "memory"),
+                            "allow_web": False,
+                        }
         except Exception:
             result = None
 
