@@ -1150,11 +1150,15 @@ git merge yeni-dal           # birleştir''', "l": "bash"},
 
 CHITCHAT: list[tuple[list[str], list[str]]] = [
     (["merhaba", "selam", "hello", "hi", "hey", "slm", "sa"],
-     ["Merhaba! 👋 Ben DimAI. Kod yazmama yardım et dersen buradayım — ör. \"python'da liste nasıl sıralanır?\"",
-      "Selam! Hangi kodu yazalım? Python, JS, SQL... sor yeter."]),
+     ["Merhaba! Ben DimAI. Kod, soru veya sohbet — ne istersen yaz.",
+      "Selam! Bugün ne üzerinde çalışıyoruz?"]),
     (["nasilsin", "naber", "ne haber", "iyi misin", "how are you"],
-     ["İyiyim, corpus'umda geziniyordum 😄 Sen hangi kodu yazmak istiyorsun?",
-      "Harikayım — az önce kendimi biraz daha eğittim. Ne kodlayalım?"]),
+     ["İyiyim, teşekkürler! Sen nasılsın? Bir şey yazmak veya sormak ister misin?",
+      "Gayet iyiyim. Sen ne yapmak istiyorsun — kod mu, bilgi mi, sohbet mi?"]),
+    (["gunaydin", "günaydın"],
+     ["Günaydın! Bugün ne kodlayalım veya ne soralım?"]),
+    (["iyi geceler", "iyi aksamlar", "iyi akşamlar"],
+     ["Sana da! Takıldığın yer olursa buradayım."]),
     (["adin ne", "kimsin", "sen nesin", "who are you", "ismin", "sen kimsin"],
      ["Ben DimAI — dış API kullanmayan, kendi kendini eğiten bir kod asistanıyım. Bilgi tabanım + küçük nöral modelim var."]),
     (["ben kimim", "kimim ben", "ben kim", "who am i"],
@@ -1162,18 +1166,20 @@ CHITCHAT: list[tuple[list[str], list[str]]] = [
     (["beni taniyor musun", "beni biliyor musun", "beni hatirliyor musun", "beni ani"],
      ["Konuştuğumuz kadarını hatırlıyorum. Adını söylersen kalıcı tutarım — \"Benim adım ...\""]),
     (["seni kim yapti", "kim gelistirdi", "yaraticin"],
-     ["Beni Demir geliştirdi. Bilgi tabanım ve nöral modelim tamamen yerel çalışıyor — ChatGPT falan karışmıyor 😎"]),
+     ["Beni Demir geliştirdi. Bilgi tabanım ve nöral modelim tamamen yerel çalışıyor."]),
     (["tesekkur", "sagol", "sag ol", "thanks", "eyvallah", "tskler"],
-     ["Rica ederim! Başka kod lazım olursa buradayım 🚀", "Ne demek! Takıldığın yerde tekrar sor."]),
+     ["Rica ederim! Başka bir şey lazım olursa yazman yeterli.", "Ne demek — devam edelim mi?"]),
     (["gorusuruz", "bay bay", "hosca kal", "bye", "gule gule"],
-     ["Görüşürüz! İyi kodlamalar 👨‍💻"]),
+     ["Görüşürüz! İyi çalışmalar."]),
     (["ne yapabilirsin", "neler yapabilirsin", "ozelliklerin", "yetenekler", "help", "yardim"],
-     ["Şunları yapabilirim:\n• Python kodu yazarım (döngü, liste, dosya, class, API...)\n• Algoritma örnekleri veririm (fibonacci, asal, sıralama...)\n• JS / HTML / CSS / SQL / Git temelleri\n• Matematik işlemleri hesaplarım (ör. \"25*4 kaç eder\")\n• Nöral modelim arka planda kendini eğitmeye devam eder\n\nÖrnek: \"sayı tahmin oyunu yaz\" veya \"dosya nasıl okunur?\""]),
+     ["Şunları yapabilirim:\n• Python / JS / SQL kodu yazarım\n• Algoritma ve örnekler veririm\n• Bilgi sorularında önce hafızama, gerekirse web'e bakarım\n• Konuşmayı hatırlarım ve takip sorularına bağlı kalırım\n\nÖrnek: \"sayı tahmin oyunu yaz\" veya \"karadelik nedir\""]),
     (["saka", "espri", "komik", "joke", "guldur"],
-     ["Neden programcılar karanlıktan korkmaz? Çünkü ışığı `print`'lerler 😅",
-      "İki byte bir barda karşılaşmış. Biri sormuş: \"Bit'ler nasıl?\" 😄"]),
+     ["Neden programcılar karanlıktan korkmaz? Çünkü ışığı `print`'lerler.",
+      "İki byte bir barda karşılaşmış. Biri sormuş: \"Bit'ler nasıl?\""]),
     (["seni seviyorum", "cok iyisin", "harikasin", "mukemmelsin"],
-     ["Teşekkürler! 🥹 O zaman hadi güzel bir şeyler kodlayalım."]),
+     ["Teşekkürler! O zaman hadi bir şeyler üretelim — ne yazayım?"]),
+    (["tamam", "ok", "okay", "anladim", "peki"],
+     ["Tamam. Devam etmek istediğin bir konu var mı?", "Peki — sıradaki adım ne olsun?"]),
 ]
 
 
@@ -1481,19 +1487,29 @@ class Brain:
                 "source": "chat",
             }
         topic = self._topic_keywords(history)
+        name = self._remember_name(history, "")
         if topic:
+            tip = " ".join(topic[:3])
+            who = f"{name}, " if name else ""
             return {
                 "reply": (
-                    f"Hâlâ **{' '.join(topic[:3])}** hakkında konuşuyoruz. "
-                    f"Ne öğrenmek istiyorsun — nasıl oluşur, ne işe yarar, "
-                    f"örnek ister misin? Ya da yeni bir konu sor."
+                    f"{who}hâlâ **{tip}** konuşuyoruz. "
+                    f"Ne öğrenmek istersin — nasıl çalışır, örnek, yoksa yeni konu mu?"
+                ),
+                "source": "chat",
+            }
+        if name:
+            return {
+                "reply": (
+                    f"{name}, bunu tam bağlayamadım. "
+                    f"Kod mu yazalım, bir şey mi soracağız, yoksa sohbet mi?"
                 ),
                 "source": "chat",
             }
         return {
             "reply": (
-                "Bunu sohbet olarak anladım ama net bir konu yakalayamadım. "
-                "Daha somut sor — ör. \"karadelik nedir\" veya \"fibonacci kodu yaz\"."
+                "Tam olarak ne istediğini yakalayamadım. "
+                "Örnek: \"fibonacci kodu yaz\", \"karadelik nedir\" veya sadece sohbet et."
             ),
             "source": "chat",
         }
@@ -1685,44 +1701,62 @@ class Brain:
         text = _norm(raw)
 
         if not text:
-            return {"reply": "Bir şeyler yaz da konuşalım 🙂", "source": "chat"}
+            return {"reply": "Bir şey yaz, dinliyorum.", "source": "chat"}
 
-        math_answer = self._try_math(raw)
-        if math_answer:
-            return {"reply": math_answer, "source": "math"}
-
-        # name memory
-        intro = re.search(r"(?:benim )?(?:adim|ismim)\s+([a-zçğıöşü]+)", text)
-        if intro and intro.group(1) not in ("ne", "neydi", "nedir"):
-            return {
-                "reply": f"Memnun oldum **{intro.group(1).capitalize()}**! 🤝 Aklımda. Ne kodlayalım?",
-                "source": "chat",
-            }
-        if re.search(r"(adim|ismim|adimi)\s*(ne|neydi|nedir|hatirliyor)", text):
-            name = self._remember_name(history, raw)
-            if name:
-                return {"reply": f"Tabii, adın **{name}** 😊", "source": "chat"}
-            return {"reply": "Daha söylemedin! \"Benim adım ...\" dersen aklımda tutarım.", "source": "chat"}
-
-        # ---- DÜŞÜN ----
-        thought = self._think(raw, text, history)
+        # ---- Agent karar motoru ----
+        try:
+            from model.agent import agent as _agent
+        except ImportError:
+            from agent import agent as _agent  # type: ignore
+        decision = _agent.decide(raw, history)
+        reason = decision.reason
         kb = self._match_kb(text)
         chit = self._match_chitchat(text)
         words = set(text.split())
         is_short = len(words) <= 6
-        wants_code = self._wants_code(text)
 
-        # kişisel / arama yasağı
-        if thought["intent"] in ("personal", "refuse"):
-            out = self._soft_reply(text, history)
-            out["thinking"] = thought["reason"]
-            return out
+        def _tag(result: dict) -> dict:
+            result["thinking"] = reason
+            result["intent"] = decision.intent
+            result["allow_web"] = decision.allow_web
+            result["plan"] = decision.plan
+            result["tools"] = decision.tools
+            if decision.context_summary:
+                result["context"] = decision.context_summary
+            return result
 
-        # Sohbet / selamlaşma — web'e ve soft_reply'a düşmeden HEMEN cevap
-        if chit and thought["intent"] == "chat" and not wants_code:
-            return {"reply": chit, "source": "chat", "thinking": thought["reason"]}
+        # math
+        if decision.intent == "math":
+            math_answer = self._try_math(raw)
+            if math_answer:
+                return _tag({"reply": math_answer, "source": "math"})
 
-        # "başka örnek / devam et" → aynı KB konusundan farklı kayıt
+        # name intro / recall
+        intro = re.search(r"(?:benim )?(?:adim|ismim)\s+([a-zçğıöşü]+)", text)
+        if intro and intro.group(1) not in ("ne", "neydi", "nedir"):
+            return _tag({
+                "reply": f"Memnun oldum **{intro.group(1).capitalize()}**! Aklımda. Ne yapmak istersin?",
+                "source": "chat",
+            })
+        if re.search(r"(adim|ismim|adimi)\s*(ne|neydi|nedir|hatirliyor)", text):
+            name = self._remember_name(history, raw)
+            if name:
+                return _tag({"reply": f"Tabii, adın **{name}**.", "source": "chat"})
+            return _tag({"reply": "Daha söylemedin! \"Benim adım ...\" dersen aklımda tutarım.", "source": "chat"})
+
+        # personal / refuse
+        if decision.intent in ("personal", "refuse"):
+            return _tag(self._soft_reply(text, history))
+
+        # chat / help
+        if decision.intent in ("chat", "help"):
+            if chit:
+                return _tag({"reply": chit, "source": "chat"})
+            if decision.intent == "help" and kb:
+                return _tag(self._kb_result(kb))
+            return _tag(self._soft_reply(text, history))
+
+        # başka örnek
         if is_short and any(p in text for p in self.MORE_PATTERNS):
             prev = self._last_topic_entry(history)
             if prev:
@@ -1737,97 +1771,77 @@ class Brain:
                     if entry is not prev:
                         result = self._kb_result(entry)
                         result["reply"] = "İlgili başka bir örnek:\n\n" + result["reply"]
-                        result["thinking"] = thought["reason"]
-                        return result
-                result = self._kb_result(prev)
-                result["thinking"] = thought["reason"]
-                return result
+                        return _tag(result)
+                return _tag(self._kb_result(prev))
 
-        # ---- TAKİP: önceki konuya sıkı sıkıya bağlı kal ----
-        if thought["intent"] == "followup" and thought["topic"]:
-            topic_str = thought["topic_str"]
-            # saf selamlaşma
-            if chit and not thought["content"]:
-                return {"reply": chit, "source": "chat", "thinking": thought["reason"]}
-
+        # followup — önce KB, gerekirse web'e izin bayrağı
+        if decision.intent == "followup" and decision.topic:
+            topic_str = " ".join(decision.topic)
+            if chit and len(words) <= 2:
+                return _tag({"reply": chit, "source": "chat"})
             comb = self._rank_kb(text + " " + topic_str)
             bare = self._rank_kb(text)
             comb_s = comb[0][1] if comb else 0.0
             bare_s = bare[0][1] if bare else 0.0
-
-            # konu + soru birlikte güçlüyse onu ver
             if comb and comb_s >= 3.0 and comb_s >= bare_s:
-                result = self._kb_result(comb[0][0])
-                result["thinking"] = thought["reason"]
-                return result
-            # yalın eşleşme SADECE çok güçlüyse ve konuyla örtüşüyorsa
+                return _tag(self._kb_result(comb[0][0]))
             if bare and bare_s >= 6.0:
                 bare_keys = " ".join(bare[0][0].get("nk", []))
-                if any(t in bare_keys for t in thought["topic"]):
-                    result = self._kb_result(bare[0][0])
-                    result["thinking"] = thought["reason"]
-                    return result
-
-            # Web: konu+soru ile ara; bulamazsa sadece ana konu kelimesiyle dene
-            if self._should_research(text + " " + topic_str, thought["content"] | set(thought["topic"])):
-                main = " ".join(thought["topic"][:1])
-                return {
-                    "reply": (
-                        "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
-                        + "\n".join(f"• {s}" for s in random.sample(SUGGESTIONS, 4))
-                    ),
+                if any(t in bare_keys for t in decision.topic):
+                    return _tag(self._kb_result(bare[0][0]))
+            if decision.allow_web:
+                return _tag({
+                    "reply": "Bir saniye, bu konuyu netleştireyim…",
                     "source": "fallback",
-                    "research_query": thought["research_query"],
-                    # yedek: sadece ana konu + soru (daha temiz)
-                    "context_query": f"{main} {raw}".strip() if main else None,
-                    "thinking": thought["reason"],
-                }
-            out = self._soft_reply(text, history)
-            out["thinking"] = thought["reason"]
-            return out
+                    "research_query": decision.research_query or (topic_str + " " + raw),
+                })
+            return _tag(self._soft_reply(text, history))
 
-        # ---- YENİ KONU / KOD / SOHBET ----
-        # Takip değilse bile geçmiş varsa zayıf KB eşleşmesinin konuyu çalmasını engelle
-        if kb and (wants_code or not chit):
-            if history and thought["topic"] and not wants_code:
-                kb_keys = " ".join(kb.get("nk", []))
-                overlap = any(t in kb_keys for t in thought["topic"])
-                score = self._score_entry(text, words, kb)
-                if score < 5.0 and not overlap and thought["followup"]:
-                    kb = None  # konuyu çalma
+        # code — KB önce, yoksa somut örnek (web YOK)
+        if decision.intent == "code":
             if kb:
-                result = self._kb_result(kb)
-                result["thinking"] = thought["reason"]
-                return result
-
-        # Belirsiz kod isteği ("kod yaz", "python kodu yaz") → somut örnek ver
-        if wants_code or thought["intent"] == "code":
+                return _tag(self._kb_result(kb))
+            # "liste nasıl sıralanır" gibi howto'lar GENERIC ile gelebilir — zayıf KB dene
+            ranked = self._rank_kb(text)
+            if ranked and ranked[0][1] >= 1.5:
+                return _tag(self._kb_result(ranked[0][0]))
             result = self._default_code_reply(text)
-            result["thinking"] = thought["reason"]
-            return result
+            if decision.plan:
+                result["reply"] = (
+                    "Plan: " + " → ".join(decision.plan) + "\n\n" + result["reply"]
+                )
+            return _tag(result)
 
-        if chit:
-            return {"reply": chit, "source": "chat", "thinking": thought["reason"]}
-        if kb:
-            result = self._kb_result(kb)
-            result["thinking"] = thought["reason"]
-            return result
-
-        if thought["intent"] == "research" or self._should_research(text, thought["content"]):
-            result = {
+        # analyze
+        if decision.intent == "analyze":
+            if kb:
+                return _tag(self._kb_result(kb))
+            return _tag({
                 "reply": (
-                    "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
-                    + "\n".join(f"• {s}" for s in random.sample(SUGGESTIONS, 4))
+                    "Analiz için kodu veya hatayı yapıştır. "
+                    "Planım: kodu oku → sorunu bul → düzeltme öner."
                 ),
-                "source": "fallback",
-                "research_query": raw,
-                "thinking": thought["reason"],
-            }
-            return result
+                "source": "chat",
+            })
 
-        out = self._soft_reply(text, history)
-        out["thinking"] = thought["reason"]
-        return out
+        # research — KB önce; web yalnızca allow_web
+        if decision.intent == "research":
+            if kb:
+                return _tag(self._kb_result(kb))
+            if decision.allow_web:
+                return _tag({
+                    "reply": "Bunu bilgi olarak araştırayım…",
+                    "source": "fallback",
+                    "research_query": decision.research_query or raw,
+                })
+            return _tag(self._soft_reply(text, history))
+
+        # fallback path: KB → chat (web yok)
+        if kb:
+            return _tag(self._kb_result(kb))
+        if chit:
+            return _tag({"reply": chit, "source": "chat"})
+        return _tag(self._soft_reply(text, history))
 
 
 brain = Brain()

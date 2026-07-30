@@ -191,12 +191,12 @@ async function sendMessage(text) {
   try {
     const data = await api("/api/chat", {
       message: text,
-      history: chatHistory.slice(-14),
+      history: chatHistory.slice(-16),
     });
     chatHistory.push({ role: "user", content: text });
     // AI cevabının daha fazlasını tut — takip soruları için konu lazım
-    chatHistory.push({ role: "ai", content: (data.reply || "").slice(0, 900) });
-    if (chatHistory.length > 40) chatHistory = chatHistory.slice(-40);
+    chatHistory.push({ role: "ai", content: (data.reply || "").slice(0, 1200) });
+    if (chatHistory.length > 48) chatHistory = chatHistory.slice(-48);
 
     // düşünme hissi: en az ~700ms, düşünce varsa biraz daha
     const thinkMs = data.thinking ? 900 : 650;

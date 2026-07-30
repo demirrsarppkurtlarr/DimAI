@@ -86,19 +86,23 @@ def chat():
     if not isinstance(history, list):
         history = []
 
+    # Agent decision — web yalnızca allow_web ise
+    try:
+        from model.agent import agent as _agent
+        decision = _agent.decide(message, history[-16:])
+    except Exception:
+        decision = None
+
     result = None
 
-    # Selamlaşma / sohbet → memory retrieval ve web YOK
-    _norm_msg = None
-    try:
-        from model.brain import _norm as _bn
-        _norm_msg = _bn(message)
-        is_chitchat = bool(brain._match_chitchat(_norm_msg)) and not brain._wants_code(_norm_msg)
-    except Exception:
-        is_chitchat = False
+    # Memory retrieval: sadece bilgi/kod/takip için
+    can_memory = True
+    if decision and decision.intent in ("chat", "refuse", "personal", "math", "help"):
+        can_memory = False
+    if decision and not decision.allow_memory:
+        can_memory = False
 
-    # --- Knowledge Retrieval: güçlü geçmiş başarıyı önce dene ---
-    if not is_chitchat:
+    if can_memory:
         try:
             prior = improve.retrieve(message)
             if prior and float(prior.get("overall") or 0) >= 0.72 and prior.get("from") == "episode":
@@ -108,14 +112,21 @@ def chat():
                         "source": "memory",
                         "url": prior.get("url", ""),
                         "thinking": "geçmiş başarılı çözümden",
+                        "intent": getattr(decision, "intent", "memory"),
+                        "allow_web": False,
                     }
         except Exception:
             result = None
 
     if result is None:
-        result = brain.reply(message, history=history[-10:])
+        result = brain.reply(message, history=history[-16:])
 
-    if result.get("source") == "fallback":
+    # Web yalnızca agent izin verdiyse ve brain fallback döndüyse
+    allow_web = bool(result.get("allow_web"))
+    if decision is not None:
+        allow_web = bool(decision.allow_web) and result.get("source") == "fallback"
+
+    if result.get("source") == "fallback" and allow_web:
         query = result.pop("research_query", message)
         context_query = result.pop("context_query", None)
         queries = [query]
@@ -123,7 +134,6 @@ def chat():
             queries.append(context_query)
 
         for q in queries:
-            # 1) geçmiş başarı / learned (retrieval)
             try:
                 prior = improve.retrieve(q)
             except Exception:
@@ -134,6 +144,7 @@ def chat():
                     "source": prior.get("source") or "memory",
                     "url": prior.get("url", ""),
                     "thinking": result.get("thinking", "") or "geçmiş çözüm",
+                    "intent": result.get("intent"),
                 }
                 break
 
@@ -144,18 +155,19 @@ def chat():
                     "source": "learned",
                     "url": hit.get("url", ""),
                     "thinking": result.get("thinking", ""),
+                    "intent": result.get("intent"),
                 }
                 break
 
             found = web_research.research_deep(q)
             if found:
-                # Learning Queue: doğrudan memory'e yazma — after_chat doğrulayıp ekler
                 result = {
                     "reply": found["answer"],
                     "source": "web",
                     "url": found.get("url", ""),
                     "provider": found.get("provider", ""),
                     "thinking": result.get("thinking", ""),
+                    "intent": result.get("intent"),
                 }
                 break
         else:
@@ -164,13 +176,19 @@ def chat():
                 konu = tip.split("«")[-1].split("»")[0] if "«" in tip else "bu konu"
                 result["source"] = "chat"
                 result["reply"] = (
-                    f"**{konu}** hakkında sorduğunu anladım ama net bir sonuç "
-                    f"çekemedim. Soruyu biraz açar mısın — ör. \"{konu} nasıl oluşur\" "
-                    f"veya \"{konu} ne işe yarar\"?"
+                    f"**{konu}** hakkında sorduğunu anladım ama net sonuç bulamadım. "
+                    f"Soruyu biraz açar mısın?"
                 )
+    elif result.get("source") == "fallback" and not allow_web:
+        result["source"] = "chat"
+        if not result.get("reply") or "araştırayım" in (result.get("reply") or "").lower():
+            result["reply"] = (
+                "Bunu web'e çıkmadan yanıtlayamadım. "
+                "Daha somut sor veya \"karadelik nedir\" / \"fibonacci kodu yaz\" dene."
+            )
 
-    # Attach experimental neural output when requested or still unanswered
-    if data.get("neural") or result.get("source") == "fallback":
+    # Neural sadece açıkça istenirse
+    if data.get("neural"):
         try:
             sample = trainer.generate(prompt="def ", n_chars=160, temperature=0.5)
             valid = trainer.longest_valid_prefix(sample)
@@ -179,7 +197,6 @@ def chat():
         except Exception:
             pass
 
-    # --- Self-improvement: evaluate → reflect → log → queue → promote ---
     try:
         enrichment = improve.after_chat(message, result)
         result.update(enrichment)
