@@ -228,8 +228,8 @@ def answer_meta(raw: str = "", steps: Optional[int] = None) -> str:
 def convert_units(raw: str) -> Optional[str]:
     t = _norm(raw)
     m = re.search(
-        r"(\d+(?:[.,]\d+)?)\s*(km|m|cm|mm|kg|g|c|f|celcius|celsius|fahrenheit)\s*"
-        r"(?:to|kac|kaç|in|=)?\s*(km|m|cm|mm|kg|g|c|f|celcius|celsius|fahrenheit)?",
+        r"(\d+(?:[.,]\d+)?)\s*(km|m|cm|mm|mile|miles|mil|kg|g|c|f|celcius|celsius|fahrenheit)\s*"
+        r"(?:to|kac|kaç|in|=)?\s*(km|m|cm|mm|mile|miles|mil|kg|g|c|f|celcius|celsius|fahrenheit)?",
         t,
     )
     if not m:
@@ -237,7 +237,7 @@ def convert_units(raw: str) -> Optional[str]:
     val = float(m.group(1).replace(",", "."))
     src = m.group(2)
     dst = m.group(3)
-    table_len = {"km": 1000, "m": 1, "cm": 0.01, "mm": 0.001}
+    table_len = {"km": 1000, "m": 1, "cm": 0.01, "mm": 0.001, "mile": 1609.34, "miles": 1609.34, "mil": 1609.34}
     table_mass = {"kg": 1000, "g": 1}
 
     def _alias(u: str) -> str:
@@ -245,6 +245,8 @@ def convert_units(raw: str) -> Optional[str]:
             return "c"
         if u in ("f", "fahrenheit"):
             return "f"
+        if u in ("mile", "miles", "mil"):
+            return "mile"
         return u
 
     src, dst = _alias(src), _alias(dst) if dst else None
@@ -258,9 +260,10 @@ def convert_units(raw: str) -> Optional[str]:
     if src in table_len and (dst in table_len if dst else True):
         meters = val * table_len[src]
         if not dst:
-            dst = "m" if src != "m" else "km"
+            dst = "mile" if src == "km" else ("m" if src != "m" else "km")
         out = meters / table_len[dst]
-        return f"**{val} {src}** = **{out:g} {dst}**"
+        label = {"mile": "mile"}.get(dst, dst)
+        return f"**{val} {src}** = **{out:g} {label}**"
     if src in table_mass and dst in table_mass:
         grams = val * table_mass[src]
         out = grams / table_mass[dst]
