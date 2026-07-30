@@ -98,16 +98,19 @@ class LearnedStore:
                 if not item_kw:
                     continue
                 inter = len(kw & item_kw)
+                if inter == 0:
+                    # No shared topic words -> never match on phrasing alone
+                    continue
                 union = len(kw | item_kw)
                 score = inter / union if union else 0.0
-                # also similar full-question match
+                # similarity of topic keywords (stopwords already removed)
                 ratio = difflib.SequenceMatcher(
-                    None, _norm(question), _norm(item.get("q", ""))
+                    None, " ".join(sorted(kw)), " ".join(sorted(item_kw))
                 ).ratio()
                 score = max(score, ratio)
                 if score > best_score:
                     best, best_score = item, score
-        if best and best_score >= 0.55:
+        if best and best_score >= 0.6:
             return best
         return None
 

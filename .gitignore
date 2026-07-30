@@ -7,5 +7,6 @@ venv/
 .DS_Store
 *.log
 data/hf_python_corpus.txt
+data/learned.json
 .pytest_cache/
 .mypy_cache/
