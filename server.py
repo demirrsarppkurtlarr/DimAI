@@ -81,25 +81,27 @@ def chat():
 
     if result.get("source") == "fallback":
         query = result.pop("research_query", message)
-        # 1) previously learned web knowledge
-        hit = learned.lookup(query)
-        if hit:
-            result = {
-                "reply": f"{hit['a']}",
-                "source": "learned",
-                "url": hit.get("url", ""),
-            }
-        else:
-            # 2) live web research (free sources), then remember it
-            found = web_research.research(query)
+        context_query = result.pop("context_query", None)
+        # iki aşamalı: önce soruyu, bulamazsa konu bağlamı + soruyu dene
+        for q in [query] + ([context_query] if context_query else []):
+            hit = learned.lookup(q)
+            if hit:
+                result = {
+                    "reply": f"{hit['a']}",
+                    "source": "learned",
+                    "url": hit.get("url", ""),
+                }
+                break
+            found = web_research.research(q)
             if found:
-                learned.add(query, found["answer"], found.get("url", ""))
+                learned.add(q, found["answer"], found.get("url", ""))
                 result = {
                     "reply": found["answer"],
                     "source": "web",
                     "url": found.get("url", ""),
                     "provider": found.get("provider", ""),
                 }
+                break
 
     # Attach experimental neural output when requested or still unanswered
     if data.get("neural") or result.get("source") == "fallback":

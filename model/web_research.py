@@ -35,8 +35,8 @@ def _sb_headers() -> dict:
         "Content-Type": "application/json",
     }
 
-HEADERS = {"User-Agent": "DimAI/1.0 (self-hosted learning assistant)"}
-TIMEOUT = 4
+HEADERS = {"User-Agent": "DimAI/1.0 (https://dimai-vlw9.onrender.com; learning assistant)"}
+TIMEOUT = float(os.environ.get("DIMAI_WEB_TIMEOUT", "5"))
 
 STOPWORDS = {
     "nedir", "ne", "nasil", "kim", "kimdir", "hakkinda", "bilgi", "ver",
@@ -147,29 +147,30 @@ class LearnedStore:
             self._save_file()
 
     def lookup(self, question: str) -> Optional[dict]:
+        """Match only when the stored entry answers (nearly) the SAME question.
+
+        Keyword stems (first 5 chars, Turkish suffix tolerant) must cover
+        both sides; partial topic overlap ("karadelik nedir" vs "karadelik
+        nasıl oluşur") triggers fresh research instead of a stale answer.
+        """
         kw = _keywords(question)
         if not kw:
             return None
+        q_stems = {w[: min(len(w), 5)] for w in kw}
         best, best_score = None, 0.0
         with self._lock:
             for item in self._items:
                 item_kw = set(item.get("kw", []))
                 if not item_kw:
                     continue
-                inter = len(kw & item_kw)
+                item_stems = {w[: min(len(w), 5)] for w in item_kw}
+                inter = len(q_stems & item_stems)
                 if inter == 0:
-                    # No shared topic words -> never match on phrasing alone
                     continue
-                union = len(kw | item_kw)
-                score = inter / union if union else 0.0
-                # similarity of topic keywords (stopwords already removed)
-                ratio = difflib.SequenceMatcher(
-                    None, " ".join(sorted(kw)), " ".join(sorted(item_kw))
-                ).ratio()
-                score = max(score, ratio)
+                score = inter / max(len(q_stems), len(item_stems))
                 if score > best_score:
                     best, best_score = item, score
-        if best and best_score >= 0.6:
+        if best and best_score >= 0.75:
             return best
         return None
 
@@ -214,72 +215,45 @@ def _relevance_score(query: str, title: str, text: str) -> float:
     return score
 
 
-def _wiki_candidates(query: str, lang: str) -> list:
-    titles: list = []
-    try:
-        r = requests.get(
-            f"https://{lang}.wikipedia.org/w/api.php",
-            params={
-                "action": "opensearch",
-                "search": query,
-                "limit": 2,
-                "namespace": 0,
-                "format": "json",
-            },
-            headers=HEADERS,
-            timeout=TIMEOUT,
-        )
-        titles.extend(r.json()[1])
-    except Exception:
-        pass
+def wikipedia_lookup(query: str, lang: str = "tr") -> Optional[tuple[str, str]]:
+    """Single-request Wikipedia search: 3 candidates with intro extracts.
+
+    generator=search + prop=extracts keeps this to ONE HTTP round-trip, which
+    matters on slow hosts (Render free tier) where 5 sequential requests
+    would blow the research time budget.
+    """
     try:
         r = requests.get(
             f"https://{lang}.wikipedia.org/w/api.php",
             params={
                 "action": "query",
-                "list": "search",
-                "srsearch": query,
-                "srlimit": 2,
+                "generator": "search",
+                "gsrsearch": query,
+                "gsrlimit": 3,
+                "prop": "extracts",
+                "exintro": 1,
+                "explaintext": 1,
+                "exchars": 1200,
                 "format": "json",
             },
             headers=HEADERS,
             timeout=TIMEOUT,
         )
-        titles.extend(h["title"] for h in r.json().get("query", {}).get("search", []))
+        pages = (r.json().get("query") or {}).get("pages") or {}
     except Exception:
-        pass
-    seen, out = set(), []
-    for t in titles:
-        if t not in seen:
-            seen.add(t)
-            out.append(t)
-    return out[:3]
-
-
-def wikipedia_lookup(query: str, lang: str = "tr") -> Optional[tuple[str, str]]:
+        return None
     best, best_score = None, 0.0
-    for title in _wiki_candidates(query, lang):
-        try:
-            s = requests.get(
-                f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{quote(title)}",
-                headers=HEADERS,
-                timeout=TIMEOUT,
-            )
-            data = s.json()
-            extract = (data.get("extract") or "").strip()
-            if len(extract) < 40:
-                continue
-            score = _relevance_score(query, title, extract)
-            if score <= 0:
-                continue
-            url = (
-                data.get("content_urls", {}).get("desktop", {}).get("page", "")
-                or f"https://{lang}.wikipedia.org/wiki/{quote(title)}"
-            )
-            if score > best_score:
-                best_score, best = score, (extract, url)
-        except Exception:
+    for page in pages.values():
+        title = page.get("title", "")
+        extract = (page.get("extract") or "").strip()
+        if len(extract) < 40:
             continue
+        score = _relevance_score(query, title, extract)
+        if score <= 0:
+            continue
+        if score > best_score:
+            url = f"https://{lang}.wikipedia.org/wiki/{quote(title.replace(' ', '_'))}"
+            best_score, best = score, (extract, url)
     return best
 
 
@@ -509,7 +483,7 @@ def research(question: str) -> Optional[dict]:
         futures = {name: ex.submit(fn) for name, fn in tasks.items()}
         for name, fut in futures.items():
             try:
-                results[name] = fut.result(timeout=7)
+                results[name] = fut.result(timeout=TIMEOUT + 4)
             except Exception:
                 results[name] = None
 
@@ -523,12 +497,17 @@ def research(question: str) -> Optional[dict]:
         "hn": "Hacker News",
         "wikidata": "Wikidata",
     }
+    # Google News yalnızca haber sorularında ana cevap olur; bilgi sorularında
+    # sadece ek kaynak linki olarak kullanılır (haber spam'ini önler).
     if code_hint:
-        order = ["so", "wiki_tr", "wiki_en", "ddg", "ddg_web", "hn", "gnews", "wikidata"]
+        order = ["so", "wiki_tr", "wiki_en", "ddg", "ddg_web", "hn", "wikidata"]
     elif news_hint:
         order = ["gnews", "wiki_tr", "wiki_en", "ddg", "ddg_web", "wikidata"]
     else:
-        order = ["wiki_tr", "wiki_en", "ddg", "ddg_web", "gnews", "wikidata"]
+        order = ["wiki_tr", "wiki_en", "ddg", "ddg_web", "wikidata"]
+
+    status = " ".join(f"{n}={'ok' if results.get(n) else '-'}" for n in tasks)
+    print(f"[research] q={query!r} news={news_hint} code={code_hint} {status}", flush=True)
 
     primary_name = next((n for n in order if results.get(n)), None)
     if not primary_name:
@@ -539,9 +518,10 @@ def research(question: str) -> Optional[dict]:
         cut = answer[:1200]
         answer = cut[: cut.rfind(".") + 1] or cut
 
-    # ek kaynak linkleri (farklı URL'ler)
+    # ek kaynak linkleri (farklı URL'ler) — gnews/hn burada her zaman taranır
     extras = []
-    for name in order:
+    extra_scan = order + [n for n in ("gnews", "hn") if n not in order]
+    for name in extra_scan:
         if name == primary_name or not results.get(name):
             continue
         _, extra_url = results[name]

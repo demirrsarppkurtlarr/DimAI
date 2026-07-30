@@ -1290,7 +1290,16 @@ class Brain:
     FOLLOWUP_HINTS = {
         "peki", "onu", "bunu", "sunu", "o", "bu", "devam", "baska", "daha",
         "tekrar", "detay", "detayli", "acikla", "anlatsana", "ornek",
-        "ornegi", "birdaha", "yine", "ayrica", "hani",
+        "ornegi", "birdaha", "yine", "ayrica", "hani", "onun", "bunun",
+        "ona", "buna", "ondan", "bundan", "orada", "orasi", "oyle", "soyle",
+    }
+
+    QUESTION_WORDS = {
+        "nedir", "ne", "nasil", "kim", "kimdir", "neden", "niye", "nerede",
+        "neresi", "nereden", "kac", "kactir", "hangi", "hangisi", "zaman",
+        "midir", "mi", "mu", "mudur", "acaba", "yani", "iste", "cok", "en",
+        "kadar", "ki", "ya", "ve", "de", "da", "ile", "icin", "olur", "oluyor",
+        "olabilir", "var", "yok", "gibi", "bana", "bize", "biraz",
     }
     MORE_PATTERNS = ("baska ornek", "bir ornek daha", "devam et", "daha fazla",
                      "birtane daha", "bir tane daha", "baska bir", "yenisini")
@@ -1309,6 +1318,23 @@ class Brain:
             if entry:
                 return entry
         return None
+
+    def _topic_keywords(self, history: list, limit: int = 6) -> list[str]:
+        """Extract the conversation topic from recent user messages.
+
+        Works for ANY topic (KB, web-researched or unknown): pulls content
+        words from the most recent user message that has any, walking
+        backwards through history.
+        """
+        stop = self.GENERIC_WORDS | self.FOLLOWUP_HINTS | self.QUESTION_WORDS
+        out: list[str] = []
+        for msg in reversed(self._last_user_messages(history)[-4:]):
+            for w in _norm(msg).split():
+                if len(w) >= 3 and w not in stop and w not in out:
+                    out.append(w)
+            if out:
+                break  # en yakın "içerikli" mesaj konuyu belirler
+        return out[:limit]
 
     def _remember_name(self, history: list, current: str) -> Optional[str]:
         pattern = r"(?:benim )?(?:adim|ismim)\s+([a-zçğıöşü]+)"
@@ -1381,6 +1407,38 @@ class Brain:
                     return self._kb_result(combined)
                 return self._kb_result(prev)
 
+        # ---- takip sorusu: önceki konuya bağlı kal ----
+        stop = self.GENERIC_WORDS | self.FOLLOWUP_HINTS | self.QUESTION_WORDS
+        content_words = {w for w in words if len(w) >= 3 and w not in stop}
+        topic = self._topic_keywords(history)
+        is_followup = bool(history) and (has_followup_hint or not content_words)
+
+        if is_followup and topic and not any(p in text for p in self.MORE_PATTERNS):
+            # sadece selamlaşma/teşekkür ise normal sohbet cevabı ver
+            if chit and not content_words:
+                return {"reply": chit, "source": "chat"}
+            topic_str = " ".join(topic)
+            comb = self._rank_kb(text + " " + topic_str)
+            bare = self._rank_kb(text)
+            comb_s = comb[0][1] if comb else 0.0
+            bare_s = bare[0][1] if bare else 0.0
+            # konu + soru birlikte güçlü bir KB kaydına oturuyorsa onu ver
+            if comb and comb_s >= 3.0 and comb_s >= bare_s:
+                return self._kb_result(comb[0][0])
+            # konudan bağımsız ama ÇOK güçlü bir eşleşme varsa kabul et
+            if bare and bare_s >= 5.0:
+                return self._kb_result(bare[0][0])
+            # aksi halde konuyu koruyarak web/öğrenilmiş bilgiye git —
+            # zayıf KB eşleşmelerinin konuyu kaçırmasına izin verme
+            return {
+                "reply": (
+                    "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
+                    + "\n".join(f"• {s}" for s in random.sample(SUGGESTIONS, 4))
+                ),
+                "source": "fallback",
+                "research_query": topic_str + " " + raw,
+            }
+
         # If the message clearly asks for code, prefer KB over chitchat
         code_signals = ["kod", "yaz", "nasil", "ornek", "goster", "code", "how", "write"]
         wants_code = any(s in text for s in code_signals)
@@ -1392,26 +1450,20 @@ class Brain:
         if kb:
             return self._kb_result(kb)
 
-        # Hiç eşleşme yok: önceki mesajla birleştirip bir daha dene (bağlam)
-        users = self._last_user_messages(history)
-        research_query = raw
-        if users:
-            augmented = _norm(users[-1]) + " " + text
-            kb2 = self._match_kb(augmented)
-            if kb2 and is_short:
-                return self._kb_result(kb2)
-            if is_short and has_followup_hint:
-                # web araştırması da bağlamı bilsin
-                research_query = users[-1].strip() + " " + raw
-
-        return {
+        # Hiç eşleşme yok → web/öğrenilmiş bilgi araştırması.
+        # Kısa/az içerikli mesajlarda sunucu önce soruyu, bulamazsa
+        # konu + soruyu dener (iki aşamalı bağlam).
+        result = {
             "reply": (
                 "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
                 + "\n".join(f"• {s}" for s in random.sample(SUGGESTIONS, 4))
             ),
             "source": "fallback",
-            "research_query": research_query,
+            "research_query": raw,
         }
+        if topic and len(content_words) <= 2:
+            result["context_query"] = " ".join(topic) + " " + raw
+        return result
 
 
 brain = Brain()
