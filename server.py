@@ -145,6 +145,19 @@ def _keepalive_while_training() -> None:
     threading.Thread(target=ping, daemon=True, name="keepalive").start()
 
 
+@app.get("/api/debug/threads")
+def debug_threads():
+    import sys
+    import threading as th
+    import traceback
+
+    names = {t.ident: t.name for t in th.enumerate()}
+    out = {}
+    for tid, frame in sys._current_frames().items():
+        out[names.get(tid, str(tid))] = traceback.format_stack(frame)[-5:]
+    return jsonify(out)
+
+
 @app.post("/api/train")
 def train_start():
     data = request.get_json(silent=True) or {}
