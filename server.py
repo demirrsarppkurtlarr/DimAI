@@ -193,17 +193,38 @@ def save():
 
 
 def _startup() -> None:
-    """Warm model for gunicorn / Render cold starts."""
+    """Warm model for gunicorn / Render cold starts.
+
+    ÖNEMLİ: Burada thread BAŞLATILMAZ. gunicorn fork ettiğinde master'da
+    başlayan thread'ler worker'a geçmez ama kilit kilitli kopyalanabilir
+    (kalıcı deadlock). Thread'ler ilk istekte, worker içinde başlar.
+    """
     if trainer.state.steps == 0:
         print("DimAI: bootstrap training (first run)...")
         trainer.bootstrap_train(steps=int(os.environ.get("DIMAI_BOOTSTRAP_STEPS", "200")))
     else:
         print(f"DimAI: checkpoint loaded at step {trainer.state.steps}")
-    if os.environ.get("DIMAI_AUTOLEARN", "1") == "1":
-        trainer.start_autolearn(interval_sec=float(os.environ.get("DIMAI_AUTOLEARN_INTERVAL", "3")))
+    trainer.state.running = False
 
 
 _startup()
+
+_worker_ready = False
+
+
+@app.before_request
+def _ensure_worker_threads() -> None:
+    """İlk istekte (worker sürecinde) kilidi tazele ve autolearn'ü başlat."""
+    global _worker_ready
+    if _worker_ready:
+        return
+    _worker_ready = True
+    trainer.reset_lock()
+    print("[worker] fresh lock; starting autolearn in worker process", flush=True)
+    if os.environ.get("DIMAI_AUTOLEARN", "1") == "1":
+        interval = float(os.environ.get("DIMAI_AUTOLEARN_INTERVAL", "3"))
+        if interval > 0:
+            trainer.start_autolearn(interval_sec=interval)
 
 
 if __name__ == "__main__":

@@ -90,6 +90,33 @@ class CodeTrainer:
             print(f"[trainer] restore skipped: {exc}", flush=True)
         self._load_or_init()
 
+    def reset_lock(self) -> None:
+        """Fork sonrası kilidi tazele (master'da kilitli kopyalanmış olabilir)."""
+        self.lock = threading.RLock()
+
+    from contextlib import contextmanager as _cm
+
+    @_cm
+    def _locked(self, timeout: float = 90.0):
+        """Lock with timeout + self-healing.
+
+        gunicorn fork edilirken kilit master'da tutuluyorsa worker'a kalıcı
+        kilitli kopyalanır; zaman aşımında kilidi yenileyip devam ederiz.
+        """
+        lock = self.lock
+        if not lock.acquire(timeout=timeout):
+            print("[trainer] lock timeout — poisoned lock, recreating", flush=True)
+            self.lock = threading.RLock()
+            lock = self.lock
+            lock.acquire()
+        try:
+            yield
+        finally:
+            try:
+                lock.release()
+            except RuntimeError:
+                pass
+
     def _rebuild_cache(self) -> None:
         """Pre-encode corpus once; makes training ~10x faster on big corpora."""
         assert self.vocab
@@ -123,7 +150,7 @@ class CodeTrainer:
             self.state.message = "new model initialized"
 
     def save(self) -> None:
-        with self.lock:
+        with self._locked():
             assert self.model and self.vocab
             meta = {
                 "steps": self.state.steps,
@@ -153,7 +180,7 @@ class CodeTrainer:
         return ids[start : start + self.seq_len + 1].tolist()
 
     def train_steps(self, n: int = 50, lr: float = 0.05) -> float:
-        with self.lock:
+        with self._locked():
             assert self.model and self.vocab
             losses = []
             for _ in range(n):
@@ -166,7 +193,7 @@ class CodeTrainer:
             return self.state.last_loss
 
     def generate(self, prompt: str = "def ", n_chars: int = 180, temperature: float = 0.7) -> str:
-        with self.lock:
+        with self._locked():
             assert self.model and self.vocab
             seed = prompt if prompt else "def "
             # map unknown chars away
@@ -286,7 +313,7 @@ class CodeTrainer:
             snippet = valid
         result = {"prompt": prompt, "ok": ok, "snippet": snippet[:400], "quality": round(quality, 2)}
         lr = self._adaptive_lr()
-        with self.lock:
+        with self._locked():
             self.state.self_train_rounds += 1
             if ok:
                 self.state.accepted += 1
@@ -430,7 +457,7 @@ class CodeTrainer:
                             text, next_off = data_collector.fetch_batch(self.state.hf_offset)
                             print(f"[job] collected {len(text)} chars", flush=True)
                             if text:
-                                with self.lock:
+                                with self._locked():
                                     self.corpus = (self.corpus + "\n\n" + text)[-3_000_000:]
                                     self._rebuild_cache()
                                 self.state.hf_offset = next_off
