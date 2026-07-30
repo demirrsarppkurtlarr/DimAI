@@ -386,9 +386,100 @@ def stackoverflow_lookup(query: str) -> Optional[tuple[str, str]]:
         return None
 
 
+def google_news_lookup(query: str) -> Optional[tuple[str, str]]:
+    """Google News RSS — güncel haberler (ücretsiz, anahtar gerekmez)."""
+    try:
+        r = requests.get(
+            "https://news.google.com/rss/search",
+            params={"q": query, "hl": "tr", "gl": "TR", "ceid": "TR:tr"},
+            headers=HEADERS,
+            timeout=TIMEOUT,
+        )
+        items = re.findall(r"<item>(.*?)</item>", r.text, flags=re.S)[:4]
+        lines, first_url = [], ""
+        for it in items:
+            tm = re.search(r"<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>", it, flags=re.S)
+            lm = re.search(r"<link>(.*?)</link>", it, flags=re.S)
+            if not tm:
+                continue
+            title = _strip_html(tm.group(1))
+            if len(title) < 15:
+                continue
+            lines.append(f"• {title}")
+            if not first_url and lm:
+                first_url = lm.group(1).strip()
+        if not lines:
+            return None
+        return "📰 Güncel haberler (Google News):\n" + "\n".join(lines[:3]), first_url
+    except Exception:
+        return None
+
+
+def hackernews_lookup(query: str) -> Optional[tuple[str, str]]:
+    """Hacker News (Algolia API) — teknik konular için tartışma/makaleler."""
+    try:
+        r = requests.get(
+            "https://hn.algolia.com/api/v1/search",
+            params={"query": query, "tags": "story", "hitsPerPage": 3},
+            headers=HEADERS,
+            timeout=TIMEOUT,
+        )
+        hits = [h for h in r.json().get("hits", []) if h.get("title")]
+        lines, first_url = [], ""
+        for h in hits[:3]:
+            url = h.get("url") or f"https://news.ycombinator.com/item?id={h.get('objectID','')}"
+            lines.append(f"• {h['title']}\n  {url}")
+            if not first_url:
+                first_url = url
+        if not lines:
+            return None
+        return "Bu konuda faydalı kaynaklar (Hacker News):\n" + "\n".join(lines), first_url
+    except Exception:
+        return None
+
+
+def wikidata_lookup(query: str) -> Optional[tuple[str, str]]:
+    """Wikidata — kısa, yapılandırılmış tanımlar (son çare)."""
+    try:
+        r = requests.get(
+            "https://www.wikidata.org/w/api.php",
+            params={
+                "action": "wbsearchentities",
+                "search": query,
+                "language": "tr",
+                "uselang": "tr",
+                "format": "json",
+                "limit": 1,
+            },
+            headers=HEADERS,
+            timeout=TIMEOUT,
+        )
+        hits = r.json().get("search", [])
+        if not hits:
+            return None
+        h = hits[0]
+        label = h.get("label", "")
+        desc = h.get("description", "")
+        if not desc or len(desc) < 15:
+            return None
+        # etiket sorguyla gerçekten benzer olmalı
+        sim = difflib.SequenceMatcher(None, _norm(label), _norm(query)).ratio()
+        if sim < 0.6:
+            return None
+        url = "https:" + h["url"] if h.get("url", "").startswith("//") else h.get("url", "")
+        return f"**{label}**: {desc}", url
+    except Exception:
+        return None
+
+
 CODE_HINT = re.compile(
     r"(python|javascript|js|java|c\+\+|hata|error|exception|kod|modul|kutuphane|"
     r"library|install|pip|npm|import|function|fonksiyon|framework|api|sql|regex)"
+)
+
+NEWS_HINT = re.compile(
+    r"(haber|son dakika|guncel|bugun|dun\b|20[2-9]\d|ne zaman|kim kazandi|"
+    r"sonuc|skor|secim|fiyat|dolar|euro|deprem|maci|transfer)"
 )
 
 
@@ -397,16 +488,21 @@ def research(question: str) -> Optional[dict]:
     from concurrent.futures import ThreadPoolExecutor
 
     query = _clean_query(question)
-    code_hint = bool(CODE_HINT.search(_norm(question)))
+    qnorm = _norm(question)
+    code_hint = bool(CODE_HINT.search(qnorm))
+    news_hint = bool(NEWS_HINT.search(qnorm))
 
     tasks: dict = {
         "wiki_tr": lambda: wikipedia_lookup(query, "tr"),
         "wiki_en": lambda: wikipedia_lookup(query, "en"),
         "ddg": lambda: duckduckgo_lookup(query),
         "ddg_web": lambda: ddg_web_search(query),
+        "gnews": lambda: google_news_lookup(query),
+        "wikidata": lambda: wikidata_lookup(query),
     }
     if code_hint:
         tasks["so"] = lambda: stackoverflow_lookup(query)
+        tasks["hn"] = lambda: hackernews_lookup(query)
 
     results: dict = {}
     with ThreadPoolExecutor(max_workers=len(tasks)) as ex:
@@ -423,9 +519,16 @@ def research(question: str) -> Optional[dict]:
         "wiki_en": "Wikipedia (EN)",
         "ddg": "DuckDuckGo",
         "ddg_web": "Web araması",
+        "gnews": "Google News",
+        "hn": "Hacker News",
+        "wikidata": "Wikidata",
     }
-    order = ["so", "wiki_tr", "wiki_en", "ddg", "ddg_web"] if code_hint else \
-            ["wiki_tr", "wiki_en", "ddg", "ddg_web", "so"]
+    if code_hint:
+        order = ["so", "wiki_tr", "wiki_en", "ddg", "ddg_web", "hn", "gnews", "wikidata"]
+    elif news_hint:
+        order = ["gnews", "wiki_tr", "wiki_en", "ddg", "ddg_web", "wikidata"]
+    else:
+        order = ["wiki_tr", "wiki_en", "ddg", "ddg_web", "gnews", "wikidata"]
 
     primary_name = next((n for n in order if results.get(n)), None)
     if not primary_name:
@@ -444,7 +547,7 @@ def research(question: str) -> Optional[dict]:
         _, extra_url = results[name]
         if extra_url and extra_url != url and extra_url not in extras:
             extras.append(extra_url)
-        if len(extras) >= 2:
+        if len(extras) >= 3:
             break
     if extras:
         answer += "\n\n📚 Diğer kaynaklar:\n" + "\n".join(f"• {u}" for u in extras)
