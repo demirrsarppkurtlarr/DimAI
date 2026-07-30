@@ -31,6 +31,7 @@ const SUGGESTIONS = [
 
 let autoOn = false;
 let busy = false;
+let chatHistory = [];  // {role: "user"|"ai", content}
 
 async function api(path, body) {
   const res = await fetch(path, {
@@ -185,7 +186,13 @@ async function sendMessage(text) {
 
   const started = Date.now();
   try {
-    const data = await api("/api/chat", { message: text });
+    const data = await api("/api/chat", {
+      message: text,
+      history: chatHistory.slice(-10),
+    });
+    chatHistory.push({ role: "user", content: text });
+    chatHistory.push({ role: "ai", content: (data.reply || "").slice(0, 400) });
+    if (chatHistory.length > 30) chatHistory = chatHistory.slice(-30);
     // insanımsı minik gecikme
     const wait = Math.max(0, 500 - (Date.now() - started));
     await new Promise((r) => setTimeout(r, wait));
@@ -221,6 +228,7 @@ els.composer.addEventListener("submit", (e) => {
 });
 
 els.btnNew.addEventListener("click", () => {
+  chatHistory = [];
   els.messages.innerHTML = "";
   const welcome = document.createElement("div");
   welcome.className = "welcome";

@@ -42,8 +42,9 @@ STOPWORDS = {
     "nedir", "ne", "nasil", "kim", "kimdir", "hakkinda", "bilgi", "ver",
     "anlat", "bana", "bir", "the", "what", "is", "who", "ile", "mi", "mu",
     "midir", "acaba", "ki", "ya", "ve", "de", "da", "icin", "yaz",
-    "neresi", "nerede", "nerededir", "nerededir", "kac", "kactir", "kacdir",
+    "neresi", "nerede", "nerededir", "kac", "kactir", "kacdir",
     "hangisi", "hangi", "neden", "niye", "zaman", "kadar", "soyle", "bul",
+    "peki", "o", "bu", "su", "onun", "bunun",
 }
 
 

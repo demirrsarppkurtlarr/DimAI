@@ -74,11 +74,15 @@ def generate():
 def chat():
     data = request.get_json(silent=True) or {}
     message = str(data.get("message", ""))[:2000]
-    result = brain.reply(message)
+    history = data.get("history") or []
+    if not isinstance(history, list):
+        history = []
+    result = brain.reply(message, history=history[-10:])
 
     if result.get("source") == "fallback":
+        query = result.pop("research_query", message)
         # 1) previously learned web knowledge
-        hit = learned.lookup(message)
+        hit = learned.lookup(query)
         if hit:
             result = {
                 "reply": f"{hit['a']}",
@@ -87,9 +91,9 @@ def chat():
             }
         else:
             # 2) live web research (free sources), then remember it
-            found = web_research.research(message)
+            found = web_research.research(query)
             if found:
-                learned.add(message, found["answer"], found.get("url", ""))
+                learned.add(query, found["answer"], found.get("url", ""))
                 result = {
                     "reply": found["answer"],
                     "source": "web",

@@ -230,7 +230,8 @@ with open("veri.txt", encoding="utf-8") as f:
         print(satir.strip())''', "l": "python"},
 
     {"k": ["dosya yaz", "write file", "dosyaya kaydet", "txt yaz", "dosya olustur",
-           "dosyaya yaz", "dosyaya nasil yazarim", "yazarim", "dosyaya yazma"],
+           "dosyaya yaz", "dosyaya nasil yazarim", "yazarim", "dosyaya yazma",
+           "yazma", "yazilir", "nasil yazilir", "kaydet"],
      "a": "Dosyaya yazmak için `w` (üzerine) veya `a` (sona ekle) modu:",
      "c": '''with open("cikti.txt", "w", encoding="utf-8") as f:
     f.write("İlk satır\\n")
@@ -385,7 +386,7 @@ liste = [1, 2, 3, 4, 5]
 random.shuffle(liste)              # karıştır
 print(liste)''', "l": "python"},
 
-    {"k": ["tarih", "saat", "datetime", "zaman", "date", "time"],
+    {"k": ["tarih", "saat", "datetime", "date", "zaman damgasi", "timestamp"],
      "a": "Tarih/saat işlemleri için `datetime`:",
      "c": '''from datetime import datetime, timedelta
 
@@ -1227,16 +1228,25 @@ class Brain:
                         score += 0.8
         return score
 
-    def _match_kb(self, text: str) -> Optional[dict]:
+    def _match_kb(self, text: str, exclude: Optional[dict] = None) -> Optional[dict]:
+        ranked = self._rank_kb(text)
+        for entry, score in ranked:
+            if exclude is not None and entry is exclude:
+                continue
+            if score >= 2.0:
+                return entry
+            break
+        return None
+
+    def _rank_kb(self, text: str) -> list:
         words = set(text.split())
-        best, best_score = None, 0.0
+        scored = []
         for entry in self._kb:
             s = self._score_entry(text, words, entry)
-            if s > best_score:
-                best, best_score = entry, s
-        if best and best_score >= 2.0:
-            return best
-        return None
+            if s > 0:
+                scored.append((entry, s))
+        scored.sort(key=lambda t: -t[1])
+        return scored
 
     def _match_chitchat(self, text: str) -> Optional[str]:
         words = set(text.split())
@@ -1275,9 +1285,43 @@ class Brain:
             result["lang"] = entry.get("l", "python")
         return result
 
+    # -------------------- conversation memory --------------------
+
+    FOLLOWUP_HINTS = {
+        "peki", "onu", "bunu", "sunu", "o", "bu", "devam", "baska", "daha",
+        "tekrar", "detay", "detayli", "acikla", "anlatsana", "ornek",
+        "ornegi", "birdaha", "yine", "ayrica", "hani",
+    }
+    MORE_PATTERNS = ("baska ornek", "bir ornek daha", "devam et", "daha fazla",
+                     "birtane daha", "bir tane daha", "baska bir", "yenisini")
+
+    def _last_user_messages(self, history: list) -> list[str]:
+        return [
+            str(h.get("content", ""))
+            for h in history
+            if h.get("role") == "user" and str(h.get("content", "")).strip()
+        ]
+
+    def _last_topic_entry(self, history: list) -> Optional[dict]:
+        """Find the most recent KB topic the user asked about."""
+        for msg in reversed(self._last_user_messages(history)):
+            entry = self._match_kb(_norm(msg))
+            if entry:
+                return entry
+        return None
+
+    def _remember_name(self, history: list, current: str) -> Optional[str]:
+        pattern = r"(?:benim )?(?:adim|ismim)\s+([a-zçğıöşü]+)"
+        for msg in [current] + list(reversed(self._last_user_messages(history))):
+            m = re.search(pattern, _norm(msg))
+            if m and m.group(1) not in ("ne", "neydi", "nedir"):
+                return m.group(1).capitalize()
+        return None
+
     # -------------------- public API --------------------
 
-    def reply(self, message: str) -> dict:
+    def reply(self, message: str, history: Optional[list] = None) -> dict:
+        history = history or []
         raw = (message or "").strip()
         text = _norm(raw)
 
@@ -1288,8 +1332,54 @@ class Brain:
         if math_answer:
             return {"reply": math_answer, "source": "math"}
 
+        # name memory
+        intro = re.search(r"(?:benim )?(?:adim|ismim)\s+([a-zçğıöşü]+)", text)
+        if intro and intro.group(1) not in ("ne", "neydi", "nedir"):
+            return {
+                "reply": f"Memnun oldum **{intro.group(1).capitalize()}**! 🤝 Aklımda. Ne kodlayalım?",
+                "source": "chat",
+            }
+        if re.search(r"(adim|ismim|adimi)\s*(ne|neydi|nedir|hatirliyor)", text):
+            name = self._remember_name(history, raw)
+            if name:
+                return {"reply": f"Tabii, adın **{name}** 😊", "source": "chat"}
+            return {"reply": "Daha söylemedin! \"Benim adım ...\" dersen aklımda tutarım.", "source": "chat"}
+
         kb = self._match_kb(text)
         chit = self._match_chitchat(text)
+
+        words = set(text.split())
+        is_short = len(words) <= 6
+        has_followup_hint = bool(words & self.FOLLOWUP_HINTS)
+
+        # "başka örnek / devam et" → aynı konudan farklı bir kayıt getir
+        if is_short and (any(p in text for p in self.MORE_PATTERNS) or
+                         (has_followup_hint and not kb)):
+            prev = self._last_topic_entry(history)
+            if prev:
+                # önceki konunun en belirgin kelimesi (ör. "dosya", "fibonacci")
+                word_counts: dict = {}
+                for key in prev["nk"]:
+                    for w in key.split():
+                        if w not in self.GENERIC_WORDS and len(w) > 2:
+                            word_counts[w] = word_counts.get(w, 0) + 1
+                seed = max(word_counts, key=word_counts.get) if word_counts else ""
+
+                if any(p in text for p in self.MORE_PATTERNS):
+                    # ilgili ama farklı bir kayıt: konu + cevap metni üzerinden ara
+                    related_text = _norm(prev["a"])[:200] + " " + seed
+                    for entry, _score in self._rank_kb(related_text):
+                        if entry is not prev:
+                            result = self._kb_result(entry)
+                            result["reply"] = "İlgili başka bir örnek:\n\n" + result["reply"]
+                            return result
+                    return self._kb_result(prev)
+
+                # takip sorusu: yeni mesaj + konu kelimesini birleştirip tekrar dene
+                combined = self._match_kb(text + " " + seed)
+                if combined:
+                    return self._kb_result(combined)
+                return self._kb_result(prev)
 
         # If the message clearly asks for code, prefer KB over chitchat
         code_signals = ["kod", "yaz", "nasil", "ornek", "goster", "code", "how", "write"]
@@ -1302,12 +1392,25 @@ class Brain:
         if kb:
             return self._kb_result(kb)
 
+        # Hiç eşleşme yok: önceki mesajla birleştirip bir daha dene (bağlam)
+        users = self._last_user_messages(history)
+        research_query = raw
+        if users:
+            augmented = _norm(users[-1]) + " " + text
+            kb2 = self._match_kb(augmented)
+            if kb2 and is_short:
+                return self._kb_result(kb2)
+            if is_short and has_followup_hint:
+                # web araştırması da bağlamı bilsin
+                research_query = users[-1].strip() + " " + raw
+
         return {
             "reply": (
                 "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
                 + "\n".join(f"• {s}" for s in random.sample(SUGGESTIONS, 4))
             ),
             "source": "fallback",
+            "research_query": research_query,
         }
 
 
