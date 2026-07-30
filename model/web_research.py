@@ -45,6 +45,9 @@ STOPWORDS = {
     "neresi", "nerede", "nerededir", "kac", "kactir", "kacdir",
     "hangisi", "hangi", "neden", "niye", "zaman", "kadar", "soyle", "bul",
     "peki", "o", "bu", "su", "onun", "bunun",
+    # soru fiilleri — arama motorunu kirletiyorlar ("atatürk ne zaman doğdu")
+    "dogdu", "oldu", "olmustur", "kuruldu", "yapildi", "basladi", "bitti",
+    "gerceklesti", "yasadi", "geldi", "gitti",
 }
 
 
@@ -204,7 +207,9 @@ def _relevance_score(query: str, title: str, text: str) -> float:
     if kws:
         hits = sum(1 for w in kws if w[: min(len(w), 5)] in tns)
         ratio = hits / len(kws)
-        if (len(kws) <= 3 and hits < len(kws)) or ratio < 0.7:
+        # tek kelimelik sorgu mutlaka geçmeli; çok kelimelide yarısı yeterli
+        # (Türkçe ekler yüzünden tam eşleşme her zaman mümkün olmuyor)
+        if hits == 0 or (len(kws) == 1 and ratio < 1.0) or ratio < 0.5:
             return 0.0
     else:
         ratio = 1.0
@@ -212,6 +217,11 @@ def _relevance_score(query: str, title: str, text: str) -> float:
     if qnorm.replace(" ", "") in tns:
         score += 1.0  # tam ifade eşleşmesi
     score += difflib.SequenceMatcher(None, _norm(title), qnorm).ratio() * 0.5
+    # sorgu kelimeleri başlıkta geçiyorsa güçlü sinyal (doğru sayfa)
+    if kws:
+        title_ns = _norm(title).replace(" ", "")
+        title_hits = sum(1 for w in kws if w[: min(len(w), 5)] in title_ns)
+        score += 0.4 * title_hits / len(kws)
     return score
 
 
@@ -251,6 +261,8 @@ def wikipedia_lookup(query: str, lang: str = "tr") -> Optional[tuple[str, str]]:
         score = _relevance_score(query, title, extract)
         if score <= 0:
             continue
+        # Wikipedia'nın kendi sıralamasına küçük bonus (1. sonuç en alakalı)
+        score += max(0, 3 - int(page.get("index", 3))) * 0.25
         if score > best_score:
             url = f"https://{lang}.wikipedia.org/wiki/{quote(title.replace(' ', '_'))}"
             best_score, best = score, (extract, url)
@@ -452,7 +464,7 @@ CODE_HINT = re.compile(
 )
 
 NEWS_HINT = re.compile(
-    r"(haber|son dakika|guncel|bugun|dun\b|20[2-9]\d|ne zaman|kim kazandi|"
+    r"(haber|son dakika|guncel|bugun|dun\b|20[2-9]\d|kim kazandi|"
     r"sonuc|skor|secim|fiyat|dolar|euro|deprem|maci|transfer)"
 )
 
