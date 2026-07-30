@@ -13,11 +13,14 @@ from flask import Flask, jsonify, request, send_from_directory
 
 from model import web_research
 from model.brain import brain
+from model.improve import init_improve
 from model.trainer import trainer
 from model.web_research import learned
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 
+# Self-improvement engine (retrieve → evaluate → reflect → queue → promote)
+improve = init_improve(learned)
 
 @app.get("/")
 def index():
@@ -35,6 +38,10 @@ def status():
     payload["learned_count"] = learned.count()
     payload["learned_backend"] = learned.backend
     payload["train_job"] = trainer.job_status()
+    try:
+        payload["improve"] = improve.status()
+    except Exception:
+        payload["improve"] = {}
     return jsonify(payload)
 
 
@@ -78,17 +85,49 @@ def chat():
     history = data.get("history") or []
     if not isinstance(history, list):
         history = []
-    result = brain.reply(message, history=history[-10:])
+
+    result = None
+
+    # --- Knowledge Retrieval: güçlü geçmiş başarıyı önce dene ---
+    try:
+        prior = improve.retrieve(message)
+        if prior and float(prior.get("overall") or 0) >= 0.72 and prior.get("from") == "episode":
+            # episode match requires high overlap (see retrieve); reuse as answer
+            if float(prior.get("match") or 0) >= 0.78:
+                result = {
+                    "reply": prior["reply"],
+                    "source": "memory",
+                    "url": prior.get("url", ""),
+                    "thinking": "geçmiş başarılı çözümden",
+                }
+    except Exception:
+        result = None
+
+    if result is None:
+        result = brain.reply(message, history=history[-10:])
 
     if result.get("source") == "fallback":
         query = result.pop("research_query", message)
         context_query = result.pop("context_query", None)
-        # Takip sorularında research_query zaten "konu + soru".
-        # Yalın context_query'yi ÖNCE denemek konuyu kaçırır — önce zengin sorgu.
         queries = [query]
         if context_query and context_query.strip() and context_query.strip() != query.strip():
             queries.append(context_query)
+
         for q in queries:
+            # 1) geçmiş başarı / learned (retrieval)
+            try:
+                prior = improve.retrieve(q)
+            except Exception:
+                prior = None
+            if prior and float(prior.get("overall") or 0) >= 0.65:
+                result = {
+                    "reply": prior["reply"],
+                    "source": prior.get("source") or "memory",
+                    "url": prior.get("url", ""),
+                    "thinking": result.get("thinking", "") or "geçmiş çözüm",
+                }
+                break
+
             hit = learned.lookup(q)
             if hit:
                 result = {
@@ -98,9 +137,10 @@ def chat():
                     "thinking": result.get("thinking", ""),
                 }
                 break
+
             found = web_research.research_deep(q)
             if found:
-                learned.add(q, found["answer"], found.get("url", ""))
+                # Learning Queue: doğrudan memory'e yazma — after_chat doğrulayıp ekler
                 result = {
                     "reply": found["answer"],
                     "source": "web",
@@ -110,9 +150,7 @@ def chat():
                 }
                 break
         else:
-            # hiçbir kaynak bulamadıysa ve düşünce "followup" ise konuyu hatırlat
             if (result.get("thinking") or "").startswith("önceki konuya"):
-                # research_query'den ana konuyu çıkar
                 tip = (result.get("thinking") or "")
                 konu = tip.split("«")[-1].split("»")[0] if "«" in tip else "bu konu"
                 result["source"] = "chat"
@@ -131,8 +169,29 @@ def chat():
             result["neural_valid"] = valid is not None
         except Exception:
             pass
+
+    # --- Self-improvement: evaluate → reflect → log → queue → promote ---
+    try:
+        enrichment = improve.after_chat(message, result)
+        result.update(enrichment)
+    except Exception as exc:
+        result["improve_error"] = str(exc)[:200]
+
     result["learned_count"] = learned.count()
     return jsonify({"ok": True, **result})
+
+
+@app.get("/api/improve/status")
+def improve_status():
+    return jsonify({"ok": True, **improve.status()})
+
+
+@app.post("/api/improve/process")
+def improve_process():
+    """Manually drain the learning queue (also runs automatically after chat)."""
+    data = request.get_json(silent=True) or {}
+    n = int(data.get("limit", 20))
+    return jsonify({"ok": True, **improve.process_queue(limit=n)})
 
 
 @app.post("/api/self_train")

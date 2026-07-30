@@ -113,17 +113,29 @@ class LearnedStore:
         )
 
     def _save_supabase(self, entry: dict) -> None:
+        payload = {
+            "q": entry["q"],
+            "kw": entry["kw"],
+            "a": entry["a"],
+            "url": entry["url"],
+        }
+        # quality kolonu yoksa geriye uyumlu: önce dener, 400'de kalitesiz tekrarlar
+        if entry.get("quality") is not None:
+            payload["quality"] = entry["quality"]
         r = requests.post(
             f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}",
             headers={**_sb_headers(), "Prefer": "return=minimal"},
-            json={
-                "q": entry["q"],
-                "kw": entry["kw"],
-                "a": entry["a"],
-                "url": entry["url"],
-            },
+            json=payload,
             timeout=8,
         )
+        if r.status_code >= 400 and "quality" in payload:
+            payload.pop("quality", None)
+            r = requests.post(
+                f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}",
+                headers={**_sb_headers(), "Prefer": "return=minimal"},
+                json=payload,
+                timeout=8,
+            )
         r.raise_for_status()
 
     @staticmethod
@@ -140,7 +152,7 @@ class LearnedStore:
         text = re.sub(r"\n*📚\s*\*?\*?Kaynaklar[^\n]*\n(?:•[^\n]*\n?)*", "", text)
         return text.strip()
 
-    def add(self, question: str, answer: str, url: str = "") -> None:
+    def add(self, question: str, answer: str, url: str = "", quality: Optional[float] = None) -> None:
         with self._lock:
             entry = {
                 "q": question.strip()[:300],
@@ -149,6 +161,8 @@ class LearnedStore:
                 "url": url,
                 "t": time.time(),
             }
+            if quality is not None:
+                entry["quality"] = float(quality)
             self._items.append(entry)
             if len(self._items) > 2000:
                 self._items = self._items[-2000:]
@@ -185,6 +199,9 @@ class LearnedStore:
                 if inter == 0:
                     continue
                 score = inter / max(len(q_stems), len(item_stems))
+                # kaliteli kayıtları hafifçe öne al (self-improvement)
+                qboost = 0.05 * float(item.get("quality") or 0)
+                score = score + qboost
                 if score > best_score:
                     best, best_score = item, score
         if best and best_score >= 0.75:

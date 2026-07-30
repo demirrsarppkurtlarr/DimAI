@@ -8,6 +8,9 @@ venv/
 *.log
 data/hf_python_corpus.txt
 data/learned.json
+data/episodes.json
+data/learning_queue.json
+data/error_patterns.json
 data/train_corpus.txt
 data/deploy_corpus.txt
 .pytest_cache/

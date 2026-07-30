@@ -161,7 +161,7 @@ function addAiMsg({ reply, code, lang, source, url, neural_sample }) {
     bubble.appendChild(nb);
   }
 
-  const srcNames = { kb: "bilgi tabanı", chat: "sohbet", math: "hesap", fallback: "öneri", web: "web", learned: "öğrenilmiş", neural: "nöral (deneysel)" };
+  const srcNames = { kb: "bilgi tabanı", chat: "sohbet", math: "hesap", fallback: "öneri", web: "web", learned: "öğrenilmiş", memory: "geçmiş başarı", neural: "nöral (deneysel)" };
   if (source) {
     const tag = document.createElement("span");
     tag.className = "src-tag";
