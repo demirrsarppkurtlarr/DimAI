@@ -69,14 +69,17 @@ function addUserMsg(text) {
   scrollBottom();
 }
 
-function addTyping() {
+function addTyping(label) {
   hideWelcome();
   const msg = document.createElement("div");
   msg.className = "msg ai";
   msg.id = "typing-msg";
   msg.innerHTML = `
     <div class="avatar ai">D</div>
-    <div class="bubble"><span class="typing"><i></i><i></i><i></i></span></div>`;
+    <div class="bubble">
+      <span class="typing-label">${label || "düşünüyor"}</span>
+      <span class="typing"><i></i><i></i><i></i></span>
+    </div>`;
   els.messages.appendChild(msg);
   scrollBottom();
   return msg;
@@ -182,20 +185,28 @@ async function sendMessage(text) {
   addUserMsg(text);
   els.input.value = "";
   autoResize();
-  addTyping();
+  addTyping("düşünüyor");
 
   const started = Date.now();
   try {
     const data = await api("/api/chat", {
       message: text,
-      history: chatHistory.slice(-10),
+      history: chatHistory.slice(-14),
     });
     chatHistory.push({ role: "user", content: text });
-    chatHistory.push({ role: "ai", content: (data.reply || "").slice(0, 400) });
-    if (chatHistory.length > 30) chatHistory = chatHistory.slice(-30);
-    // insanımsı minik gecikme
-    const wait = Math.max(0, 500 - (Date.now() - started));
-    await new Promise((r) => setTimeout(r, wait));
+    // AI cevabının daha fazlasını tut — takip soruları için konu lazım
+    chatHistory.push({ role: "ai", content: (data.reply || "").slice(0, 900) });
+    if (chatHistory.length > 40) chatHistory = chatHistory.slice(-40);
+
+    // düşünme hissi: en az ~700ms, düşünce varsa biraz daha
+    const thinkMs = data.thinking ? 900 : 650;
+    const wait = Math.max(0, thinkMs - (Date.now() - started));
+    if (wait > 0) {
+      const t = document.getElementById("typing-msg");
+      const lab = t?.querySelector(".typing-label");
+      if (lab && data.thinking) lab.textContent = "bağlamı okuyor";
+      await new Promise((r) => setTimeout(r, wait));
+    }
     addAiMsg(data);
   } catch (err) {
     addAiMsg({ reply: "Bir hata oluştu, tekrar dener misin? 🙏", source: "chat" });

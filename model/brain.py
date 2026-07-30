@@ -1296,6 +1296,8 @@ class Brain:
         "tekrar", "detay", "detayli", "acikla", "anlatsana", "ornek",
         "ornegi", "birdaha", "yine", "ayrica", "hani", "onun", "bunun",
         "ona", "buna", "ondan", "bundan", "orada", "orasi", "oyle", "soyle",
+        "pekiya", "ya", "ama", "halbuki", "mesela", "ornegin", "sonra",
+        "onceden", "bahsettigin", "dedigin", "soyledigin", "anlattigin",
     }
 
     QUESTION_WORDS = {
@@ -1332,11 +1334,32 @@ class Brain:
         "ne oldu", "kac yil", "kac km", "kac kisi",
     )
 
+    # Fiil / süreç kelimeleri — tek başlarına yeni konu DEĞİL (takip sinyali)
+    VERBISH = re.compile(
+        r"(ir|ur|ar|er|yor|mak|mek|di|ti|mis|mus|ilir|ilir|olus|olur|"
+        r"yapar|eder|gelir|gider|baslar|biter|calisir|olusur)$"
+    )
+
     def _refuses_search(self, text: str) -> bool:
         return any(p in text for p in self.NO_SEARCH)
 
     def _is_personal(self, text: str) -> bool:
         return any(p in text for p in self.PERSONAL)
+
+    def _content_words(self, text: str) -> set[str]:
+        stop = self.GENERIC_WORDS | self.FOLLOWUP_HINTS | self.QUESTION_WORDS
+        return {w for w in text.split() if len(w) >= 3 and w not in stop}
+
+    def _noun_entities(self, words: set[str]) -> set[str]:
+        """İçerik kelimelerinden fiil/süreç olanları ayıkla → kalan = olası konu adı."""
+        out = set()
+        for w in words:
+            if len(w) < 4:
+                continue
+            if self.VERBISH.search(w):
+                continue
+            out.add(w)
+        return out
 
     def _should_research(self, text: str, content_words: set[str]) -> bool:
         """Sadece gerçek bilgi sorularında internete bak.
@@ -1401,6 +1424,16 @@ class Brain:
                 ),
                 "source": "chat",
             }
+        topic = self._topic_keywords(history)
+        if topic:
+            return {
+                "reply": (
+                    f"Hâlâ **{' '.join(topic[:3])}** hakkında konuşuyoruz. "
+                    f"Ne öğrenmek istiyorsun — nasıl oluşur, ne işe yarar, "
+                    f"örnek ister misin? Ya da yeni bir konu sor."
+                ),
+                "source": "chat",
+            }
         return {
             "reply": (
                 "Bunu sohbet olarak anladım ama net bir konu yakalayamadım. "
@@ -1416,6 +1449,12 @@ class Brain:
             if h.get("role") == "user" and str(h.get("content", "")).strip()
         ]
 
+    def _last_ai_message(self, history: list) -> str:
+        for h in reversed(history):
+            if h.get("role") in ("ai", "assistant") and str(h.get("content", "")).strip():
+                return str(h.get("content", ""))
+        return ""
+
     def _last_topic_entry(self, history: list) -> Optional[dict]:
         """Find the most recent KB topic the user asked about."""
         for msg in reversed(self._last_user_messages(history)):
@@ -1428,30 +1467,131 @@ class Brain:
     def _looks_possessive(content_words: set[str]) -> bool:
         """'teorisi', 'boyutu' gibi iyelik ekli kelimeler → özne öncekilerde."""
         return bool(content_words) and all(
-            w.endswith(("si", "su")) or (len(w) >= 4 and w[-1] in "iu")
+            w.endswith(("si", "su", "sı", "sü")) or (len(w) >= 4 and w[-1] in "iuıü")
             for w in content_words
         )
 
     def _topic_keywords(self, history: list, limit: int = 6) -> list[str]:
-        """Extract the conversation topic from recent user messages.
-
-        Works for ANY topic (KB, web-researched or unknown): pulls content
-        words from the most recent user message that introduced a topic,
-        skipping messages that were themselves follow-up questions.
-        """
+        """Extract the conversation topic from recent user (+ AI) messages."""
         stop = self.GENERIC_WORDS | self.FOLLOWUP_HINTS | self.QUESTION_WORDS
         out: list[str] = []
-        for msg in reversed(self._last_user_messages(history)[-4:]):
+        for msg in reversed(self._last_user_messages(history)[-6:]):
             words = set(_norm(msg).split())
             content = {w for w in words if len(w) >= 3 and w not in stop}
-            # takip mesajları konuyu TAŞIMAZ; asıl konuyu geriye giderek bul
-            if not content or self._looks_possessive(content):
+            nouns = self._noun_entities(content)
+            if not content or (not nouns and self._looks_possessive(content)):
+                continue
+            if not nouns and len(content) <= 2:
                 continue
             for w in _norm(msg).split():
                 if len(w) >= 3 and w not in stop and w not in out:
                     out.append(w)
+            nouns_list = [w for w in out if w in nouns]
+            rest = [w for w in out if w not in nouns]
+            out = nouns_list + rest
             break
+        # Son AI cevabından konuyla ilgili isimleri de ekle (ışık, kutlecekimi…)
+        if out:
+            ai = _norm(self._last_ai_message(history))[:500]
+            ai_nouns = self._noun_entities(self._content_words(ai))
+            for w in ai_nouns:
+                if w not in out and len(w) >= 5 and len(out) < limit:
+                    out.append(w)
         return out[:limit]
+
+    def _is_followup(self, text: str, history: list) -> bool:
+        """Önceki mesaja bağlı mı? Varsayılan: geçmiş varsa konuyu koru."""
+        if not history:
+            return False
+        words = set(text.split())
+        content = self._content_words(text)
+        if words & self.FOLLOWUP_HINTS:
+            return True
+        if not content:
+            return True
+        if self._looks_possessive(content):
+            return True
+        if any(p in text for p in self.MORE_PATTERNS):
+            return True
+
+        topic = set(self._topic_keywords(history))
+        nouns = self._noun_entities(content)
+        new_nouns = nouns - topic
+
+        # Açık konu değişimi: "X nedir/kimdir" ve X önceki konuda yok
+        if new_nouns and any(h in text for h in ("nedir", "kimdir", "ne demek", "who is", "what is", "hakkinda")):
+            # ör. "atatürk kimdir" karadelik sohbetinden sonra
+            return False
+
+        # Kısa mesaj + yeni isim yok → takip
+        if len(words) <= 8 and not new_nouns:
+            return True
+        # Soru kalıbı (neden/nasıl/…) + kısa → takip; yeni kelime olsa bile
+        # ("ışık neden kaçamaz" hâlâ karadelik hakkında)
+        q_bits = ("neden", "niye", "nasil", "ne zaman", "nerede", "kac", "hangi",
+                  "ne olur", "ne ise", "ne kadar", "ne icin")
+        if len(words) <= 8 and any(q in text for q in q_bits):
+            return True
+        if any(h in text for h in self.RESEARCH_HINTS) and len(new_nouns) == 0:
+            return True
+        if len(words) <= 5 and len(new_nouns) <= 1 and all(
+            self.VERBISH.search(w) for w in new_nouns
+        ):
+            return True
+        # Orta uzunlukta, yeni isim yok → takip
+        if len(words) <= 10 and not new_nouns:
+            return True
+        return False
+
+    def _think(self, raw: str, text: str, history: list) -> dict:
+        """Kısa düşünme adımı: niyet + konu + araştırma sorgusu.
+
+        Gerçek LLM değil ama cevaptan ÖNCE ne yapacağına karar verir —
+        konuyu kaçırmamak ve alakasız yere sapmamak için.
+        """
+        content = self._content_words(text)
+        topic = self._topic_keywords(history)
+        topic_str = " ".join(topic)
+        followup = self._is_followup(text, history)
+        nouns = self._noun_entities(content)
+
+        if self._refuses_search(text) or self._is_personal(text):
+            intent = "personal" if self._is_personal(text) else "refuse"
+        elif any(s in text for s in ("kod", "yaz", "ornek", "goster", "code", "write")):
+            intent = "code"
+        elif followup and topic:
+            intent = "followup"
+        elif self._should_research(text, content):
+            intent = "research"
+        elif self._match_chitchat(text) and not nouns:
+            intent = "chat"
+        else:
+            intent = "chat"
+
+        if intent == "followup":
+            # Önce konu+soru; yalın soru ASLA önce denenmez
+            research_q = f"{topic_str} {raw}".strip()
+            reason = f"önceki konuya bağlı: «{topic_str}»"
+        elif intent == "research":
+            research_q = raw
+            reason = f"yeni bilgi sorusu: «{' '.join(sorted(nouns)[:3]) or raw[:40]}»"
+        elif intent == "code":
+            research_q = ""
+            reason = "kod/örnek isteği"
+        else:
+            research_q = ""
+            reason = "sohbet / kişisel / arama yok"
+
+        return {
+            "intent": intent,
+            "topic": topic,
+            "topic_str": topic_str,
+            "followup": followup,
+            "content": content,
+            "nouns": nouns,
+            "research_query": research_q,
+            "reason": reason,
+        }
 
     def _remember_name(self, history: list, current: str) -> Optional[str]:
         pattern = r"(?:benim )?(?:adim|ismim)\s+([a-zçğıöşü]+)"
@@ -1488,101 +1628,107 @@ class Brain:
                 return {"reply": f"Tabii, adın **{name}** 😊", "source": "chat"}
             return {"reply": "Daha söylemedin! \"Benim adım ...\" dersen aklımda tutarım.", "source": "chat"}
 
-        # İnternete bakma / kişisel soru → önce mantık, asla web araması yok
-        if self._refuses_search(text) or self._is_personal(text):
-            return self._soft_reply(text, history)
-
+        # ---- DÜŞÜN ----
+        thought = self._think(raw, text, history)
         kb = self._match_kb(text)
         chit = self._match_chitchat(text)
-
         words = set(text.split())
         is_short = len(words) <= 6
-        has_followup_hint = bool(words & self.FOLLOWUP_HINTS)
 
-        # "başka örnek / devam et" → aynı konudan farklı bir kayıt getir
-        if is_short and (any(p in text for p in self.MORE_PATTERNS) or
-                         (has_followup_hint and not kb)):
+        # kişisel / arama yasağı
+        if thought["intent"] in ("personal", "refuse"):
+            out = self._soft_reply(text, history)
+            out["thinking"] = thought["reason"]
+            return out
+
+        # "başka örnek / devam et" → aynı KB konusundan farklı kayıt
+        if is_short and any(p in text for p in self.MORE_PATTERNS):
             prev = self._last_topic_entry(history)
             if prev:
-                # önceki konunun en belirgin kelimesi (ör. "dosya", "fibonacci")
                 word_counts: dict = {}
                 for key in prev["nk"]:
                     for w in key.split():
                         if w not in self.GENERIC_WORDS and len(w) > 2:
                             word_counts[w] = word_counts.get(w, 0) + 1
                 seed = max(word_counts, key=word_counts.get) if word_counts else ""
+                related_text = _norm(prev["a"])[:200] + " " + seed
+                for entry, _score in self._rank_kb(related_text):
+                    if entry is not prev:
+                        result = self._kb_result(entry)
+                        result["reply"] = "İlgili başka bir örnek:\n\n" + result["reply"]
+                        result["thinking"] = thought["reason"]
+                        return result
+                result = self._kb_result(prev)
+                result["thinking"] = thought["reason"]
+                return result
 
-                if any(p in text for p in self.MORE_PATTERNS):
-                    # ilgili ama farklı bir kayıt: konu + cevap metni üzerinden ara
-                    related_text = _norm(prev["a"])[:200] + " " + seed
-                    for entry, _score in self._rank_kb(related_text):
-                        if entry is not prev:
-                            result = self._kb_result(entry)
-                            result["reply"] = "İlgili başka bir örnek:\n\n" + result["reply"]
-                            return result
-                    return self._kb_result(prev)
+        # ---- TAKİP: önceki konuya sıkı sıkıya bağlı kal ----
+        if thought["intent"] == "followup" and thought["topic"]:
+            topic_str = thought["topic_str"]
+            # saf selamlaşma
+            if chit and not thought["content"]:
+                return {"reply": chit, "source": "chat", "thinking": thought["reason"]}
 
-                # takip sorusu: yeni mesaj + konu kelimesini birleştirip tekrar dene
-                combined = self._match_kb(text + " " + seed)
-                if combined:
-                    return self._kb_result(combined)
-                return self._kb_result(prev)
-
-        # ---- takip sorusu: önceki konuya bağlı kal ----
-        stop = self.GENERIC_WORDS | self.FOLLOWUP_HINTS | self.QUESTION_WORDS
-        content_words = {w for w in words if len(w) >= 3 and w not in stop}
-        topic = self._topic_keywords(history)
-        # "en ünlü teorisi ne", "boyutu kaç" gibi öznesiz sorular: tüm içerik
-        # kelimeleri iyelik eki taşıyorsa konu önceki mesajlardadır
-        is_followup = bool(history) and (
-            has_followup_hint
-            or not content_words
-            or self._looks_possessive(content_words)
-        )
-
-        if is_followup and topic and not any(p in text for p in self.MORE_PATTERNS):
-            # sadece selamlaşma/teşekkür ise normal sohbet cevabı ver
-            if chit and not content_words:
-                return {"reply": chit, "source": "chat"}
-            topic_str = " ".join(topic)
             comb = self._rank_kb(text + " " + topic_str)
             bare = self._rank_kb(text)
             comb_s = comb[0][1] if comb else 0.0
             bare_s = bare[0][1] if bare else 0.0
-            # konu + soru birlikte güçlü bir KB kaydına oturuyorsa onu ver
+
+            # konu + soru birlikte güçlüyse onu ver
             if comb and comb_s >= 3.0 and comb_s >= bare_s:
-                return self._kb_result(comb[0][0])
-            # konudan bağımsız ama ÇOK güçlü bir eşleşme varsa kabul et
-            if bare and bare_s >= 5.0:
-                return self._kb_result(bare[0][0])
-            # aksi halde konuyu koruyarak web/öğrenilmiş bilgiye git —
-            # zayıf KB eşleşmelerinin konuyu kaçırmasına izin verme.
-            # Önce konu+soru, o başarısız olursa yalın soru denenir.
-            if self._should_research(text, content_words | set(topic)):
+                result = self._kb_result(comb[0][0])
+                result["thinking"] = thought["reason"]
+                return result
+            # yalın eşleşme SADECE çok güçlüyse ve konuyla örtüşüyorsa
+            if bare and bare_s >= 6.0:
+                bare_keys = " ".join(bare[0][0].get("nk", []))
+                if any(t in bare_keys for t in thought["topic"]):
+                    result = self._kb_result(bare[0][0])
+                    result["thinking"] = thought["reason"]
+                    return result
+
+            # Web: her zaman konu+soru ile ara (yalın soru yok)
+            if self._should_research(text + " " + topic_str, thought["content"] | set(thought["topic"])):
                 return {
                     "reply": (
                         "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
                         + "\n".join(f"• {s}" for s in random.sample(SUGGESTIONS, 4))
                     ),
                     "source": "fallback",
-                    "research_query": topic_str + " " + raw,
-                    "context_query": raw,
+                    "research_query": thought["research_query"],
+                    # yalın soruyu ikinci deneme olarak bile KOYMA —
+                    # konu kaybına yol açıyor
+                    "thinking": thought["reason"],
                 }
-            return self._soft_reply(text, history)
+            out = self._soft_reply(text, history)
+            out["thinking"] = thought["reason"]
+            return out
 
-        # If the message clearly asks for code, prefer KB over chitchat
+        # ---- YENİ KONU / KOD / SOHBET ----
         code_signals = ["kod", "yaz", "nasil", "ornek", "goster", "code", "how", "write"]
         wants_code = any(s in text for s in code_signals)
 
+        # Takip değilse bile geçmiş varsa zayıf KB eşleşmesinin konuyu çalmasını engelle
         if kb and (wants_code or not chit):
-            return self._kb_result(kb)
-        if chit:
-            return {"reply": chit, "source": "chat"}
+            # geçmişteki konudan tamamen kopuk zayıf eşleşme? reddet
+            if history and thought["topic"] and not wants_code:
+                kb_keys = " ".join(kb.get("nk", []))
+                overlap = any(t in kb_keys for t in thought["topic"])
+                score = self._score_entry(text, words, kb)
+                if score < 5.0 and not overlap and thought["followup"]:
+                    kb = None  # konuyu çalma
+            if kb:
+                result = self._kb_result(kb)
+                result["thinking"] = thought["reason"]
+                return result
+        if chit and thought["intent"] in ("chat", "code") and not wants_code:
+            return {"reply": chit, "source": "chat", "thinking": thought["reason"]}
         if kb:
-            return self._kb_result(kb)
+            result = self._kb_result(kb)
+            result["thinking"] = thought["reason"]
+            return result
 
-        # Hiç eşleşme yok → sadece bilgi sorularında web araştırması
-        if self._should_research(text, content_words):
+        if thought["intent"] == "research" or self._should_research(text, thought["content"]):
             result = {
                 "reply": (
                     "Bunu tam anlayamadım 🤔 Şunları deneyebilirsin:\n"
@@ -1590,11 +1736,16 @@ class Brain:
                 ),
                 "source": "fallback",
                 "research_query": raw,
+                "thinking": thought["reason"],
             }
-            if topic and len(content_words) <= 2:
-                result["context_query"] = " ".join(topic) + " " + raw
+            # geçmiş konu varsa onu YEDEK olarak ekle (önce yeni soru)
+            if thought["topic"] and len(thought["content"]) <= 2:
+                result["context_query"] = thought["topic_str"] + " " + raw
             return result
-        return self._soft_reply(text, history)
+
+        out = self._soft_reply(text, history)
+        out["thinking"] = thought["reason"]
+        return out
 
 
 brain = Brain()

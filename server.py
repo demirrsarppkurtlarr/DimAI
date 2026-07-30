@@ -83,14 +83,19 @@ def chat():
     if result.get("source") == "fallback":
         query = result.pop("research_query", message)
         context_query = result.pop("context_query", None)
-        # iki aşamalı: önce soruyu, bulamazsa konu bağlamı + soruyu dene
-        for q in [query] + ([context_query] if context_query else []):
+        # Takip sorularında research_query zaten "konu + soru".
+        # Yalın context_query'yi ÖNCE denemek konuyu kaçırır — önce zengin sorgu.
+        queries = [query]
+        if context_query and context_query.strip() and context_query.strip() != query.strip():
+            queries.append(context_query)
+        for q in queries:
             hit = learned.lookup(q)
             if hit:
                 result = {
                     "reply": f"{hit['a']}",
                     "source": "learned",
                     "url": hit.get("url", ""),
+                    "thinking": result.get("thinking", ""),
                 }
                 break
             found = web_research.research_deep(q)
@@ -101,8 +106,17 @@ def chat():
                     "source": "web",
                     "url": found.get("url", ""),
                     "provider": found.get("provider", ""),
+                    "thinking": result.get("thinking", ""),
                 }
                 break
+        else:
+            # hiçbir kaynak bulamadıysa ve düşünce "followup" ise konuyu hatırlat
+            if result.get("thinking", "").startswith("önceki konuya"):
+                result["source"] = "chat"
+                result["reply"] = (
+                    "Bu konuda net bir kaynak bulamadım. "
+                    "Soruyu biraz daha açar mısın — ya da yeni bir konu sor."
+                )
 
     # Attach experimental neural output when requested or still unanswered
     if data.get("neural") or result.get("source") == "fallback":
