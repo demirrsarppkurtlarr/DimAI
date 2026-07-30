@@ -279,11 +279,56 @@ async function refresh() {
     autoOn = !!s.running;
     els.btnAuto.classList.toggle("on", autoOn);
     els.btnAuto.setAttribute("aria-checked", String(autoOn));
+    updateTrainPanel(s.train_job || {});
     setLive(true);
   } catch {
     setLive(false);
   }
 }
+
+/* ---------- targeted training ---------- */
+
+const trainSteps = $("train-steps");
+const btnTrain = $("btn-train");
+const trainProgress = $("train-progress");
+const trainBar = $("train-bar");
+const trainPct = $("train-pct");
+const trainMsg = $("train-msg");
+
+function updateTrainPanel(job) {
+  const active = !!job.active;
+  btnTrain.disabled = active;
+  btnTrain.textContent = active ? "Eğitiliyor…" : "Eğit";
+  trainProgress.hidden = !active && !job.message;
+  if (active) {
+    const pct = Math.round((job.progress || 0) * 100);
+    trainBar.style.width = `${pct}%`;
+    trainPct.textContent = `${pct}%`;
+    let msg = job.message || "eğitiliyor…";
+    if (job.eta_sec != null) {
+      const m = Math.ceil(job.eta_sec / 60);
+      msg += ` · ~${m} dk kaldı`;
+    }
+    trainMsg.textContent = msg;
+  } else if (job.message) {
+    trainBar.style.width = "100%";
+    trainPct.textContent = "";
+    trainMsg.textContent = job.message;
+  }
+}
+
+btnTrain?.addEventListener("click", async () => {
+  const n = Math.max(100, Math.min(1000000, Number(trainSteps.value) || 1000));
+  btnTrain.disabled = true;
+  trainMsg.textContent = "eğitim başlatılıyor…";
+  try {
+    const data = await api("/api/train", { steps: n });
+    updateTrainPanel(data.job || {});
+  } catch {
+    trainMsg.textContent = "eğitim başlatılamadı";
+    btnTrain.disabled = false;
+  }
+});
 
 els.btnAuto.addEventListener("click", async () => {
   try {

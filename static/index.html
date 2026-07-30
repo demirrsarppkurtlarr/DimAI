@@ -49,6 +49,21 @@
         <div id="chips" class="chips"></div>
       </div>
 
+      <div class="side-section">
+        <p class="side-title">Kendini eğit</p>
+        <div class="train-panel">
+          <div class="train-row">
+            <input id="train-steps" type="number" min="100" max="1000000" step="100" value="2000" placeholder="adım" />
+            <button id="btn-train" class="train-btn">Eğit</button>
+          </div>
+          <div class="train-progress" id="train-progress" hidden>
+            <div class="bar"><div id="train-bar" class="fill"></div></div>
+            <span id="train-pct">0%</span>
+          </div>
+          <p id="train-msg" class="train-msg">Adım sayısı gir, gerisini DimAI halleder — veri toplar, eğitilir, bitince kalıcı kaydeder.</p>
+        </div>
+      </div>
+
       <div class="side-section side-bottom">
         <p class="side-title">Nöral model</p>
         <div class="mini-stats">

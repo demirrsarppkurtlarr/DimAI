@@ -34,6 +34,7 @@ def status():
     payload = trainer.state.to_dict()
     payload["learned_count"] = learned.count()
     payload["learned_backend"] = learned.backend
+    payload["train_job"] = trainer.job_status()
     return jsonify(payload)
 
 
@@ -45,7 +46,7 @@ def bootstrap():
     return jsonify({"ok": True, "loss": loss, "state": trainer.state.to_dict()})
 
 
-@app.post("/api/train")
+@app.post("/api/train_sync")
 def train():
     data = request.get_json(silent=True) or {}
     n = int(data.get("steps", 50))
@@ -92,7 +93,7 @@ def chat():
                     "url": hit.get("url", ""),
                 }
                 break
-            found = web_research.research(q)
+            found = web_research.research_deep(q)
             if found:
                 learned.add(q, found["answer"], found.get("url", ""))
                 result = {
@@ -120,6 +121,42 @@ def chat():
 def self_train():
     result = trainer.self_train_once()
     return jsonify({"ok": True, "result": result, "state": trainer.state.to_dict()})
+
+
+def _keepalive_while_training() -> None:
+    """Render free tier 15 dk isteksiz kalınca uyur; eğitim boyunca uyandık kal."""
+    import threading
+    import time as _t
+
+    import requests as _rq
+
+    url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    if not url:
+        return
+
+    def ping() -> None:
+        while trainer.job.get("active"):
+            _t.sleep(240)
+            try:
+                _rq.get(f"{url}/api/health", timeout=10)
+            except Exception:
+                pass
+
+    threading.Thread(target=ping, daemon=True, name="keepalive").start()
+
+
+@app.post("/api/train")
+def train_start():
+    data = request.get_json(silent=True) or {}
+    steps = int(data.get("steps", 1000))
+    job = trainer.start_training_job(steps)
+    _keepalive_while_training()
+    return jsonify({"ok": True, "job": job})
+
+
+@app.post("/api/train/stop")
+def train_stop():
+    return jsonify({"ok": True, "job": trainer.stop_training_job()})
 
 
 @app.post("/api/autolearn/start")

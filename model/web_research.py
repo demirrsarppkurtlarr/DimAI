@@ -469,8 +469,21 @@ NEWS_HINT = re.compile(
 )
 
 
-def research(question: str) -> Optional[dict]:
-    """Query all free sources in parallel; pick the best answer, list extras."""
+PROVIDERS = {
+    "so": "Stack Overflow",
+    "wiki_tr": "Wikipedia (TR)",
+    "wiki_en": "Wikipedia (EN)",
+    "ddg": "DuckDuckGo",
+    "ddg_web": "Web araması",
+    "ddg_raw": "Web araması (tam metin)",
+    "gnews": "Google News",
+    "hn": "Hacker News",
+    "wikidata": "Wikidata",
+}
+
+
+def _gather(question: str, deep: bool = False) -> tuple[str, bool, bool, dict]:
+    """Run all free sources in parallel; returns (query, code, news, results)."""
     from concurrent.futures import ThreadPoolExecutor
 
     query = _clean_query(question)
@@ -486,7 +499,10 @@ def research(question: str) -> Optional[dict]:
         "gnews": lambda: google_news_lookup(query),
         "wikidata": lambda: wikidata_lookup(query),
     }
-    if code_hint:
+    if deep and query != question.strip().rstrip("?!."):
+        # kullanıcının yazdığının AYNISI ile de ara
+        tasks["ddg_raw"] = lambda: ddg_web_search(question.strip())
+    if code_hint or deep:
         tasks["so"] = lambda: stackoverflow_lookup(query)
         tasks["hn"] = lambda: hackernews_lookup(query)
 
@@ -498,17 +514,16 @@ def research(question: str) -> Optional[dict]:
                 results[name] = fut.result(timeout=TIMEOUT + 4)
             except Exception:
                 results[name] = None
+    status = " ".join(f"{n}={'ok' if results.get(n) else '-'}" for n in tasks)
+    print(f"[research] q={query!r} deep={deep} news={news_hint} code={code_hint} {status}", flush=True)
+    return query, code_hint, news_hint, results
 
-    providers = {
-        "so": "Stack Overflow",
-        "wiki_tr": "Wikipedia (TR)",
-        "wiki_en": "Wikipedia (EN)",
-        "ddg": "DuckDuckGo",
-        "ddg_web": "Web araması",
-        "gnews": "Google News",
-        "hn": "Hacker News",
-        "wikidata": "Wikidata",
-    }
+
+def research(question: str) -> Optional[dict]:
+    """Query all free sources in parallel; pick the best answer, list extras."""
+    query, code_hint, news_hint, results = _gather(question)
+
+    providers = PROVIDERS
     # Google News yalnızca haber sorularında ana cevap olur; bilgi sorularında
     # sadece ek kaynak linki olarak kullanılır (haber spam'ini önler).
     if code_hint:
@@ -517,9 +532,6 @@ def research(question: str) -> Optional[dict]:
         order = ["gnews", "wiki_tr", "wiki_en", "ddg", "ddg_web", "wikidata"]
     else:
         order = ["wiki_tr", "wiki_en", "ddg", "ddg_web", "wikidata"]
-
-    status = " ".join(f"{n}={'ok' if results.get(n) else '-'}" for n in tasks)
-    print(f"[research] q={query!r} news={news_hint} code={code_hint} {status}", flush=True)
 
     primary_name = next((n for n in order if results.get(n)), None)
     if not primary_name:
@@ -545,6 +557,93 @@ def research(question: str) -> Optional[dict]:
         answer += "\n\n📚 Diğer kaynaklar:\n" + "\n".join(f"• {u}" for u in extras)
 
     return {"answer": answer, "url": url, "provider": providers[primary_name]}
+
+
+def _split_sentences(text: str) -> list[str]:
+    text = re.sub(r"📰[^\n]*|📚[^\n]*|^•.*$", " ", text, flags=re.M)
+    parts = re.split(r"(?<=[.!?])\s+", text)
+    return [p.strip() for p in parts if 40 <= len(p.strip()) <= 400]
+
+
+def research_deep(question: str) -> Optional[dict]:
+    """Search MANY sources (5+) and synthesize a combined answer.
+
+    Extractive synthesis: sentences from all successful sources are scored
+    by query keyword coverage and cross-source agreement; the best distinct
+    sentences form the answer, with every source listed.
+    """
+    query, code_hint, news_hint, results = _gather(question, deep=True)
+
+    found = [(name, r[0], r[1]) for name, r in results.items() if r]
+    if not found:
+        return None
+
+    # haber başlıkları/link listeleri sentez cümlesi olamaz
+    text_sources = [
+        (name, ans, url) for name, ans, url in found if name not in ("gnews", "hn")
+    ]
+    if len(text_sources) < 2:
+        # sentezlenecek kadar metin yok → normal en-iyi-kaynak cevabı
+        return research(question)
+
+    qnorm = _norm(question)
+    q_stems = {w[: min(len(w), 5)] for w in qnorm.split() if len(w) >= 3 and w not in STOPWORDS}
+
+    # cümleleri topla ve puanla
+    cands: list[dict] = []
+    for idx, (name, ans, url) in enumerate(text_sources):
+        for pos, sent in enumerate(_split_sentences(ans)):
+            sns = _norm(sent).replace(" ", "")
+            cover = (
+                sum(1 for s in q_stems if s in sns) / len(q_stems) if q_stems else 0.5
+            )
+            cands.append({
+                "sent": sent, "src": idx, "pos": pos,
+                "score": cover + (0.3 if pos == 0 else 0.0),
+            })
+    # kaynaklar arası doğrulama: benzer cümle başka kaynakta da varsa güçlü sinyal
+    for i, a in enumerate(cands):
+        for b in cands[i + 1:]:
+            if a["src"] != b["src"] and difflib.SequenceMatcher(
+                None, _norm(a["sent"])[:200], _norm(b["sent"])[:200]
+            ).ratio() > 0.6:
+                a["score"] += 0.4
+                b["score"] += 0.4
+
+    picked: list[dict] = []
+    for c in sorted(cands, key=lambda c: -c["score"]):
+        if len(picked) >= 6:
+            break
+        if any(
+            difflib.SequenceMatcher(None, _norm(c["sent"])[:200], _norm(p["sent"])[:200]).ratio() > 0.7
+            for p in picked
+        ):
+            continue  # tekrar eden bilgiyi atla
+        picked.append(c)
+    if not picked:
+        return research(question)
+    picked.sort(key=lambda c: (c["src"], c["pos"]))
+
+    summary = " ".join(c["sent"] for c in picked)[:1500]
+
+    seen_urls: list[str] = []
+    src_lines: list[str] = []
+    for name, _ans, url in found:
+        if url and url not in seen_urls:
+            seen_urls.append(url)
+            src_lines.append(f"• {PROVIDERS.get(name, name)}: {url}")
+    answer = (
+        f"🔎 **Çoklu kaynak araştırması** ({len(found)} kaynak tarandı)\n\n"
+        f"{summary}\n\n"
+        f"📚 **Kaynaklar ({len(src_lines)}):**\n" + "\n".join(src_lines[:6])
+    )
+    primary_url = text_sources[0][2] or (seen_urls[0] if seen_urls else "")
+    return {
+        "answer": answer,
+        "url": primary_url,
+        "provider": f"{len(found)} kaynak sentezi",
+        "sources": seen_urls[:6],
+    }
 
 
 learned = LearnedStore()

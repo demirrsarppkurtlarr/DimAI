@@ -45,6 +45,7 @@ class TrainerState:
     last_accepted: str = ""
     running: bool = False
     message: str = "idle"
+    hf_offset: int = 0
     history: List[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -57,6 +58,7 @@ class TrainerState:
             "last_accepted": self.last_accepted[-500:],
             "running": self.running,
             "message": self.message,
+            "hf_offset": self.hf_offset,
             "history": self.history[-50:],
         }
 
@@ -77,6 +79,15 @@ class CodeTrainer:
         self._ids: Optional[np.ndarray] = None
         self._ids_for_len = -1
         self._anchors: List[int] = []
+        self._job_stop = threading.Event()
+        self._job_thread: Optional[threading.Thread] = None
+        self.job: dict = {"active": False}
+        # Render'ın diski geçici: Supabase'de daha ileri bir model varsa onu al
+        try:
+            from model import persist
+            persist.restore_if_newer(CHECKPOINT.parent)
+        except Exception as exc:
+            print(f"[trainer] restore skipped: {exc}", flush=True)
         self._load_or_init()
 
     def _rebuild_cache(self) -> None:
@@ -104,6 +115,7 @@ class CodeTrainer:
             self.state.accepted = int(meta.get("accepted", 0))
             self.state.rejected = int(meta.get("rejected", 0))
             self.state.self_train_rounds = int(meta.get("self_train_rounds", 0))
+            self.state.hf_offset = int(meta.get("hf_offset", 0))
             self.state.message = "checkpoint loaded"
         else:
             self.vocab = Vocab.from_text(self.corpus)
@@ -119,6 +131,7 @@ class CodeTrainer:
                 "rejected": self.state.rejected,
                 "self_train_rounds": self.state.self_train_rounds,
                 "last_loss": self.state.last_loss,
+                "hf_offset": self.state.hf_offset,
             }
             self.model.save(CHECKPOINT, self.vocab, meta)
             STATE_PATH.write_text(json.dumps(self.state.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
@@ -358,6 +371,107 @@ class CodeTrainer:
         self._stop.set()
         self.state.running = False
         self.state.message = "stopping autolearn"
+
+    # -------------------- targeted training job --------------------
+
+    def job_status(self) -> dict:
+        job = dict(self.job)
+        if job.get("active"):
+            done = self.state.steps - job.get("start_steps", 0)
+            total = job.get("requested", 1)
+            job["done_steps"] = done
+            job["progress"] = min(1.0, done / max(1, total))
+            rate = done / max(1e-9, time.time() - job.get("started", time.time()))
+            if rate > 0:
+                job["eta_sec"] = int((total - done) / max(rate, 1e-9))
+        return job
+
+    def start_training_job(self, requested_steps: int) -> dict:
+        """Train `requested_steps` more steps in the background.
+
+        Collects fresh HF data along the way, saves periodically, and when
+        the target is reached uploads the checkpoint to Supabase Storage so
+        the learned weights survive restarts.
+        """
+        requested = max(100, min(int(requested_steps), 1_000_000))
+        with self.lock:
+            if self._job_thread and self._job_thread.is_alive():
+                return self.job_status()
+            was_autolearn = self.state.running
+            self.stop_autolearn()
+            self._job_stop.clear()
+            self.job = {
+                "active": True,
+                "requested": requested,
+                "start_steps": self.state.steps,
+                "target": self.state.steps + requested,
+                "collected_chars": 0,
+                "started": time.time(),
+                "message": "eğitim başladı",
+            }
+
+        def loop() -> None:
+            from model import data_collector, persist
+
+            target = self.job["target"]
+            start = self.job["start_steps"]
+            next_collect = start
+            next_save = start + 1000
+            try:
+                while self.state.steps < target and not self._job_stop.is_set():
+                    # her ~2000 adımda bir taze veri topla
+                    if self.state.steps >= next_collect:
+                        self.job["message"] = "veri toplanıyor (Hugging Face)…"
+                        try:
+                            text, next_off = data_collector.fetch_batch(self.state.hf_offset)
+                            if text:
+                                with self.lock:
+                                    self.corpus = (self.corpus + "\n\n" + text)[-3_000_000:]
+                                    self._rebuild_cache()
+                                self.state.hf_offset = next_off
+                                self.job["collected_chars"] += len(text)
+                        except Exception:
+                            pass
+                        next_collect += 2000
+                    p = (self.state.steps - start) / max(1, target - start)
+                    lr = 0.02 * (0.2 ** p)
+                    loss = self.train_steps(n=20, lr=lr)
+                    self.job["message"] = f"eğitiliyor… loss={loss:.3f}"
+                    # ara sıra kendi ürettiği kodla pekiştir
+                    if self.state.steps % 500 < 20:
+                        try:
+                            self.self_train_once()
+                        except Exception:
+                            pass
+                    if self.state.steps >= next_save:
+                        self.save()
+                        next_save += 1000
+                self.save()
+                uploaded = persist.upload_checkpoint(CHECKPOINT.parent)
+                if self._job_stop.is_set():
+                    self.job["message"] = "eğitim durduruldu"
+                else:
+                    self.job["message"] = (
+                        "eğitim tamamlandı — model kalıcı olarak kaydedildi ✅"
+                        if uploaded
+                        else "eğitim tamamlandı (yerel kayıt)"
+                    )
+            except Exception as exc:
+                self.job["message"] = f"eğitim hatası: {exc}"
+            finally:
+                self.job["active"] = False
+                if was_autolearn or os.environ.get("DIMAI_AUTOLEARN", "1") == "1":
+                    interval = float(os.environ.get("DIMAI_AUTOLEARN_INTERVAL", "3"))
+                    if interval > 0:
+                        self.start_autolearn(interval_sec=interval)
+
+        self._job_thread = threading.Thread(target=loop, daemon=True, name="train-job")
+        self._job_thread.start()
+        return self.job_status()
+
+    def stop_training_job(self) -> dict:
+        self._job_stop.set()
+        return self.job_status()
 
 
 # singleton used by server
