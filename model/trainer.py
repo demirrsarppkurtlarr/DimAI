@@ -394,21 +394,22 @@ class CodeTrainer:
         the learned weights survive restarts.
         """
         requested = max(100, min(int(requested_steps), 1_000_000))
-        with self.lock:
-            if self._job_thread and self._job_thread.is_alive():
-                return self.job_status()
-            was_autolearn = self.state.running
-            self.stop_autolearn()
-            self._job_stop.clear()
-            self.job = {
-                "active": True,
-                "requested": requested,
-                "start_steps": self.state.steps,
-                "target": self.state.steps + requested,
-                "collected_chars": 0,
-                "started": time.time(),
-                "message": "eğitim başladı",
-            }
+        # NOT: burada self.lock ALINMAZ — autolearn turu kilidi uzun süre
+        # tutabilir ve endpoint zaman aşımına uğrar. Kurulum kilitsiz güvenli.
+        if self._job_thread and self._job_thread.is_alive():
+            return self.job_status()
+        was_autolearn = self.state.running
+        self.stop_autolearn()
+        self._job_stop.clear()
+        self.job = {
+            "active": True,
+            "requested": requested,
+            "start_steps": self.state.steps,
+            "target": self.state.steps + requested,
+            "collected_chars": 0,
+            "started": time.time(),
+            "message": "eğitim başladı",
+        }
 
         def loop() -> None:
             from model import data_collector, persist
