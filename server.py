@@ -1,4 +1,4 @@
-"""Local web server for the self-training code AI. No external AI APIs."""
+"""DimAI — local web server for the self-training code AI. No external AI APIs."""
 from __future__ import annotations
 
 import sys

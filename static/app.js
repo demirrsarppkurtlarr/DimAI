@@ -66,7 +66,7 @@ els.btnGen.addEventListener("click", async () => {
       temperature: Number(els.temp.value),
       n_chars: 200,
     });
-    els.output.textContent = data.text;
+    els.output.textContent = data.valid_prefix || data.text;
     els.badge.textContent = data.valid_python ? "geçerli Python" : "geçersiz / yarım";
     els.badge.className = "badge " + (data.valid_python ? "ok" : "bad");
   } catch (err) {

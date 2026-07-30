@@ -1,4 +1,4 @@
-# CodeMind
+# DimAI
 
 Kendi eğitilen, dış AI API’si kullanmayan küçük bir kod dil modeli.
 
