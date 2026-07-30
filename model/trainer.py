@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import random
 import re
 import threading
@@ -246,10 +247,14 @@ class CodeTrainer:
             score *= max(0.2, 1.0 - short / max(len(words), 1))
         return score
 
+    # Smaller work units on tiny cloud instances (Render free = 0.1 CPU)
+    LIGHT_MODE = os.environ.get("DIMAI_LIGHT", "0") == "1"
+
     def self_train_once(self) -> dict:
         prompt = random.choice(PROMPTS)
         temp = self._adaptive_temperature()
-        generated = self.generate(prompt=prompt, n_chars=220, temperature=temp)
+        n_chars = 120 if self.LIGHT_MODE else 220
+        generated = self.generate(prompt=prompt, n_chars=n_chars, temperature=temp)
         snippet = generated.strip()
         parts = snippet.split("\n\n")
         if len(parts) > 1 and len(parts[0]) > 30:
@@ -276,14 +281,16 @@ class CodeTrainer:
                 ids = self.vocab.encode(snippet) if self.vocab else []
                 if self.model and len(ids) >= 2:
                     reps = 3 + int(min(quality, 2.0) * 2)  # better code → more reinforcement
+                    if self.LIGHT_MODE:
+                        reps = min(reps, 2)
                     for _ in range(reps):
                         self.model.train_sequence(ids[: min(len(ids), self.seq_len + 1)], lr=lr * 0.8)
                         self.state.steps += 1
-                loss = self.train_steps(n=8, lr=lr)
+                loss = self.train_steps(n=2 if self.LIGHT_MODE else 8, lr=lr)
             else:
                 self.state.rejected += 1
                 self.state.message = "red — temel veriyle tekrar çalışılıyor"
-                loss = self.train_steps(n=14, lr=lr)
+                loss = self.train_steps(n=4 if self.LIGHT_MODE else 14, lr=lr)
                 # replay: rehearse previously accepted good code
                 if self.replay and self.model and self.vocab:
                     sample = random.choice(self.replay)

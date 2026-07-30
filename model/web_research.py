@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LEARNED_PATH = ROOT / "data" / "learned.json"
 
 HEADERS = {"User-Agent": "DimAI/1.0 (self-hosted learning assistant)"}
-TIMEOUT = 6
+TIMEOUT = 4
 
 STOPWORDS = {
     "nedir", "ne", "nasil", "kim", "kimdir", "hakkinda", "bilgi", "ver",
