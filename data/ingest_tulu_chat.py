@@ -152,19 +152,27 @@ def merge_into_train(max_tulu_chars: int = 80_000_000) -> None:
         raise SystemExit("tulu corpus missing — run ingest first")
     tulu = tulu[:max_tulu_chars]
     train_path = ROOT / "data" / "train_corpus.txt"
-    base = train_path.read_text(encoding="utf-8") if train_path.exists() else ""
-    # Put tulu chat AFTER existing code so code anchors stay early if truncated later
-    merged = (base.rstrip() + "\n\n" + tulu).strip() + "\n"
+    # Prefer original code HF slice if present; else current train
+    code_path = ROOT / "data" / "hf_python_corpus.txt"
+    if code_path.exists() and code_path.stat().st_size > 1000:
+        code = code_path.read_text(encoding="utf-8")
+    else:
+        code = train_path.read_text(encoding="utf-8") if train_path.exists() else ""
+    # Full train archive on disk
+    merged = (code.rstrip() + "\n\n" + tulu).strip() + "\n"
     train_path.write_text(merged, encoding="utf-8")
-    # Active training corpus
-    (ROOT / "data" / "corpus.txt").write_text(merged[:12_000_000], encoding="utf-8")
-    # Deploy: keep quality code + a chat slice
+    # Active corpus for the tiny char-RNN: balance code + chat (12 MB cap)
+    code_part = code[:4_000_000]
+    tulu_part = tulu[:8_000_000]
+    active = (code_part.rstrip() + "\n\n" + tulu_part).strip() + "\n"
+    (ROOT / "data" / "corpus.txt").write_text(active[:12_000_000], encoding="utf-8")
+    # Deploy: quality chat slice + some code
     deploy = ROOT / "data" / "deploy_corpus.txt"
-    old = deploy.read_text(encoding="utf-8") if deploy.exists() else ""
-    chat_slice = tulu[:400_000]
+    old = deploy.read_text(encoding="utf-8") if deploy.exists() else code[:500_000]
+    chat_slice = tulu[:600_000]
     deploy.write_text((old.rstrip() + "\n\n" + chat_slice).strip()[:2_000_000] + "\n", encoding="utf-8")
     print(
-        f"merged train={len(merged):,} chars; corpus.txt={min(len(merged),12_000_000):,}; "
+        f"merged train={len(merged):,} chars; active code={len(code_part):,} + tulu={len(tulu_part):,}; "
         f"deploy+=chat {len(chat_slice):,}",
         flush=True,
     )
