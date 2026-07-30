@@ -10,5 +10,6 @@ checkpoints/*.npz
 checkpoints/*.json
 !checkpoints/.gitkeep
 data/corpus.txt
+data/hf_python_corpus.txt
 .pytest_cache/
 .mypy_cache/
