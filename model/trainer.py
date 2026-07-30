@@ -280,122 +280,196 @@ class CodeTrainer:
             return 0.55
         return 0.7
 
-    @staticmethod
-    def _quality_score(code: str) -> float:
-        """Heuristic quality: reward structure, penalize repetition / nonsense."""
+    _BUILTINS = frozenset(
+        {
+            "True",
+            "False",
+            "None",
+            "range",
+            "len",
+            "int",
+            "str",
+            "float",
+            "bool",
+            "list",
+            "dict",
+            "set",
+            "tuple",
+            "print",
+            "sum",
+            "min",
+            "max",
+            "abs",
+            "sorted",
+            "enumerate",
+            "zip",
+            "map",
+            "filter",
+            "open",
+            "Exception",
+            "ValueError",
+            "TypeError",
+            "KeyError",
+            "IndexError",
+            "StopIteration",
+            "isinstance",
+            "hasattr",
+            "getattr",
+            "setattr",
+            "super",
+            "property",
+            "staticmethod",
+            "classmethod",
+            "iter",
+            "next",
+            "any",
+            "all",
+            "round",
+            "pow",
+            "divmod",
+            "reversed",
+            "bytearray",
+            "bytes",
+            "object",
+            "type",
+            "input",
+            "repr",
+            "hex",
+            "bin",
+            "oct",
+            "ord",
+            "chr",
+            "id",
+            "hash",
+            "callable",
+            "issubclass",
+            "vars",
+            "dir",
+            "help",
+            "math",
+            "re",
+            "os",
+            "sys",
+            "json",
+            "time",
+            "random",
+            "collections",
+            "itertools",
+            "functools",
+            "typing",
+            "Optional",
+            "List",
+            "Dict",
+            "Tuple",
+            "Set",
+            "Any",
+            "Union",
+        }
+    )
+
+    @classmethod
+    def _quality_score(cls, code: str) -> float:
+        """Strict quality: only structurally coherent, grounded code scores high."""
         lines = [ln for ln in code.splitlines() if ln.strip()]
         if not lines:
             return 0.0
-        # Hard rejects — common char-RNN failure modes
         low = code.lower()
-        if re.search(r"return\s+\w+\.(?:append|extend|add|pop|remove|update)\s*\(", low):
+        # Hard-reject common char-RNN failure modes (mutating calls that return None)
+        if re.search(r"return\s+\w+\.(?:append|extend|add|update|insert)\s*\(", low):
             return 0.0
-        if "return results.append" in low or "return result.append" in low:
+        if "itemsters" in low or "result_string(string)" in low:
             return 0.0
-        if low.count("return results.append") + low.count("return result.append") > 0:
+        if "retrieve the input" in low:  # hallucinated English comment spam
             return 0.0
-        # Same body line repeated → degenerate
-        body_lines = [ln.strip() for ln in lines[1:] if ln.strip() and not ln.strip().startswith("#")]
+        body_lines = [ln.strip() for ln in lines[1:] if ln.strip() and not ln.strip().startswith(("#", '"""', "'''"))]
         if body_lines and len(set(body_lines)) == 1 and len(body_lines) >= 2:
             return 0.0
+
         score = 0.0
         if code.startswith(("def ", "class ")):
             score += 1.0
-        if "return" in code or "print(" in code:
-            score += 0.6
-        if len(lines) >= 3:
+        else:
+            return 0.0
+        if "return" in code or "print(" in code or "yield " in code:
             score += 0.5
-        if len(lines) >= 5:
-            score += 0.3
-        # Prefer real control flow / data structures
-        if any(k in code for k in ("for ", "while ", "if ", "elif ", "try:", "with ")):
+        if len(body_lines) >= 2:
             score += 0.4
-        # AST structural checks
+        if len(body_lines) >= 4:
+            score += 0.3
+        if any(k in code for k in ("for ", "while ", "if ", "elif ", "try:", "with ")):
+            score += 0.5
+
         try:
             tree = ast.parse(code)
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Return) and isinstance(node.value, ast.Call):
-                    func = node.value.func
-                    if isinstance(func, ast.Attribute) and func.attr in (
-                        "append",
-                        "extend",
-                        "add",
-                        "pop",
-                        "remove",
-                        "update",
-                        "insert",
-                    ):
-                        return 0.0
-                # undefined-ish: using `arr` when never assigned / not a param
-            for node in tree.body:
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    params = {a.arg for a in node.args.args}
-                    assigned: set[str] = set()
-                    used: set[str] = set()
-                    for child in ast.walk(node):
-                        if isinstance(child, ast.Name):
-                            if isinstance(child.ctx, ast.Store):
-                                assigned.add(child.id)
-                            elif isinstance(child.ctx, ast.Load):
-                                used.add(child.id)
-                    free = used - params - assigned - {
-                        "True",
-                        "False",
-                        "None",
-                        "range",
-                        "len",
-                        "int",
-                        "str",
-                        "list",
-                        "dict",
-                        "set",
-                        "tuple",
-                        "print",
-                        "sum",
-                        "min",
-                        "max",
-                        "abs",
-                        "sorted",
-                        "enumerate",
-                        "zip",
-                        "map",
-                        "filter",
-                        "open",
-                        "Exception",
-                        "ValueError",
-                        "TypeError",
-                        "KeyError",
-                        "IndexError",
-                        "isinstance",
-                        "hasattr",
-                        "getattr",
-                        "setattr",
-                        "super",
-                        "property",
-                        "staticmethod",
-                        "classmethod",
-                        "self",
-                        "cls",
-                    }
-                    # heavy free-name use without definition → likely hallucinated vars
-                    if len(free) >= 2:
-                        score *= 0.35
-                    elif len(free) == 1 and next(iter(free)) in ("arr", "a", "results", "data", "nums"):
-                        score *= 0.5
         except SyntaxError:
             return 0.0
-        # repetition penalty: many identical lines = degenerate output
+
+        def _free_names(fn: ast.AST, params: set[str]) -> set[str]:
+            assigned: set[str] = set()
+            used: set[str] = set()
+            for child in ast.walk(fn):
+                if isinstance(child, ast.Name):
+                    if isinstance(child.ctx, ast.Store):
+                        assigned.add(child.id)
+                    elif isinstance(child.ctx, ast.Load):
+                        used.add(child.id)
+            return used - params - assigned - cls._BUILTINS
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Return) and isinstance(node.value, ast.Call):
+                func = node.value.func
+                # append/extend/add return None — never useful as return value
+                if isinstance(func, ast.Attribute) and func.attr in (
+                    "append",
+                    "extend",
+                    "add",
+                    "update",
+                    "insert",
+                    "remove",
+                    "clear",
+                ):
+                    return 0.0
+
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                params = {a.arg for a in node.args.args}
+                is_method = "self" in params or "cls" in params
+                # bare function using self.xxx → almost always nonsense from this model
+                if not is_method:
+                    for child in ast.walk(node):
+                        if isinstance(child, ast.Name) and child.id == "self":
+                            return 0.0
+                free = _free_names(node, params | ({"self", "cls"} if is_method else set()))
+                if free:
+                    # any undefined name is enough to reject for self-train
+                    return 0.0
+                # require the body to reference a parameter or assign locals
+                if not params and not any(isinstance(s, (ast.Assign, ast.AnnAssign, ast.For, ast.While)) for s in node.body):
+                    score *= 0.5
+                # unreachable statements after a bare return
+                seen_return = False
+                for stmt in node.body:
+                    if seen_return and not isinstance(stmt, (ast.FunctionDef, ast.ClassDef)):
+                        return 0.0
+                    if isinstance(stmt, ast.Return):
+                        seen_return = True
+            elif isinstance(node, ast.ClassDef):
+                for item in node.body:
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        params = {a.arg for a in item.args.args}
+                        free = _free_names(item, params | {"self", "cls"})
+                        if free:
+                            return 0.0
         unique_ratio = len(set(lines)) / len(lines)
         score *= unique_ratio
-        # nonsense identifier penalty: too many 1-2 char words
         words = re.findall(r"[a-zA-Z_]{1,}", code)
         if words:
             short = sum(
                 1
                 for w in words
-                if len(w) <= 2 and w not in ("a", "b", "i", "j", "n", "x", "y", "s", "f", "k", "v", "id", "ok")
+                if len(w) <= 2 and w not in ("a", "b", "i", "j", "n", "x", "y", "s", "f", "k", "v", "id", "ok", "or", "if", "in", "is")
             )
-            score *= max(0.2, 1.0 - short / max(len(words), 1))
+            score *= max(0.25, 1.0 - short / max(len(words), 1))
         return score
 
     # Smaller work units on tiny cloud instances (Render free = 0.1 CPU)
@@ -412,8 +486,8 @@ class CodeTrainer:
             snippet = parts[0]
         valid = self.longest_valid_prefix(snippet)
         quality = self._quality_score(valid) if valid else 0.0
-        # Stricter bar: syntax alone is not enough — need real structure
-        ok = valid is not None and quality >= 1.4
+        # Very strict: grounded vars + real structure required
+        ok = valid is not None and quality >= 1.8
         if valid:
             snippet = valid
         result = {"prompt": prompt, "ok": ok, "snippet": snippet[:400], "quality": round(quality, 2)}
@@ -423,8 +497,8 @@ class CodeTrainer:
             if ok:
                 self.state.accepted += 1
                 self.state.last_accepted = snippet
-                # dedup: only grow corpus with genuinely new snippets
-                if snippet not in self.corpus:
+                # only grow corpus with high-quality grounded snippets
+                if quality >= 2.2 and snippet not in self.corpus:
                     self.append_to_corpus(snippet)
                 self.replay.append(snippet)
                 if len(self.replay) > 300:
@@ -432,24 +506,25 @@ class CodeTrainer:
                 self.state.message = f"kabul (kalite {quality:.1f}) — pekiştiriliyor"
                 ids = self.vocab.encode(snippet) if self.vocab else []
                 if self.model and len(ids) >= 2:
-                    reps = 4 + int(min(quality, 3.0) * 2)  # better code → more reinforcement
+                    reps = 5 + int(min(quality, 3.0) * 2)
                     if self.LIGHT_MODE:
                         reps = min(reps, 2)
                     for _ in range(reps):
                         self.model.train_sequence(ids[: min(len(ids), self.seq_len + 1)], lr=lr * 0.85)
                         self.state.steps += 1
-                loss = self.train_steps(n=2 if self.LIGHT_MODE else 8, lr=lr)
+                loss = self.train_steps(n=2 if self.LIGHT_MODE else 6, lr=lr)
             else:
                 self.state.rejected += 1
-                self.state.message = "red — temel veriyle tekrar çalışılıyor"
-                loss = self.train_steps(n=4 if self.LIGHT_MODE else 14, lr=lr)
-                # replay: rehearse previously accepted good code (prefer high quality)
+                self.state.message = "red — kaliteli kod tekrar çalışılıyor"
+                loss = self.train_steps(n=4 if self.LIGHT_MODE else 10, lr=lr)
+                # always rehearse curated/good replay on reject (2x)
                 if self.replay and self.model and self.vocab:
-                    sample = random.choice(self.replay)
-                    ids = self.vocab.encode(sample)
-                    if len(ids) >= 2:
-                        self.model.train_sequence(ids[: self.seq_len + 1], lr=lr * 0.7)
-                        self.state.steps += 1
+                    for _ in range(2):
+                        sample = random.choice(self.replay)
+                        ids = self.vocab.encode(sample)
+                        if len(ids) >= 2:
+                            self.model.train_sequence(ids[: self.seq_len + 1], lr=lr * 0.8)
+                            self.state.steps += 1
             result["loss"] = loss
             self.state.history.append(
                 {

@@ -19,7 +19,7 @@ LR_START = 0.015
 LR_END = 0.003
 LOG_EVERY = 2_000
 SAVE_EVERY = 5_000
-SELF_EVERY = 1_000  # self-train burst every N steps
+SELF_EVERY = 2_000  # less frequent; rejects rehearse quality pack
 
 
 QUALITY_PACK = r'''
@@ -388,7 +388,7 @@ def main() -> None:
     print(f"quality replay seeded: {len(tr.replay)} snippets", flush=True)
 
     # --- wash phase: overfit clean code to erase degenerate patterns ---
-    wash_steps = int(os.environ.get("DIMAI_WASH_STEPS", "25000"))
+    wash_steps = int(os.environ.get("DIMAI_WASH_STEPS", "35000"))
     print(f"wash phase: {wash_steps:,} steps on quality-heavy corpus", flush=True)
     wash_start = tr.state.steps
     wash_target = wash_start + wash_steps
