@@ -815,6 +815,35 @@ async def main():
 
 asyncio.run(main())''', "l": "python"},
 
+    {"k": ["react component yaz", "react yaz", "react ornegi", "jsx yaz", "component yaz"],
+     "a": "Basit React fonksiyon bileşeni:",
+     "c": '''import { useState } from "react";
+
+export default function Counter() {
+  const [n, setN] = useState(0);
+  return (
+    <div>
+      <h1>Sayaç: {n}</h1>
+      <button onClick={() => setN(n + 1)}>+1</button>
+      <button onClick={() => setN(0)}>Sıfırla</button>
+    </div>
+  );
+}''', "l": "javascript"},
+
+    {"k": ["hello world yaz", "hello world", "merhaba dunya yaz", "write a hello world"],
+     "a": "Klasik Hello World:",
+     "c": '''print("Hello, World!")
+
+# veya fonksiyonla:
+def main() -> None:
+    print("Hello, World!")
+
+if __name__ == "__main__":
+    main()''', "l": "python"},
+
+    {"k": ["python kim buldu", "python kim yaratti", "guido", "python mucidi"],
+     "a": "**Python**'u **Guido van Rossum** 1989–1991 yıllarında geliştirdi; ilk resmi sürüm 1991'de çıktı. İsmini Monty Python'dan alır. Guido uzun süre “Benevolent Dictator For Life” (BDFL) unvanıyla dilin yönünü belirledi."},
+
     {"k": ["rest api yaz", "flask api yaz", "mini api"],
      "a": "Flask ile mini REST API:",
      "c": '''from flask import Flask, jsonify, request

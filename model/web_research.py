@@ -65,6 +65,24 @@ def _keywords(text: str) -> set[str]:
 
 def _clean_query(text: str) -> str:
     """Strip question words so search engines get the core topic."""
+    n = _norm(text)
+    # Hava: "hava nasıl" → RAF gibi yanlış sayfaları engellemek için İngilizce net sorgu
+    if "hava" in n.split() or "weather" in n or "sicaklik" in n:
+        city = None
+        for c in ("istanbul", "ankara", "izmir", "bursa", "antalya", "adana"):
+            if c in n:
+                city = c
+                break
+        return f"{city} weather temperature Celsius" if city else "Turkey weather today temperature"
+    # "X kim buldu/yarattı"
+    if "kim buldu" in n or "kim yaratti" in n or "who invented" in n or "who created" in n:
+        topic = re.sub(r"\b(kim buldu|kim yaratti|who invented|who created)\b", " ", n)
+        topic = re.sub(r"\s+", " ", topic).strip()
+        return f"{topic} inventor creator".strip()
+    # başkent
+    if "baskent" in n or "capital" in n:
+        if "turkiye" in n or "turkey" in n:
+            return "Türkiye başkenti Ankara"
     words = [w for w in text.strip().rstrip("?!.").split() if _norm(w) not in STOPWORDS]
     return " ".join(words) or text
 

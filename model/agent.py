@@ -126,6 +126,12 @@ class Agent:
         except ImportError:
             import skills as _skills  # type: ignore
 
+        if _skills.looks_like_noise(raw):
+            return Decision(
+                intent="chat", allow_web=False, allow_memory=False, allow_kb=False,
+                tools=["chat"], reason="gürültü / boş mesaj",
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
         if _skills.looks_like_math(raw) or _skills.convert_units(raw):
             return Decision(
                 intent="math", allow_web=False, allow_memory=False, allow_kb=False,
@@ -136,6 +142,18 @@ class Agent:
             return Decision(
                 intent="math", allow_web=False, allow_memory=False, allow_kb=False,
                 tools=["math"], reason="saat / tarih",
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
+        if _skills.looks_like_translate(raw):
+            return Decision(
+                intent="chat", allow_web=False, allow_memory=False, allow_kb=True,
+                tools=["chat"], reason="çeviri",
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
+        if _skills.looks_like_affirm(raw):
+            return Decision(
+                intent="chat", allow_web=False, allow_memory=True, allow_kb=False,
+                tools=["chat"], reason="kısa onay / ret",
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
         if _skills.looks_like_meta(raw):
@@ -149,6 +167,14 @@ class Agent:
                 intent="research", allow_web=True, allow_memory=True, allow_kb=True,
                 tools=["web", "memory"], reason="hava durumu",
                 research_query=_skills.weather_query(raw),
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
+
+        # Tek başına "neden/daha anlat" geçmiş yoksa web'e gitme
+        if text in {"neden", "niye", "daha", "daha anlat", "devam", "anlat"} and not topic:
+            return Decision(
+                intent="chat", allow_web=False, allow_memory=True, allow_kb=True,
+                tools=["chat"], reason="bağlamsız kısa soru",
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
 
@@ -238,29 +264,38 @@ class Agent:
     @staticmethod
     def _looks_question(text: str, words: set[str]) -> bool:
         """Factual/general questions that should not die as 'anlamadım'."""
+        # Tek kelimelik bağlamsız sorular web spam'i yapar
+        if len(words) <= 1:
+            return False
         q_marks = "?" in text or text.endswith(" mi") or text.endswith(" mu")
         q_words = {
             "nedir", "kimdir", "nasil", "neden", "niye", "nerede", "ne", "kim",
             "hangi", "kac", "neydi", "midir", "mudur", "anlat", "acikla",
             "what", "who", "why", "where", "when", "how",
         }
-        if words & q_words:
+        # "neden/nasıl" tek başına yetmez — en az bir içerik kelimesi iste
+        content = words - q_words - {"bir", "ve", "ile", "icin", "bu", "cok", "daha", "mi", "mu"}
+        if (words & q_words) and content:
             return True
-        if q_marks and len(words) >= 2:
+        if q_marks and len(words) >= 2 and content:
             return True
-        # "X hakkında" / short topic requests
-        if "hakkinda" in text or "bilgi" in words:
+        if "hakkinda" in text or ("bilgi" in words and content):
             return True
         return False
 
     @staticmethod
     def _looks_chat(text: str, words: set[str]) -> bool:
-        if words & CHAT_WORDS:
-            return True
+        # "hello ne demek" / "write hello world" → sohbet değil
+        if any(x in text for x in ("ne demek", "write ", "kod", "python", "javascript", "world")):
+            if words & (CODE_WRITE | CODE_STRONG | CODE_LANGS | {"world", "demek", "english", "ingilizce"}):
+                return False
         if text in CHAT_WORDS:
             return True
-        # short social phrases
-        if len(words) <= 3 and words <= (CHAT_WORDS | {"misin", "musun", "miyim", "iyi", "gunun"}):
+        # sadece selamlaşma kelimelerinden oluşuyorsa chat
+        social = CHAT_WORDS | {"misin", "musun", "miyim", "iyi", "gunun", "nasilsin"}
+        if words and words <= social:
+            return True
+        if len(words) <= 2 and words & CHAT_WORDS and not (words & (CODE_WRITE | CODE_STRONG | CODE_LANGS)):
             return True
         return False
 
@@ -270,17 +305,19 @@ class Agent:
             return True
         if (words & CODE_WRITE) and (words & (CODE_EXAMPLE | CODE_LANGS | CODE_STRONG)):
             return True
-        if any(p in text for p in ("kod yaz", "write code", "python kod", "js kod")):
+        if any(p in text for p in ("kod yaz", "write code", "python kod", "js kod", "hello world")):
             return True
-        if (words & CODE_EXAMPLE) and (words & (CODE_LANGS | CODE_STRONG | {"liste", "dosya", "class"})):
+        if (words & CODE_EXAMPLE) and (words & (CODE_LANGS | CODE_STRONG | {"liste", "dosya", "class", "component"})):
             return True
         # "X yaz" / "write X" — kısa uygulama istekleri
-        if (words & CODE_WRITE) and len(words) <= 6:
+        if (words & CODE_WRITE) and len(words) <= 8:
             return True
-        if text.startswith("write ") and len(words) <= 6:
+        if text.startswith("write ") and len(words) <= 10:
             return True
         # "X nasıl yazılır/yapılır" programming how-to — still code-ish if lang present
         if (words & CODE_LANGS) and any(x in text for x in ("nasil", "yazilir", "yapilir", "kullanilir")):
+            return True
+        if "react" in words or "component" in words:
             return True
         return False
 

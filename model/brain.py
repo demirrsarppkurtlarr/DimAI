@@ -1186,8 +1186,14 @@ CHITCHAT: list[tuple[list[str], list[str]]] = [
       "İki byte bir barda karşılaşmış. Biri sormuş: \"Bit'ler nasıl?\""]),
     (["seni seviyorum", "cok iyisin", "harikasin", "mukemmelsin"],
      ["Teşekkürler! O zaman hadi bir şeyler üretelim — ne yazayım?"]),
-    (["tamam", "ok", "okay", "anladim", "peki"],
-     ["Tamam. Devam etmek istediğin bir konu var mı?", "Peki — sıradaki adım ne olsun?"]),
+    (["tamam", "ok", "okay", "anladim", "peki", "evet", "olur"],
+     ["Tamam. Devam edelim — kod, hesap veya bilgi: hangisi?",
+      "Peki — sıradaki adım ne olsun?"]),
+    (["hayir", "yok"],
+     ["Tamam, başka bir şey deneyelim. Kod mu yazayım, yoksa bir şey mi soracağız?"]),
+    (["anlamadim", "anlamadım", "ne demek istedin"],
+     ["Kısaca: kod yazabilirim, matematik çözebilirim, bilgi sorularına bakabilirim. "
+      "Örnek ver: `2+2 kaç` veya `todo app yaz`."]),
 ]
 
 
@@ -1735,6 +1741,15 @@ class Brain:
             from model import skills as _skills
         except ImportError:
             import skills as _skills  # type: ignore
+        if _skills.looks_like_noise(raw):
+            return _tag({"reply": _skills.answer_noise(), "source": "chat"})
+        if _skills.looks_like_affirm(raw):
+            return _tag({"reply": _skills.answer_affirm(raw), "source": "chat"})
+        if _skills.looks_like_translate(raw):
+            tr = _skills.translate(raw)
+            if tr:
+                return _tag({"reply": tr, "source": "chat"})
+
         skill_answer = (
             _skills.solve_math(raw)
             or _skills.convert_units(raw)
@@ -1782,6 +1797,14 @@ class Brain:
         if decision.intent in ("chat", "help"):
             if chit:
                 return _tag({"reply": chit, "source": "chat"})
+            if decision.reason == "bağlamsız kısa soru":
+                return _tag({
+                    "reply": (
+                        "Neyin nedenini / devamını soruyorsun? "
+                        "Önce bir konu aç: örn. `karadelik nedir` veya `fibonacci yaz`."
+                    ),
+                    "source": "chat",
+                })
             if decision.intent == "help" and kb:
                 return _tag(self._kb_result(kb))
             # belirsiz chat: KB zayıf eşleşme dene, yoksa yumuşak yönlendir
