@@ -43,9 +43,31 @@ def implement(spec: DesignSpec, *, user_language: str = "tr") -> dict:
     used only for bare classic requests (e.g. plain `todo yaz`), never as a
     substitute for inventing around the user's domain words.
     """
-    from model.code_policy import engineer_preamble, should_invent
+    from model.code_policy import (
+        META_FILLER,
+        clarify_concrete_topic,
+        engineer_preamble,
+        needs_topic_clarify,
+        should_invent,
+    )
 
-    invent = should_invent(spec.known_domain, list(spec.domain_keywords))
+    # Never let meta tokens leak into identifiers.
+    safe_kws = [
+        w for w in list(spec.domain_keywords)
+        if w and w.casefold() not in META_FILLER
+    ]
+    spec.domain_keywords = safe_kws
+
+    if needs_topic_clarify(spec.goal, spec.known_domain, safe_kws):
+        return {
+            "reply": clarify_concrete_topic(spec.goal),
+            "code": "",
+            "lang": "text",
+            "source": "codegen",
+            "design": {**_design_payload(spec), "invented": False, "clarify_topic": True},
+        }
+
+    invent = should_invent(spec.known_domain, safe_kws, text=spec.goal)
     design_note = _reply_for(spec, language=user_language)
     preamble = engineer_preamble(user_language)
 
@@ -60,6 +82,16 @@ def implement(spec: DesignSpec, *, user_language: str = "tr") -> dict:
                 "source": "codegen",
                 "design": {**_design_payload(spec), "invented": False},
             }
+
+    # No known domain and invent refused → clarify rather than nonsense CRUD.
+    if not invent and not spec.known_domain:
+        return {
+            "reply": clarify_concrete_topic(spec.goal),
+            "code": "",
+            "lang": "text",
+            "source": "codegen",
+            "design": {**_design_payload(spec), "invented": False, "clarify_topic": True},
+        }
 
     # First principles composition for this project's request
     if spec.language == "javascript":
@@ -136,11 +168,23 @@ def _specialize(spec: DesignSpec) -> Optional[tuple[str, str, str]]:
 
 
 def _compose_python(spec: DesignSpec) -> tuple[str, str, str]:
-    slug = _slug(spec.domain_keywords, default=spec.problem_type)
+    from model.code_policy import META_FILLER
+
+    kws = [
+        w for w in spec.domain_keywords
+        if w and w.casefold() not in META_FILLER
+    ] or ["kayit", "aciklama"]
+    slug = _slug(kws, default=spec.problem_type if spec.problem_type != "cli_app" else "app")
+    # Avoid naming the module after raw NL fragments when still thin.
+    if slug in META_FILLER or any(p in META_FILLER for p in slug.split("_")):
+        slug = "app"
     cls = _class_name(slug)
-    title = " ".join(spec.domain_keywords[:5]) or spec.goal[:40] or slug
-    fields = [re.sub(r"[^a-z0-9_]", "", w) for w in spec.domain_keywords[:3]]
-    fields = [f for f in fields if f and f not in {"app", "cli", "api"}] or ["baslik", "notu"]
+    title = " ".join(kws[:5]) or spec.goal[:40] or slug
+    fields = [re.sub(r"[^a-z0-9_]", "", w) for w in kws[:3]]
+    fields = [
+        f for f in fields
+        if f and f not in {"app", "cli", "api"} and f not in META_FILLER
+    ] or ["baslik", "notu"]
 
     mod_comment = "\n".join(
         f"#   - {m.name}: {m.responsibility}" for m in spec.modules

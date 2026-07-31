@@ -1191,6 +1191,12 @@ def synthesize(
         return None
     n = _norm(raw)
 
+    from model.code_policy import (
+        clarify_concrete_topic,
+        concrete_keywords,
+        needs_topic_clarify,
+    )
+
     # belirsiz "kod yaz" → design-first guess game (fibonacci DEĞİL)
     vague = n in {
         "kod yaz", "kodu yaz", "bir kod yaz", "bana kod yaz", "write code",
@@ -1200,6 +1206,29 @@ def synthesize(
         set(n.split()) <= {"kod", "yaz", "bana", "bir", "sey", "şey", "lutfen", "code", "write"}
         and "fibonacci" not in n
     )
+
+    # Capability / meta-only asks ("bildiğin bütün bilginle kod yaz") → clarify,
+    # never invent Entity fields named after conversational tokens.
+    # Skip when the ask is intentionally vague ("kod yaz") — that remaps below.
+    early_kws = concrete_keywords(raw)
+    if needs_topic_clarify(raw, "", early_kws) and not vague:
+        return {
+            "reply": clarify_concrete_topic(raw),
+            "code": "",
+            "lang": "text",
+            "source": "codegen",
+            "design": {
+                "goal": raw[:120],
+                "problem_type": "clarify",
+                "invented": False,
+                "policy": {
+                    "design_first": True,
+                    "web_full_source": False,
+                    "invented": False,
+                    "clarify_topic": True,
+                },
+            },
+        }
 
     if vague:
         raw = "zorluk seviyeli sayi tahmin oyunu yaz"

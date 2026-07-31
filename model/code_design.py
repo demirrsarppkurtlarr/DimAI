@@ -24,6 +24,12 @@ STOP = {
     "yaz", "write", "olustur", "uret", "generate", "yap", "lutfen", "please",
     "ornek", "ornegi", "example", "goster", "show", "program", "script",
     "fonksiyon", "function", "class", "python", "javascript", "basit", "mini",
+    # capability / meta fluff — never domain fields
+    "bildigin", "bildiklerin", "butun", "tum", "bilginle", "bilgin", "bilgini",
+    "yetenegin", "yeteneginle", "elinden", "gelenin", "iyisiyle", "hepsi",
+    "hepsini", "hersey", "herseyi", "chatgpt", "claude", "gemini", "gibi",
+    "using", "all", "your", "knowledge", "everything", "know", "full", "power",
+    "best", "ability", "make", "create",
 }
 
 
@@ -127,7 +133,14 @@ def _detect_lang(text: str) -> str:
 
 
 def _keywords(text: str) -> list[str]:
-    return [w for w in _norm(text).split() if w and w not in STOP and len(w) > 1]
+    """Domain tokens only — strip conversational / capability fluff."""
+    try:
+        from model.code_policy import META_FILLER, concrete_keywords
+
+        kws = concrete_keywords(text, extra_stop=STOP)
+        return [w for w in kws if w not in STOP and w not in META_FILLER]
+    except Exception:
+        return [w for w in _norm(text).split() if w and w not in STOP and len(w) > 1]
 
 
 def _match_domain(n: str) -> str:
@@ -282,6 +295,12 @@ def design(
     title_bits = kws[:5] or ["uygulama"]
     if not goal or goal in {"kod yaz", "write code", "program yaz"}:
         goal = f"Runnable {ptype} around: {' '.join(title_bits)}"
+
+    if not domain and not kws:
+        notes.append(
+            "No concrete domain nouns — do not name modules/fields after meta phrases."
+        )
+        conf = min(conf, 0.4)
 
     return DesignSpec(
         goal=goal,
