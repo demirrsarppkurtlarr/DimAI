@@ -30,7 +30,7 @@ class LocalTemplateProvider(LLMProvider):
 
     def generate(self, prompt: str, *, max_tokens: int = 512) -> str:
         # Prompt is already a drafted reply in our local mode
-        return (prompt or "")[: max(200, max_tokens * 8)]
+        return (prompt or "")[: max(4000, max_tokens * 16)]
 
 
 class ResponseGenerator:
@@ -71,12 +71,17 @@ class ResponseGenerator:
                     out["lang"] = tr.payload.get("lang", "python")
                 return self._with_voice(out, state)
             if tr.name == ToolName.WEB:
-                return {
+                src = tr.payload.get("source") or "fallback"
+                out = {
                     "reply": tr.payload.get("reply", ""),
-                    "source": "fallback",
-                    "research_query": tr.payload.get("research_query", state.raw),
-                    "allow_web": True,
+                    "source": src,
                 }
+                if tr.payload.get("url"):
+                    out["url"] = tr.payload["url"]
+                if src == "fallback":
+                    out["research_query"] = tr.payload.get("research_query", state.raw)
+                    out["allow_web"] = True
+                return out
 
         if plan.needs_clarification and plan.clarification_question:
             return self._with_voice(

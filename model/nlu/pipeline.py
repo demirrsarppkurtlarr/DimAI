@@ -13,7 +13,7 @@ from .planning import PlanningEngine, planning_engine
 from .reasoning import ReasoningEngine, reasoning_engine
 from .tokenizer import tokenize
 from .tools import ToolManager, tool_manager
-from .types import Intent, PipelineState
+from .types import Intent, PipelineState, ToolName
 from .validation import ValidationEngine, validation_engine
 
 
@@ -82,6 +82,33 @@ class NLUPipeline:
 
         # 4 Intent on meaning vector
         state.intent = self.intents.predict(expanded, state.embedding)
+
+        # Discourse speech-acts override weak embedding decisions
+        from .discourse import decide as discourse_decide
+
+        has_code = bool(self.memory.store.last_code) or any(
+            h.kind == "code" and h.content for h in state.memory_hits
+        )
+        # Also detect code fences in recent AI history
+        if not has_code:
+            for h in reversed(state.history[-8:]):
+                if h.get("role") in ("ai", "assistant") and "```" in str(h.get("content") or ""):
+                    has_code = True
+                    break
+                # client may store code separately in prior turns via plain text patterns
+                c = str(h.get("content") or "")
+                if h.get("role") in ("ai", "assistant") and ("def " in c or "import " in c):
+                    has_code = True
+                    break
+
+        disc = discourse_decide(state.raw, has_prior_code=has_code)
+        if disc.intent and disc.confidence >= 0.7:
+            state.intent.intent = disc.intent
+            state.intent.confidence = max(state.intent.confidence, disc.confidence)
+            state.discourse_search_query = disc.search_query
+            state.discourse_improve = disc.improve_code
+            state.add_trace(f"discourse:{disc.reason}")
+
         # Discourse: resolved refs + elaboration cues → explanation
         if refs and state.intent.intent in {
             Intent.CLARIFY, Intent.UNKNOWN, Intent.CONVERSATION, Intent.COMMAND
@@ -116,6 +143,10 @@ class NLUPipeline:
             memory=state.memory_hits,
             resolved_refs=refs,
         )
+        if state.discourse_search_query:
+            state.reasoning.notes.append(f"search_query={state.discourse_search_query}")
+        if state.discourse_improve:
+            state.reasoning.notes.append("improve_prior_code")
         state.add_trace(f"reason:{state.reasoning.strategy[:48]}")
 
         # Plan with language from original user text
@@ -124,6 +155,19 @@ class NLUPipeline:
             intent=state.intent,
             reasoning=state.reasoning,
         )
+        if state.discourse_search_query and state.plan:
+            state.plan.search_query = state.discourse_search_query
+            state.plan.tools = [ToolName.WEB]
+            state.plan.needs_clarification = False
+        if state.discourse_improve and state.plan:
+            state.plan.improve_code = True
+            state.plan.tools = [ToolName.CODEGEN]
+            state.plan.needs_clarification = False
+            state.plan.answer_points = [
+                "Improve the previous code",
+                "Add features, structure, and error handling",
+                "Keep it runnable",
+            ]
         state.add_trace(
             "plan:tools=" + ",".join(t.value for t in state.plan.tools)
         )

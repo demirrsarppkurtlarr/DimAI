@@ -48,7 +48,45 @@ class ToolManager:
     def _codegen(self, msg: str, state: PipelineState) -> ToolResult:
         from model import codegen
 
-        # Expand with resolved topic if present
+        plan = state.plan
+        prior = ""
+        lang = "python"
+        for h in state.memory_hits:
+            if h.kind == "code" and h.content:
+                prior = h.content
+                lang = str((h.meta or {}).get("lang") or "python")
+                break
+        if not prior:
+            try:
+                from model.nlu.memory import memory_engine
+
+                prior = memory_engine.store.last_code or ""
+                lang = memory_engine.store.last_lang or lang
+            except Exception:
+                prior = ""
+
+        # Extract from history AI messages if still empty
+        if not prior:
+            import re as _re
+
+            for h in reversed(state.history[-12:]):
+                if h.get("role") not in ("ai", "assistant"):
+                    continue
+                content = str(h.get("content") or "")
+                m = _re.search(r"```(?:\w+)?\n(.*?)```", content, _re.S)
+                if m:
+                    prior = m.group(1).strip()
+                    break
+                # bare code blocks without fences
+                if "def " in content and "return" in content:
+                    prior = content
+                    break
+
+        if plan and plan.improve_code and prior:
+            made = codegen.improve(prior, msg, lang=lang)
+            if made:
+                return ToolResult(name=ToolName.CODEGEN, ok=True, payload=made)
+
         refs = (state.reasoning.resolved_refs if state.reasoning else {}) or {}
         if refs and len(msg.split()) <= 4:
             topic = next(iter(refs.values()))
@@ -57,6 +95,52 @@ class ToolManager:
         if not made:
             return ToolResult(name=ToolName.CODEGEN, ok=False, error="no code synthesized")
         return ToolResult(name=ToolName.CODEGEN, ok=True, payload=made)
+
+    def _web(self, msg: str, state: PipelineState) -> ToolResult:
+        q = (state.plan.search_query if state.plan and state.plan.search_query else "") or msg
+        if state.reasoning and state.reasoning.resolved_refs and not (state.plan and state.plan.search_query):
+            topic = next(iter(state.reasoning.resolved_refs.values()))
+            if topic.lower() not in q.lower():
+                q = f"{topic} nedir"
+        # Prefer live research immediately when possible (person / kimdir)
+        try:
+            from model import web_research
+
+            found = web_research.research_deep(q)
+            if found and found.get("answer"):
+                return ToolResult(
+                    name=ToolName.WEB,
+                    ok=True,
+                    payload={
+                        "reply": found["answer"],
+                        "source": "web",
+                        "url": found.get("url", ""),
+                        "provider": found.get("provider", ""),
+                        "allow_web": False,
+                    },
+                )
+        except Exception as exc:
+            return ToolResult(
+                name=ToolName.WEB,
+                ok=True,
+                payload={
+                    "reply": "Bunu bilgi olarak araştırayım…",
+                    "source": "fallback",
+                    "research_query": q,
+                    "allow_web": True,
+                    "error": str(exc)[:120],
+                },
+            )
+        return ToolResult(
+            name=ToolName.WEB,
+            ok=True,
+            payload={
+                "reply": "Bunu bilgi olarak araştırayım…",
+                "source": "fallback",
+                "research_query": q,
+                "allow_web": True,
+            },
+        )
 
     def _math(self, msg: str) -> ToolResult:
         from model import skills
@@ -111,24 +195,6 @@ class ToolManager:
             payload["code"] = entry["c"]
             payload["lang"] = entry.get("l", "python")
         return ToolResult(name=ToolName.KB, ok=True, payload=payload)
-
-    def _web(self, msg: str, state: PipelineState) -> ToolResult:
-        # Defer actual network to server when allow_web; mark fallback intent
-        q = msg
-        if state.reasoning and state.reasoning.resolved_refs:
-            topic = next(iter(state.reasoning.resolved_refs.values()))
-            if topic.lower() not in q.lower():
-                q = f"{topic} nedir"
-        return ToolResult(
-            name=ToolName.WEB,
-            ok=True,
-            payload={
-                "reply": "Bunu bilgi olarak araştırayım…",
-                "source": "fallback",
-                "research_query": q,
-                "allow_web": True,
-            },
-        )
 
 
 tool_manager = ToolManager()

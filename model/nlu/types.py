@@ -112,6 +112,8 @@ class ResponsePlan:
     tone: str = "helpful"
     style: str = "natural"  # natural | step_by_step | concise | summary
     language: str = "tr"
+    search_query: str = ""
+    improve_code: bool = False
 
 
 @dataclass
@@ -155,6 +157,8 @@ class PipelineState:
     validation: Optional[ValidationReport] = None
     final_reply: str = ""
     final_payload: dict[str, Any] = field(default_factory=dict)
+    discourse_search_query: str = ""
+    discourse_improve: bool = False
 
     # Trace for debugging / UI "thinking"
     trace: list[str] = field(default_factory=list)

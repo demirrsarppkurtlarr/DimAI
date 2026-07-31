@@ -217,8 +217,13 @@ async function sendMessage(text) {
       history: chatHistory.slice(-16),
     });
     chatHistory.push({ role: "user", content: text });
-    // AI cevabının daha fazlasını tut — takip soruları için konu lazım
-    chatHistory.push({ role: "ai", content: (data.reply || "").slice(0, 1200) });
+    // Keep code in history so "geliştir" / follow-ups can improve it
+    let aiTurn = (data.reply || "").trim();
+    if (data.code) {
+      const fence = "```" + (data.lang || "python") + "\n" + data.code + "\n```";
+      aiTurn = (aiTurn ? aiTurn + "\n\n" : "") + fence;
+    }
+    chatHistory.push({ role: "ai", content: aiTurn.slice(0, 12000) });
     if (chatHistory.length > 48) chatHistory = chatHistory.slice(-48);
 
     // düşünme hissi: en az ~700ms, düşünce varsa biraz daha

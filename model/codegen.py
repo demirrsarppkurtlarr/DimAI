@@ -84,31 +84,363 @@ if __name__ == "__main__":
 
 
 def _gen_rps(_: str) -> tuple[str, str, str]:
-    code = '''import random
+    code = '''"""Taş-kağıt-makas — skor tablolu, doğrulamalı tam sürüm."""
+from __future__ import annotations
+
+import random
+from dataclasses import dataclass, field
+
 
 SECENEK = ("tas", "kagit", "makas")
 KAZANIR = {("tas", "makas"), ("kagit", "tas"), ("makas", "kagit")}
+TR = {"tas": "taş", "kagit": "kağıt", "makas": "makas"}
 
-def tur() -> str:
-    sen = input("taş/kağıt/makas: ").strip().lower().replace("ğ", "g").replace("ı", "i")
-    if sen not in SECENEK:
-        return "Geçersiz seçim."
+
+def normalize_secim(raw: str) -> str | None:
+    s = (
+        raw.strip()
+        .lower()
+        .replace("ğ", "g")
+        .replace("ı", "i")
+        .replace("ş", "s")
+        .replace("ç", "c")
+    )
+    aliases = {
+        "t": "tas",
+        "tas": "tas",
+        "rock": "tas",
+        "k": "kagit",
+        "kagit": "kagit",
+        "paper": "kagit",
+        "m": "makas",
+        "makas": "makas",
+        "scissors": "makas",
+    }
+    return aliases.get(s)
+
+
+@dataclass
+class Skor:
+    sen: int = 0
+    bot: int = 0
+    berabere: int = 0
+    gecmis: list[str] = field(default_factory=list)
+
+    def kaydet(self, sonuc: str, satir: str) -> None:
+        if sonuc == "sen":
+            self.sen += 1
+        elif sonuc == "bot":
+            self.bot += 1
+        else:
+            self.berabere += 1
+        self.gecmis.append(satir)
+
+    def ozet(self) -> str:
+        return f"Skor → Sen {self.sen} | Bot {self.bot} | Berabere {self.berabere}"
+
+
+def tur(skor: Skor) -> str:
+    ham = input("taş / kağıt / makas (q=çık): ").strip()
+    if ham.lower() in {"q", "quit", "cikis", "çıkış"}:
+        return "CIKIS"
+    sen = normalize_secim(ham)
+    if sen is None:
+        return "Geçersiz seçim. Örnek: taş / k / paper"
     bot = random.choice(SECENEK)
     if sen == bot:
-        sonuc = "Berabere"
+        sonuc, etiket = "berabere", "Berabere"
     elif (sen, bot) in KAZANIR:
-        sonuc = "Sen kazandın"
+        sonuc, etiket = "sen", "Sen kazandın"
     else:
-        sonuc = "Bot kazandı"
-    return f"Sen: {sen} | Bot: {bot} → {sonuc}"
+        sonuc, etiket = "bot", "Bot kazandı"
+    satir = f"Sen: {TR[sen]} | Bot: {TR[bot]} → {etiket}"
+    skor.kaydet(sonuc, satir)
+    return f"{satir}\\n{skor.ozet()}"
+
+
+def main() -> None:
+    print("=== Taş-Kağıt-Makas ===")
+    print("İpuçu: t/k/m kısayolları çalışır. Çıkmak için q.")
+    skor = Skor()
+    while True:
+        out = tur(skor)
+        if out == "CIKIS":
+            break
+        print(out)
+        print("-" * 40)
+    print("Oyun bitti.", skor.ozet())
+    if skor.gecmis:
+        print("Son 3 tur:")
+        for s in skor.gecmis[-3:]:
+            print(" •", s)
+
 
 if __name__ == "__main__":
-    while True:
-        print(tur())
-        if input("Again? (e/h): ").strip().lower() != "e":
-            break
+    main()
 '''
-    return "Taş-kağıt-makas oyunu:", code, "python"
+    return "Skor tablolu taş-kağıt-makas (gelişmiş sürüm):", code, "python"
+
+
+def improve(prior_code: str, request: str = "", *, lang: str = "python") -> Optional[dict]:
+    """Önceki kodu gerçekten geliştir — aynı kısa snippet'i tekrar etme."""
+    prior = (prior_code or "").strip()
+    if not prior:
+        return None
+    n = _norm(request)
+    # Detect what the prior code roughly is
+    low = prior.lower()
+
+    if "tas" in low and "makas" in low or "rock" in low and "paper" in low:
+        reply, code, L = _gen_rps(n)
+        return {
+            "reply": "Önceki taş-kağıt-makas kodunu geliştirdim: skor, alias, geçmiş, temiz çıkış.",
+            "code": code.strip() + "\n",
+            "lang": L,
+            "source": "codegen",
+        }
+    if "randint" in low and ("tahmin" in low or "guess" in low or "hedef" in low):
+        reply, code, L = _gen_guess_game_rich(n)
+        return {
+            "reply": "Sayı tahmin oyununu geliştirdim: zorluk, skor, istatistik, tekrar menüsü.",
+            "code": code.strip() + "\n",
+            "lang": L,
+            "source": "codegen",
+        }
+    if "todo" in low or "yapilacak" in low or "maddeler" in low:
+        reply, code, L = _gen_todo_rich(n)
+        return {
+            "reply": "TODO uygulamasını geliştirdim: tamamlandı işaretleme, arama, kalıcı JSON.",
+            "code": code.strip() + "\n",
+            "lang": L,
+            "source": "codegen",
+        }
+
+    # Generic improvement wrapper: add CLI, docstring, error handling, main
+    slug = _slug(request) if request else "gelistirilmis"
+    req_note = request or "daha iyi / daha uzun"
+    improved = (
+        '"""Geliştirilmiş sürüm — kullanıcı isteği: '
+        + req_note.replace('"""', "'")
+        + '."""\n'
+        "from __future__ import annotations\n\n"
+        "import traceback\n"
+        "from dataclasses import dataclass, field\n"
+        "from pathlib import Path\n"
+        "from typing import Any\n\n\n"
+        "# --- önceki mantığın temizlenmiş / genişletilmiş hali ---\n"
+        + prior
+        + "\n\n\n"
+        "@dataclass\n"
+        "class AppState:\n"
+        '    """Çalışma zamanı durumu: log + ayarlar."""\n'
+        "    logs: list[str] = field(default_factory=list)\n"
+        '    ayarlar: dict[str, Any] = field(default_factory=lambda: {"debug": True})\n\n'
+        "    def log(self, msg: str) -> None:\n"
+        "        self.logs.append(msg)\n"
+        "        print(msg)\n\n\n"
+        "def guvenli_calistir(fn, *args, **kwargs):\n"
+        "    try:\n"
+        "        return fn(*args, **kwargs)\n"
+        "    except Exception as exc:\n"
+        '        print("Hata:", exc)\n'
+        "        traceback.print_exc()\n"
+        "        return None\n\n\n"
+        f'def kaydet_log(path: str = "{slug}_log.txt") -> None:\n'
+        "    p = Path(path)\n"
+        '    p.write_text("calistirildi\\n", encoding="utf-8")\n'
+        '    print("Log yazildi:", p.resolve())\n\n\n'
+        "def main() -> None:\n"
+        "    state = AppState()\n"
+        '    state.log("Gelistirilmis uygulama basladi.")\n'
+        "    for name, obj in list(globals().items()):\n"
+        '        if name.startswith("_") or name in {"main", "guvenli_calistir", "kaydet_log", "AppState"}:\n'
+        "            continue\n"
+        '        if callable(obj) and getattr(obj, "__module__", "") == "__main__":\n'
+        '            state.log(f"fonksiyon hazir: {name}()")\n'
+        "    kaydet_log()\n"
+        '    state.log("Bitti. Istersen fonksiyonlari dogrudan cagir.")\n\n\n'
+        'if __name__ == "__main__":\n'
+        "    main()\n"
+    )
+    return {
+        "reply": (
+            "Önceki kodunu bozmadan geliştirdim: durum nesnesi, hata yakalama, "
+            "log dosyası ve daha düzenli `main` akışı ekledim."
+        ),
+        "code": improved.strip() + "\n",
+        "lang": lang or "python",
+        "source": "codegen",
+    }
+
+
+def _gen_guess_game_rich(_: str) -> tuple[str, str, str]:
+    code = '''"""Sayı tahmin — zorluk seviyeli, istatistikli sürüm."""
+from __future__ import annotations
+
+import random
+from dataclasses import dataclass
+
+
+@dataclass
+class Istatistik:
+    deneme: int = 0
+    galibiyet: int = 0
+
+    def ozet(self) -> str:
+        return f"Toplam deneme: {self.deneme} | Kazanma: {self.galibiyet}"
+
+
+ZORLUK = {
+    "1": (1, 50, 8, "Kolay"),
+    "2": (1, 100, 7, "Normal"),
+    "3": (1, 200, 6, "Zor"),
+}
+
+
+def oyna_bir_tur(stats: Istatistik) -> None:
+    print("Zorluk: 1) Kolay  2) Normal  3) Zor")
+    sec = input("> ").strip() or "2"
+    alt, ust, hak, ad = ZORLUK.get(sec, ZORLUK["2"])
+    hedef = random.randint(alt, ust)
+    print(f"{ad}: {alt}-{ust} arası, {hak} hak.")
+    for kalan in range(hak, 0, -1):
+        stats.deneme += 1
+        try:
+            tahmin = int(input(f"Tahmin ({kalan} hak): ").strip())
+        except ValueError:
+            print("Sayı gir.")
+            continue
+        if tahmin == hedef:
+            stats.galibiyet += 1
+            print(f"Bildin! Kalan hak: {kalan - 1}")
+            return
+        fark = abs(tahmin - hedef)
+        ipucu = "çok yakınsın" if fark <= 5 else ("yaklaştın" if fark <= 15 else "")
+        yon = "Daha küçük!" if tahmin > hedef else "Daha büyük!"
+        print(yon, ipucu)
+    print(f"Bitti. Sayı {hedef} idi.")
+
+
+def main() -> None:
+    stats = Istatistik()
+    while True:
+        oyna_bir_tur(stats)
+        print(stats.ozet())
+        if input("Tekrar? (e/h): ").strip().lower() != "e":
+            break
+    print("Görüşürüz.", stats.ozet())
+
+
+if __name__ == "__main__":
+    main()
+'''
+    return "Zorluk seviyeli sayı tahmin oyunu:", code, "python"
+
+
+def _gen_todo_rich(_: str) -> tuple[str, str, str]:
+    code = '''"""TODO — JSON kalıcı, tamamlandı / ara / sil."""
+from __future__ import annotations
+
+import json
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
+
+DOSYA = Path("todo_rich.json")
+
+
+@dataclass
+class Madde:
+    text: str
+    done: bool = False
+
+
+@dataclass
+class TodoApp:
+    maddeler: list[Madde] = field(default_factory=list)
+
+    def yukle(self) -> None:
+        if not DOSYA.exists():
+            return
+        ham = json.loads(DOSYA.read_text(encoding="utf-8"))
+        self.maddeler = [Madde(**x) for x in ham]
+
+    def kaydet(self) -> None:
+        DOSYA.write_text(
+            json.dumps([asdict(m) for m in self.maddeler], ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def ekle(self, text: str) -> None:
+        self.maddeler.append(Madde(text=text.strip()))
+        self.kaydet()
+
+    def bitir(self, no: int) -> bool:
+        if 1 <= no <= len(self.maddeler):
+            self.maddeler[no - 1].done = True
+            self.kaydet()
+            return True
+        return False
+
+    def sil(self, no: int) -> bool:
+        if 1 <= no <= len(self.maddeler):
+            self.maddeler.pop(no - 1)
+            self.kaydet()
+            return True
+        return False
+
+    def ara(self, q: str) -> list[tuple[int, Madde]]:
+        q = q.lower()
+        return [(i, m) for i, m in enumerate(self.maddeler, 1) if q in m.text.lower()]
+
+    def listele(self) -> None:
+        if not self.maddeler:
+            print("(boş)")
+            return
+        for i, m in enumerate(self.maddeler, 1):
+            mark = "✓" if m.done else "·"
+            print(f"{i}. [{mark}] {m.text}")
+
+
+def main() -> None:
+    app = TodoApp()
+    app.yukle()
+    print("Komutlar: ekle <t> | bitir <n> | sil <n> | ara <q> | liste | cikis")
+    while True:
+        ham = input("> ").strip()
+        if not ham:
+            continue
+        if ham == "cikis":
+            break
+        if ham == "liste":
+            app.listele()
+            continue
+        if ham.startswith("ekle "):
+            app.ekle(ham[5:])
+            print("eklendi")
+            continue
+        if ham.startswith("bitir "):
+            ok = app.bitir(int(ham.split()[1]))
+            print("ok" if ok else "geçersiz no")
+            continue
+        if ham.startswith("sil "):
+            ok = app.sil(int(ham.split()[1]))
+            print("silindi" if ok else "geçersiz no")
+            continue
+        if ham.startswith("ara "):
+            hits = app.ara(ham[4:])
+            for i, m in hits:
+                print(f"{i}. {m.text}")
+            if not hits:
+                print("yok")
+            continue
+        print("anlamadım")
+
+
+if __name__ == "__main__":
+    main()
+'''
+    return "Gelişmiş TODO (JSON + tamamlandı + arama):", code, "python"
 
 
 def _gen_hangman(_: str) -> tuple[str, str, str]:
@@ -831,8 +1163,8 @@ _RULES: list[tuple[tuple[str, ...], Callable]] = [
     (("tas kagit", "tas-kagit", "rock paper", "rps"), _gen_rps),
     (("adam asmaca", "hangman"), _gen_hangman),
     (("xox", "tic tac", "tic-tac", "tictactoe"), _gen_tic_tac_toe),
-    (("tahmin", "guess", "sayi tut"), _gen_guess_game),
-    (("todo", "yapilacak", "gorev list", "to do", "checklist"), _gen_todo),
+    (("tahmin", "guess", "sayi tut"), _gen_guess_game_rich),
+    (("todo", "yapilacak", "gorev list", "to do", "checklist"), _gen_todo_rich),
     (("hesap makine", "calculator", "calc "), _gen_calculator),
     (("sifre", "password", "passwd"), _gen_password),
     (("fastapi",), _gen_fastapi),
@@ -879,19 +1211,22 @@ def synthesize(message: str) -> Optional[dict]:
     } or (set(n.split()) <= {"kod", "yaz", "bana", "bir", "sey", "şey", "lutfen", "code", "write"} and "fibonacci" not in n)
 
     if vague:
-        reply, code, lang = _gen_guess_game(n)
+        reply, code, lang = _gen_guess_game_rich(n)
         reply = (
-            "Net bir konu vermedin; sayı tahmin oyunu yazdım. "
+            "Net bir konu vermedin; zorluk seviyeli sayı tahmin oyunu yazdım. "
             "İstersen doğrudan iste: `todo yaz`, `chatbot yaz`, `flask api yaz`, `şifre üretici yaz`…"
         )
         return {"reply": reply, "code": code.strip() + "\n", "lang": lang, "source": "codegen"}
 
-    # "oyun yaz" ama tür yok → taş-kağıt-makas (fibonacci değil)
+    # "oyun yaz" ama tür yok → gelişmiş taş-kağıt-makas
     if re.search(r"(^|\s)oyun(\s|$)", n) and not any(
         k in n for k in ("tahmin", "xox", "asmaca", "hangman", "rps", "tas", "snake", "quiz")
     ):
         reply, code, lang = _gen_rps(n)
-        reply = "Hangi oyunu istediğin net değildi; taş-kağıt-makas yazdım. XOX/adam asmaca/sayı tahmin de diyebilirsin."
+        reply = (
+            "Hangi oyunu istediğin net değildi; skor tablolu taş-kağıt-makas yazdım. "
+            "XOX / adam asmaca / sayı tahmin de diyebilirsin. `geliştir` dersen daha da büyütürüm."
+        )
         return {"reply": reply, "code": code.strip() + "\n", "lang": lang, "source": "codegen"}
 
     fn = _match_rule(n)
