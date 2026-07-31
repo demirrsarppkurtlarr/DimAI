@@ -760,6 +760,7 @@ _SPECIAL_CODES = {
     "kettle": "Göksel Derin SUyolcu hahaha!!",
     "saral": "Ali Abiiii!!!",
     "kronik": "w1 kronik void",
+    "angel": "triple whopper",
 }
 
 
