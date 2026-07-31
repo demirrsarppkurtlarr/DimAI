@@ -17,6 +17,24 @@ const els = {
   liveLabel: $("live-label"),
 };
 
+/* Mobil klavye: görünen viewport yüksekliğini sabitle — zoom/kayma azaltır */
+function syncAppHeight() {
+  const vv = window.visualViewport;
+  const h = Math.round(vv && vv.height ? vv.height : window.innerHeight);
+  document.documentElement.style.setProperty("--app-height", `${h}px`);
+  // iOS klavye açılınca sayfa offset'ini sıfırla
+  if (vv && Math.abs(vv.offsetTop) > 0) {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }
+}
+syncAppHeight();
+window.addEventListener("resize", syncAppHeight);
+window.visualViewport?.addEventListener("resize", syncAppHeight);
+window.visualViewport?.addEventListener("scroll", syncAppHeight);
+window.addEventListener("orientationchange", () => setTimeout(syncAppHeight, 150));
+
 const SUGGESTIONS = [
   "print komutu nasıl kullanılır?",
   "sayı tahmin oyunu yaz",
@@ -91,7 +109,11 @@ function renderMarkdownish(text) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return esc
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/`([^`]+)`/g, "<code style=\"font-family:var(--mono);font-size:13px;background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:5px\">$1</code>");
+    .replace(
+      /(https?:\/\/[^\s<]+)/g,
+      '<a class="src-link" href="$1" target="_blank" rel="noopener">$1</a>'
+    )
+    .replace(/`([^`]+)`/g, "<code style=\"font-family:var(--mono);font-size:13px;background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:5px;word-break:break-all\">$1</code>");
 }
 
 function addAiMsg({ reply, code, lang, source, url, neural_sample }) {
@@ -145,8 +167,9 @@ function addAiMsg({ reply, code, lang, source, url, neural_sample }) {
     link.href = url;
     link.target = "_blank";
     link.rel = "noopener";
+    link.className = "src-link";
     link.textContent = "Kaynağı aç ↗";
-    link.style.cssText = "display:inline-block;margin-top:10px;font-size:12.5px;color:var(--blue);text-decoration:none";
+    link.style.cssText = "display:inline-block;margin-top:10px;font-size:12.5px;color:var(--blue);text-decoration:none;max-width:100%;overflow-wrap:anywhere";
     bubble.appendChild(document.createElement("br"));
     bubble.appendChild(link);
   }
