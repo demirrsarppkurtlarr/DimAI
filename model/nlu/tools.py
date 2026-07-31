@@ -9,15 +9,56 @@ from .types import Intent, PipelineState, ResponsePlan, ToolName, ToolResult
 class ToolManager:
     """Independent tool runner; each tool is optional and fail-soft."""
 
+    # A solid hit from these tools means later/heavier tools can be skipped.
+    _TERMINAL = {
+        ToolName.CODEGEN,
+        ToolName.MATH,
+        ToolName.TRANSLATE,
+        ToolName.WEATHER,
+        ToolName.TIME,
+    }
+
     def run(self, state: PipelineState) -> List[ToolResult]:
         plan = state.plan or ResponsePlan()
         results: list[ToolResult] = []
+        answered = False
         for tool in plan.tools:
+            # Phase 9: skip redundant work once we already have a usable answer
+            if answered and tool in {ToolName.WEB, ToolName.CHAT, ToolName.KB}:
+                results.append(
+                    ToolResult(
+                        name=tool,
+                        ok=False,
+                        error="skipped: earlier tool already answered",
+                    )
+                )
+                continue
+            if answered and tool == ToolName.MEMORY:
+                # memory is cheap metadata; still ok but not required
+                continue
             try:
-                results.append(self._dispatch(tool, state))
+                result = self._dispatch(tool, state)
             except Exception as exc:  # noqa: BLE001 — tools must not crash pipeline
-                results.append(ToolResult(name=tool, ok=False, error=str(exc)[:200]))
+                result = ToolResult(name=tool, ok=False, error=str(exc)[:200])
+            results.append(result)
+            if self._is_sufficient(result):
+                answered = True
         return results
+
+    @staticmethod
+    def _is_sufficient(result: ToolResult) -> bool:
+        if not result.ok:
+            return False
+        if result.name in ToolManager._TERMINAL:
+            return bool(result.payload.get("reply") or result.payload.get("code"))
+        if result.name == ToolName.KB:
+            reply = str(result.payload.get("reply") or "")
+            score = float(result.payload.get("score") or 0)
+            # Strong KB/learned hit → skip WEB. Weak/empty → keep going.
+            if result.payload.get("code") and reply:
+                return True
+            return bool(reply) and (score >= 1.2 or len(reply) >= 40)
+        return False
 
     def _dispatch(self, tool: ToolName, state: PipelineState) -> ToolResult:
         msg = (

@@ -60,12 +60,14 @@ def status():
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "quality-v8",
+        "phase": "improve-v10",
         "codegen": "first-principles",
         "rag": "kb+learned+hf-code",
         "tool_policy": "auto",
         "hf_code_seed": True,
         "response_quality": True,
+        "perf": "tool-shortcircuit+cache+index",
+        "self_improve": "codegen-promote+backlog-drain",
     }
     try:
         payload["improve"] = improve.status()
@@ -147,12 +149,15 @@ def chat():
             "thinking": f"nlu-error: {type(nlu_err).__name__}",
         }
 
-    # Legacy agent only for web-policy fallback compatibility
+    # Legacy agent only when NLU fell back / needs web-policy help
     decision = None
-    try:
-        from model.agent import agent as _agent
-        decision = _agent.decide(message, history[-16:])
-    except Exception:
+    if result is None or result.get("source") in {"fallback", None} or result.get("allow_web"):
+        try:
+            from model.agent import agent as _agent
+            decision = _agent.decide(message, history[-16:])
+        except Exception:
+            decision = None
+    else:
         decision = None
 
     # Markdown ``` kodunu ayrı alana çıkar — UI kod bloğu göstersin
