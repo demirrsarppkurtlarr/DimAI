@@ -452,47 +452,72 @@ _TR_EN = {
     "hos geldin": "welcome", "guzel": "beautiful / nice", "arkadas": "friend",
     "kitap": "book", "su": "water", "ekmek": "bread", "okul": "school",
     "bilgisayar": "computer", "yazilim": "software", "kod": "code",
+    "harika": "wonderful / great / amazing", "mukemmel": "perfect / excellent",
+    "iyi": "good", "kotu": "bad", "buyuk": "big / large", "kucuk": "small",
+    "yeni": "new", "eski": "old", "hizli": "fast", "yavas": "slow",
+    "kolay": "easy", "zor": "hard / difficult", "onemli": "important",
+    "guclu": "strong", "zayif": "weak", "mutlu": "happy", "uzgun": "sad",
+    "sicak": "hot / warm", "soguk": "cold", "dogru": "correct / true",
+    "yanlis": "wrong / false", "basari": "success", "hata": "error / mistake",
+    "soru": "question", "cevap": "answer", "yardim": "help",
+    "gun": "day", "gece": "night", "sabah": "morning", "aksam": "evening",
+    "bugun": "today", "yarin": "tomorrow", "dun": "yesterday",
+    "ev": "home / house", "araba": "car", "insan": "human / person",
+    "dunya": "world", "ask": "love", "sevgi": "love / affection",
+    "is": "work / job", "para": "money", "zaman": "time",
+    "saat": "hour / clock", "dakika": "minute", "tamam": "okay",
+    "belki": "maybe", "simdi": "now", "burada": "here", "orada": "there",
+    "programlama": "programming", "bilgi": "information", "ornek": "example",
+    "fonksiyon": "function", "degisken": "variable", "nasilsin": "how are you",
 }
-_EN_TR = {v.split(" / ")[0]: k for k, v in _TR_EN.items()}
+_EN_TR = {v.split(" / ")[0].strip(): k for k, v in _TR_EN.items()}
 _EN_TR.update({
     "hello": "merhaba", "hi": "selam", "thanks": "teşekkürler",
     "thank you": "teşekkür ederim", "please": "lütfen", "yes": "evet",
     "no": "hayır", "good morning": "günaydın", "good night": "iyi geceler",
     "friend": "arkadaş", "book": "kitap", "water": "su", "computer": "bilgisayar",
     "code": "kod", "software": "yazılım", "hello world": "merhaba dünya",
-    "world": "dünya",
+    "world": "dünya", "wonderful": "harika", "great": "harika",
+    "amazing": "harika", "perfect": "mükemmel", "beautiful": "güzel",
+    "nice": "güzel", "good": "iyi", "bad": "kötü", "happy": "mutlu",
+    "love": "aşk", "time": "zaman", "today": "bugün", "tomorrow": "yarın",
 })
 
 
 def looks_like_translate(raw: str) -> bool:
     t = _norm(raw)
-    if any(
+    return any(
         x in t
         for x in (
             "ne demek", "nedir turkce", "turkcesi", "turkce", "english",
-            "ingilizce", "ingilizcesi", "cevir", "translate", "meaning of",
+            "ingilizce", "ingilizcesi", "ingilizcede", "turkcede",
+            "cevir", "translate", "meaning of",
         )
-    ):
-        return True
-    return False
+    )
 
 
 def translate(raw: str) -> Optional[str]:
     t = _norm(raw)
     word = None
-    # "hello world'ü türkçeye çevir" / "merhaba'yı İngilizceye çevir"
+    lang_hint = ""
+    # "harika ingilizcede ne demek / nedir"
     m = re.search(
-        r"^(.+?)\s*(?:yi|yu|ye|ya|u|i)?\s*"
-        r"(turkceye|ingilizceye|turkce|english|ingilizce)\s*(cevir|translate)?$",
+        r"^(.+?)\s+(ingilizcede|turkcede|ingilizcesi|turkcesi|ingilizce|turkce|english)\s*"
+        r"(ne demek|nedir|cevir|translate)?$",
         t,
     )
     if m:
-        word = m.group(1).strip()
+        word, lang_hint = m.group(1).strip(), m.group(2)
     if not word:
         m = re.search(
-            r"^(.+?)\s+(ne demek|english|ingilizcesi|ingilizce|turkcesi|turkce)$",
+            r"^(.+?)\s*(?:yi|yu|ye|ya|u|i)?\s*"
+            r"(turkceye|ingilizceye|turkce|english|ingilizce)\s*(cevir|translate)?$",
             t,
         )
+        if m:
+            word, lang_hint = m.group(1).strip(), m.group(2)
+    if not word:
+        m = re.search(r"^(.+?)\s+(ne demek)$", t)
         if m:
             word = m.group(1).strip()
     if not word:
@@ -501,31 +526,44 @@ def translate(raw: str) -> Optional[str]:
             word = m.group(2).strip()
     if not word:
         return None
+
     word = re.sub(r"^(kelime|word)\s+", "", word).strip()
-    word = re.sub(r"\b(turkceye|ingilizceye|cevir|translate)\b", " ", word).strip()
-    word = re.sub(r"\s+", " ", word)
-    if word in _TR_EN and not (word in _EN_TR and ("turkce" in t or "turkceye" in t)):
-        # default TR→EN unless explicitly asking turkish
-        if "turkce" in t or "turkcesi" in t or "turkceye" in t:
-            pass
-        else:
-            return f"**{word}** → İngilizce: **{_TR_EN[word]}**"
+    word = re.sub(
+        r"\b(turkceye|ingilizceye|turkcede|ingilizcede|turkcesi|ingilizcesi|"
+        r"turkce|ingilizce|english|cevir|translate|ne demek|nedir)\b",
+        " ",
+        word,
+    )
+    word = re.sub(r"\s+", " ", word).strip()
+    if not word:
+        return None
+
+    want_en = any(
+        x in t or x in lang_hint
+        for x in ("ingilizce", "ingilizcesi", "ingilizcede", "ingilizceye", "english")
+    )
+    want_tr = any(
+        x in t or x in lang_hint
+        for x in ("turkce", "turkcesi", "turkcede", "turkceye")
+    ) or ("ne demek" in t and not want_en)
+
+    if word in _TR_EN and (want_en or not want_tr):
+        return f"**{word}** → İngilizce: **{_TR_EN[word]}**"
     if word in _EN_TR:
         return f"**{word}** → Türkçe: **{_EN_TR[word]}**"
     if word in _TR_EN:
         return f"**{word}** → İngilizce: **{_TR_EN[word]}**"
     for en, tr in sorted(_EN_TR.items(), key=lambda x: -len(x[0])):
-        if en == word or (len(en) > 2 and en in word):
+        if en == word:
             return f"**{en}** → Türkçe: **{tr}**"
     for tr, en in sorted(_TR_EN.items(), key=lambda x: -len(x[0])):
-        if tr == word or (len(tr) > 2 and tr in word):
+        if tr == word:
             return f"**{tr}** → İngilizce: **{en}**"
-    # multi-word phrase fallback
-    if "hello world" in word or word == "hello world":
+    if "hello world" in word:
         return "**hello world** → Türkçe: **merhaba dünya**"
     return (
         f"«{word}» için hazır sözlüğümde tam karşılık yok. "
-        f"Başka bir kelime dene veya «{word} nedir» diye sor."
+        f"Başka kelime dene — örn. `güzel İngilizcede ne demek`."
     )
 
 

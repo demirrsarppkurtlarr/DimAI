@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -105,9 +106,9 @@ def chat():
 
     result = None
 
-    # Memory retrieval: sadece bilgi/kod/takip için
+    # Memory retrieval: bilgi/takip için; kodda KB structured `code` alanı tercih
     can_memory = True
-    if decision and decision.intent in ("chat", "refuse", "personal", "math", "help"):
+    if decision and decision.intent in ("chat", "refuse", "personal", "math", "help", "code"):
         can_memory = False
     if decision and not decision.allow_memory:
         can_memory = False
@@ -155,6 +156,18 @@ def chat():
                 "allow_web": False,
                 "thinking": f"brain-error: {type(brain_err).__name__}",
             }
+
+    # Markdown ``` kodunu ayrı alana çıkar — UI kod bloğu göstersin
+    if result and not result.get("code"):
+        reply = result.get("reply") or ""
+        fence = re.search(r"```(\w+)?\s*\n(.*?)```", reply, re.S)
+        if fence:
+            lang = fence.group(1) or "python"
+            code = fence.group(2).strip()
+            clean = re.sub(r"```\w*\s*\n.*?```", "", reply, count=1, flags=re.S).strip()
+            result["reply"] = clean or "İşte kod:"
+            result["code"] = code
+            result["lang"] = result.get("lang") or lang
 
     # Web yalnızca agent izin verdiyse ve brain fallback döndüyse
     allow_web = bool(result.get("allow_web"))

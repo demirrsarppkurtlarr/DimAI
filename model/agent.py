@@ -30,6 +30,7 @@ CHAT_WORDS = {
     "merhaba", "selam", "hello", "hi", "hey", "slm", "sa",
     "nasilsin", "naber", "tesekkur", "sagol", "thanks", "eyvallah",
     "gorusuruz", "bye", "gunaydin", "iyi geceler", "iyi aksamlar",
+    "konusalim", "sohbet", "napıyorsun", "napıyosun", "napıyorsun",
 }
 
 CODE_STRONG = {
@@ -327,11 +328,16 @@ class Agent:
                 return False
         if text in CHAT_WORDS:
             return True
-        # sadece selamlaşma kelimelerinden oluşuyorsa chat
-        social = CHAT_WORDS | {"misin", "musun", "miyim", "iyi", "gunun", "nasilsin"}
+        social = CHAT_WORDS | {
+            "misin", "musun", "miyim", "iyi", "gunun", "nasilsin",
+            "konusalim", "sohbet", "muhabbet", "napıyorsun", "napıyosun",
+            "ne", "yapiyorsun", "yapıyorsun", "bosum", "sikildim",
+        }
         if words and words <= social:
             return True
-        if len(words) <= 2 and words & CHAT_WORDS and not (words & (CODE_WRITE | CODE_STRONG | CODE_LANGS)):
+        if len(words) <= 4 and words & CHAT_WORDS and not (words & (CODE_WRITE | CODE_STRONG | CODE_LANGS)):
+            return True
+        if any(p in text for p in ("konusalim", "konusuruz", "sohbet edelim", "muhabbet")):
             return True
         return False
 

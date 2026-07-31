@@ -1157,10 +1157,15 @@ CHITCHAT: list[tuple[list[str], list[str]]] = [
      ["Merhaba! Ben DimAI. Kod, soru veya sohbet — ne istersen yaz.",
       "Selam! Bugün ne üzerinde çalışıyoruz?"]),
     (["nasilsin", "naber", "ne haber", "iyi misin", "how are you"],
-     ["İyiyim, teşekkürler! Sen nasılsın? Bir şey yazmak veya sormak ister misin?",
-      "Gayet iyiyim. Sen ne yapmak istiyorsun — kod mu, bilgi mi, sohbet mi?"]),
+     ["İyiyim, teşekkürler! Sen nasılsın? Bir şey yazmak, sormak veya sadece sohbet de olur.",
+      "Gayet iyiyim 😊 Sen nasılsın? Kod, soru veya muhabbet — ne dilersen."]),
+    (["ne yapiyorsun", "ne yapıyorsun", "napıyorsun", "napıyorsun", "napıyosun"],
+     ["Buradayım, sorularını bekliyorum. İstersen birlikte kod yazalım veya bir konuyu konuşalım."]),
+    (["sikildim", "sıkıldım", "bosum", "boşum", "konusalim", "konuşalım", "sohbet"],
+     ["Tamam, sohbet edelim 😊 Bugün ne yaptın veya aklında ne var?",
+      "Olur — istersen kısa bir muhabbet, istersen birlikte bir şey kodlarız. Sen seç."]),
     (["gunaydin", "günaydın"],
-     ["Günaydın! Bugün ne kodlayalım veya ne soralım?"]),
+     ["Günaydın! Bugün ne kodlayalım veya ne konuşalım?"]),
     (["iyi geceler", "iyi aksamlar", "iyi akşamlar"],
      ["Sana da! Takıldığın yer olursa buradayım."]),
     (["adin ne", "kimsin", "sen nesin", "who are you", "ismin", "sen kimsin"],
@@ -1263,7 +1268,11 @@ class Brain:
                 if not any(t in key for t in ("nedir", "kimdir", "ne demek", "ne ise")):
                     continue
                 specific = [kw for kw in key.split() if kw not in self.GENERIC_WORDS and len(kw) >= 3]
-                if specific and all(s in words or s in text for s in specific):
+                # short tokens (gil) must be whole words — not substring of "ingilizcede"
+                if specific and all(
+                    (s in words) or (len(s) >= 5 and re.search(rf"(?:^|\s){re.escape(s)}(?:\s|$)", text))
+                    for s in specific
+                ):
                     score += 5.0
                     topic_hit = True
                     break
@@ -1517,34 +1526,32 @@ class Brain:
             }
         topic = self._topic_keywords(history)
         name = self._remember_name(history, "")
-        if topic:
-            tip = " ".join(topic[:3])
+        # Tekrarlayan net soru → menü/konu döngüsüne girme; yönlendir
+        if any(h in text for h in ("nedir", "kimdir", "ne demek", "nasil", "yaz", "cevir")):
             who = f"{name}, " if name else ""
             return {
                 "reply": (
-                    f"{who}hâlâ **{tip}** konuşuyoruz. "
-                    f"Ne öğrenmek istersin — nasıl çalışır, örnek, yoksa yeni konu mu?"
+                    f"{who}bunu net bağlayamadım. "
+                    f"Kod için `fibonacci yaz` / `todo app yaz`, "
+                    f"çeviri için `harika İngilizcede ne demek`, "
+                    f"bilgi için `React nedir` dene."
                 ),
                 "source": "chat",
             }
-        if name:
+        if name and len(words) <= 8:
             return {
                 "reply": (
-                    f"{name}, bunu tam bağlayamadım. "
-                    f"Kod mu yazalım, bir şey mi soracağız, yoksa sohbet mi?"
+                    f"{name}, dinliyorum 😊 Kod yazabilirim, soru cevaplayabilirim "
+                    f"veya sohbet edebiliriz — ne istersin?"
                 ),
                 "source": "chat",
             }
-        # Belirsiz mesaj → yönlendirici ama işe yarar menü (eski "anlamadım" yerine)
+        # Belirsiz mesaj → kısa sohbet, menü spam'i yok
         who = f"{name}, " if name else ""
         return {
             "reply": (
-                f"{who}şunu deneyebilirsin:\n"
-                f"• **Kod:** `todo app yaz`, `fibonacci yaz`, `flask api yaz`\n"
-                f"• **Hesap:** `2+2 kaç`, `15*8`, `100 km kaç mile`\n"
-                f"• **Bilgi:** `karadelik nedir`, `Atatürk kimdir`\n"
-                f"• **Saat:** `saat kaç` / `bugünün tarihi`\n\n"
-                f"Ne yapmak istediğini bir cümlede yazman yeterli."
+                f"{who}anladım, devam edelim. "
+                f"İstersen kod yazayım, bir şey çevireyim veya bir konuyu açıklayayım — kısaca yazman yeterli."
             ),
             "source": "chat",
         }
@@ -1849,9 +1856,11 @@ class Brain:
                 })
             if decision.intent == "help" and kb:
                 return _tag(self._kb_result(kb))
-            # belirsiz chat: KB zayıf eşleşme dene, yoksa yumuşak yönlendir
+            # belirsiz chat: yalnızca güçlü KB; zayıf eşleşme sohbeti bozmasın
             ranked = self._rank_kb(text)
-            if ranked and ranked[0][1] >= 1.8:
+            if ranked and ranked[0][1] >= 4.0 and decision.intent == "help":
+                return _tag(self._kb_result(ranked[0][0]))
+            if ranked and ranked[0][1] >= 5.5:
                 return _tag(self._kb_result(ranked[0][0]))
             return _tag(self._soft_reply(text, history))
 
