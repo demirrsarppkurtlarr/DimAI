@@ -265,9 +265,51 @@ class NLUPipeline:
             ]
         # Incomplete continue → prefer KB then chat, not clarify
         if meaning.wants_continue and state.plan and state.intent.intent == Intent.EXPLANATION:
-            state.plan.tools = [ToolName.KB, ToolName.CHAT]
+            state.plan.tools = [ToolName.KB, ToolName.WEB, ToolName.CHAT]
             state.plan.needs_clarification = False
             state.plan.style = "step_by_step"
+            topic0 = (self.memory.store.topic or self.memory.store.project or "").strip()
+            if topic0 and not state.plan.search_query:
+                state.plan.search_query = topic0
+
+        # Follow-up continuity: elliptical turns inherit the remembered topic
+        # so "peki başrolde kim var" searches the FILM, not the word "başrolde".
+        topic = (self.memory.store.topic or "").strip()
+        if (
+            topic
+            and state.plan
+            and state.intent.intent in {Intent.SEARCH, Intent.QUESTION, Intent.EXPLANATION}
+        ):
+            def _fold(s: str) -> str:
+                s = (s or "").lower().replace("İ", "i").replace("I", "i").replace("ı", "i")
+                return s.translate(str.maketrans("çğıöşü", "cgiosu"))
+
+            msg_fold = _fold(state.normalized or state.raw)
+            msg_words = [w for w in msg_fold.split() if w]
+            topic_words = set(_fold(topic).split())
+            overlap = topic_words & set(msg_words)
+            followup_cue = bool(refs) or meaning.wants_continue or (
+                msg_words and msg_words[0] in {"peki", "onun", "bunun", "o", "bu", "ee", "ya", "daha"}
+            )
+            elliptical = len(msg_words) <= 6
+            # Pure continuation ("daha fazla anlat") has no content words at all —
+            # search the TOPIC itself, never the filler words.
+            try:
+                from model.kb_index import _keywords as _content_kw
+
+                content_words = _content_kw(state.normalized or state.raw)
+            except Exception:
+                content_words = msg_words
+            if elliptical and not content_words:
+                state.plan.search_query = topic
+                state.plan.needs_clarification = False
+                if ToolName.WEB not in state.plan.tools:
+                    state.plan.tools = [ToolName.KB, ToolName.WEB, ToolName.CHAT]
+                state.add_trace(f"continue-topic:{topic[:40]}")
+            elif elliptical and not overlap and followup_cue:
+                merged = f"{topic} {state.normalized or state.raw}".strip()
+                state.plan.search_query = merged
+                state.add_trace(f"followup-topic:{topic[:40]}")
         state.add_trace(
             "plan:tools=" + ",".join(t.value for t in state.plan.tools)
         )

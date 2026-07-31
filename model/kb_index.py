@@ -46,6 +46,9 @@ STOP = frozenset({
     "orada", "burada", "şey", "sey", "bazi", "bazı", "cok", "çok", "daha",
     "miyim", "misin", "about", "info", "information", "please", "tell", "me",
     "how", "to", "do", "can", "you", "give", "some",
+    # continuation fillers — must never match knowledge chunks by themselves
+    "fazla", "devam", "et", "biraz", "tekrar", "yine", "baska", "başka",
+    "detay", "detayli", "detaylı", "more", "continue", "again", "further",
 })
 
 # Chat/roleplay corpora — never answer factual asks from these alone.
