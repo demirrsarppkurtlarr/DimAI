@@ -96,19 +96,30 @@ class ToolManager:
         plan = state.plan
         prior = ""
         lang = "python"
-        for h in state.memory_hits:
-            if h.kind == "code" and h.content:
-                prior = h.content
-                lang = str((h.meta or {}).get("lang") or "python")
-                break
-        if not prior:
-            try:
-                from model.nlu.memory import memory_engine
 
-                prior = memory_engine.store.last_code or ""
-                lang = memory_engine.store.last_lang or lang
-            except Exception:
-                prior = ""
+        # Prefer the FULL last_code store — memory hit content is only a preview.
+        try:
+            from model.nlu.memory import memory_engine
+
+            prior = memory_engine.store.last_code or ""
+            lang = memory_engine.store.last_lang or lang
+        except Exception:
+            prior = ""
+
+        if not prior:
+            for h in state.memory_hits:
+                if h.kind != "code":
+                    continue
+                meta = h.meta or {}
+                full = str(meta.get("code") or "").strip()
+                if full:
+                    prior = full
+                    lang = str(meta.get("lang") or lang)
+                    break
+                if h.content and len(h.content) > 500:
+                    prior = h.content
+                    lang = str(meta.get("lang") or lang)
+                    break
 
         # Extract from history AI messages if still empty
         if not prior:
@@ -122,12 +133,22 @@ class ToolManager:
                 if m:
                     prior = m.group(1).strip()
                     break
-                # bare code blocks without fences
-                if "def " in content and "return" in content:
+                if "def " in content and ("return" in content or "class " in content):
                     prior = content
                     break
 
-        if plan and plan.improve_code and prior:
+        improve_ask = bool(plan and plan.improve_code)
+        if not improve_ask:
+            folded = (msg or "").casefold()
+            improve_ask = any(
+                x in folded
+                for x in (
+                    "geliştir", "gelistir", "improve", "refactor",
+                    "optimize", "iyileştir", "iyilestir", "düzelt", "duzelt",
+                )
+            )
+
+        if improve_ask and prior:
             made = codegen.improve(
                 prior,
                 msg,
@@ -137,6 +158,26 @@ class ToolManager:
             )
             if made:
                 return ToolResult(name=ToolName.CODEGEN, ok=True, payload=made)
+
+        if improve_ask and not prior:
+            lang_ui = state.plan.language if state.plan else "tr"
+            if lang_ui == "en":
+                reply = (
+                    "Improve needs the previous source. Paste the code "
+                    "(or generate one first with e.g. `stok takip yaz`), "
+                    "then say `improve`."
+                )
+            else:
+                reply = (
+                    "Geliştirmek için önceki kodu bulamadım. "
+                    "Kodu yapıştır veya önce bir şey yazdır "
+                    "(`stok takip yaz` gibi), sonra `geliştir` de."
+                )
+            return ToolResult(
+                name=ToolName.CODEGEN,
+                ok=True,
+                payload={"reply": reply, "code": "", "lang": "text", "source": "codegen"},
+            )
 
         refs = (state.reasoning.resolved_refs if state.reasoning else {}) or {}
         if refs and len(msg.split()) <= 4:
