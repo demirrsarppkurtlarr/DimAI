@@ -134,7 +134,13 @@ def chat():
                     )
                     if definitional and looks_codey:
                         prior = None
-                    # Tanım sorusunda memory cevabı konu kelimesini taşımıyorsa ez (yanlış SQL→DB)
+                    # Fibonacci tuzağı: soruda yoksa fibo memory kullanma
+                    if prior and "fibonacc" in (prior.get("reply") or "").lower():
+                        if "fibonacc" not in msg_l and "fibo" not in msg_l:
+                            prior = None
+                    # Kod isteğinde hazır fibo/episode memory yerine taze üretim
+                    if prior and decision and decision.intent == "code":
+                        prior = None
                     if prior and definitional:
                         stop = {
                             "nedir", "ne", "kimdir", "demek", "what", "who", "is", "are",
@@ -247,7 +253,7 @@ def chat():
         if not result.get("reply") or "araştırayım" in (result.get("reply") or "").lower():
             result["reply"] = (
                 "Bunu web'e çıkmadan yanıtlayamadım. "
-                "Daha somut sor veya \"karadelik nedir\" / \"fibonacci kodu yaz\" dene."
+                "Daha somut sor veya \"karadelik nedir\" / \"todo yaz\" dene."
             )
 
     # Neural sadece açıkça istenirse

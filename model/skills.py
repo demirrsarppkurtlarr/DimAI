@@ -747,7 +747,7 @@ def looks_like_noise(raw: str) -> bool:
 def answer_noise() -> str:
     return (
         "Bir şey yazmanı bekliyorum 🙂\n"
-        "Örnek: `2+2 kaç`, `fibonacci yaz`, `karadelik nedir`, `saat kaç`"
+        "Örnek: `2+2 kaç`, `todo yaz`, `karadelik nedir`, `saat kaç`"
     )
 
 

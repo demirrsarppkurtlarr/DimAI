@@ -38,7 +38,7 @@ window.addEventListener("orientationchange", () => setTimeout(syncAppHeight, 150
 const SUGGESTIONS = [
   "print komutu nasıl kullanılır?",
   "sayı tahmin oyunu yaz",
-  "fibonacci kodu yaz",
+  "todo list yaz",
   "dosya nasıl okunur?",
   "listeyi nasıl sıralarım?",
   "class örneği göster",

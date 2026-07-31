@@ -1186,7 +1186,7 @@ CHITCHAT: list[tuple[list[str], list[str]]] = [
       "• Saat/tarih ve bilgi soruları (gerekirse web)\n"
       "• Hava durumu gibi güncel sorular (web)\n"
       "• Konuşma hafızası + takip soruları\n\n"
-      "Örnek: \"fibonacci yaz\", \"100/4\", \"karadelik nedir\", \"saat kaç\""]),
+      "Örnek: \"todo yaz\", \"100/4\", \"karadelik nedir\", \"saat kaç\""]),
     (["sikildim", "sıkıldım", "ne yapalim", "ne yapalım", "oneri ver", "öneri ver"],
      ["O zaman bir şey seçelim:\n1) Kısa bir oyun kodu yazayım\n2) Matematik sorusu çözeyim\n3) İlginç bir konuyu açıklayayım\n\nHangisi?"]),
     (["saka", "espri", "komik", "joke", "guldur"],
@@ -1208,7 +1208,7 @@ CHITCHAT: list[tuple[list[str], list[str]]] = [
 SUGGESTIONS = [
     "print komutu nasıl kullanılır?",
     "sayı tahmin oyunu yaz",
-    "fibonacci kodu yaz",
+    "todo list yaz",
     "dosya nasıl okunur?",
     "listeyi nasıl sıralarım?",
     "class örneği göster",
@@ -1338,32 +1338,45 @@ class Brain:
         return False
 
     def _default_code_reply(self, text: str) -> dict:
-        """Belirsiz 'kod yaz' istekleri için somut bir başlangıç örneği."""
-        if "python" in text or "kod" in text or "code" in text or "write" in text:
-            return {
-                "reply": (
-                    "Tabii — işte basit bir Python başlangıç örneği. "
-                    "Daha spesifik istersen söyle: \"fibonacci kodu yaz\", "
-                    "\"sayı tahmin oyunu yaz\", \"dosya oku\"…"
-                ),
-                "code": (
-                    'def merhaba(isim: str = "Dünya") -> str:\n'
-                    '    mesaj = f"Merhaba, {isim}!"\n'
-                    '    print(mesaj)\n'
-                    '    return mesaj\n'
-                    '\n'
-                    'if __name__ == "__main__":\n'
-                    '    merhaba("DimAI")\n'
-                    '    for i in range(1, 6):\n'
-                    '        print(i, "→", i * i)\n'
-                ),
-                "lang": "python",
-                "source": "kb",
-            }
+        """Kod isteği: sıfırdan üret (hazır fibonacci vb. yok)."""
+        try:
+            from model import codegen as _codegen
+        except ImportError:
+            import codegen as _codegen  # type: ignore
+        made = _codegen.synthesize(text)
+        if made:
+            return made
         return {
-            "reply": "Ne tür kod yazayım? Örnek: \"fibonacci kodu yaz\", \"flask web uygulaması yaz\".",
+            "reply": (
+                "Ne yazmamı istediğini bir cümleyle söyle. "
+                "Örn: `todo yaz`, `chatbot yaz`, `flask api yaz`, `şifre üretici yaz`."
+            ),
             "source": "chat",
         }
+
+    def _strong_code_kb(self, text: str, entry: Optional[dict], min_score: float = 6.0) -> Optional[dict]:
+        """Kod yolunda yalnızca konu kelimeleri güçlü tutan KB; zayıf eşleşme yasak."""
+        if not entry:
+            return None
+        ranked = self._rank_kb(text)
+        if not ranked or ranked[0][0] is not entry:
+            return None
+        if ranked[0][1] < min_score:
+            return None
+        # İstek "yaz/örnek" ise entry gerçekten aynı konuyu konuşmalı
+        q_words = {
+            w for w in text.split()
+            if w not in self.GENERIC_WORDS and len(w) >= 3
+        }
+        keys = " ".join(entry.get("nk") or [])
+        topical = [w for w in q_words if w not in {"yaz", "write", "kod", "kodu", "ornek", "ornegi", "goster"}]
+        if topical and not any(t in keys for t in topical):
+            return None
+        # Fibonacci tuzağı: soruda fibo yoksa fibo KB verme
+        if "fibonacci" in keys or "fibo" in keys:
+            if not any(t in text for t in ("fibonacci", "fibonacchi", "fibo")):
+                return None
+        return entry
 
     def _try_math(self, raw: str) -> Optional[str]:
         try:
@@ -1531,7 +1544,7 @@ class Brain:
             return {
                 "reply": (
                     f"{who}bunu net bağlayamadım. "
-                    f"Kod için `fibonacci yaz` / `todo app yaz`, "
+                    f"Kod için `todo yaz` / `chatbot yaz` / `flask api yaz`, "
                     f"çeviri için `harika İngilizcede ne demek`, "
                     f"bilgi için `React nedir` dene."
                 ),
@@ -1836,7 +1849,7 @@ class Brain:
                 return _tag({
                     "reply": (
                         "Neyin nedenini / devamını soruyorsun? "
-                        "Önce bir konu aç: örn. `karadelik nedir` veya `fibonacci yaz`."
+                        "Önce bir konu aç: örn. `karadelik nedir` veya `todo yaz`."
                     ),
                     "source": "chat",
                 })
@@ -1860,7 +1873,7 @@ class Brain:
                 return _tag({
                     "reply": (
                         "Hangi konuda başka örnek istersin?\n"
-                        "Örn: `fibonacci yaz`, `flask api yaz`, `regex örneği`"
+                        "Örn: `todo yaz`, `flask api yaz`, `chatbot yaz`"
                     ),
                     "source": "chat",
                 })
@@ -1903,7 +1916,7 @@ class Brain:
             return _tag({
                 "reply": (
                     "Hangi konuda başka örnek istersin?\n"
-                    "Örn: `fibonacci yaz`, `flask api yaz`, `regex örneği`"
+                    "Örn: `todo yaz`, `flask api yaz`, `chatbot yaz`"
                 ),
                 "source": "chat",
             })
@@ -1921,13 +1934,20 @@ class Brain:
                 # «örnek ver» → mümkünse kodlu KB girdisi tercih et
                 wants_example = any(w in text for w in ("ornek", "ornegi", "ornekler", "goster", "yaz"))
                 if wants_example:
+                    try:
+                        from model import codegen as _codegen
+                    except ImportError:
+                        import codegen as _codegen  # type: ignore
+                    made = _codegen.synthesize(f"{topic_str} yaz")
+                    if made and made.get("code"):
+                        made["reply"] = "İşte örnek:\n\n" + made["reply"]
+                        return _tag(made)
                     for entry, score in self._rank_kb(_norm(f"{topic_str} yaz")):
                         if entry.get("c") and score >= 1.5:
-                            result = self._kb_result(entry)
-                            result["reply"] = "İşte örnek:\n\n" + result["reply"]
-                            return _tag(result)
-                    for entry, score in topic_hits:
-                        if entry.get("c"):
+                            # fibo tuzağı
+                            keys = " ".join(entry.get("nk") or [])
+                            if ("fibonacci" in keys or "fibo" in keys) and "fibo" not in topic_str:
+                                continue
                             result = self._kb_result(entry)
                             result["reply"] = "İşte örnek:\n\n" + result["reply"]
                             return _tag(result)
@@ -1957,16 +1977,10 @@ class Brain:
                 })
             return _tag(self._soft_reply(text, history))
 
-        # code — KB önce, yoksa somut örnek (web YOK)
+        # code — her zaman sıfırdan üret (hazır KB snippet yok)
         if decision.intent == "code":
-            if kb:
-                return _tag(self._kb_result(kb))
-            # "liste nasıl sıralanır" gibi howto'lar GENERIC ile gelebilir — zayıf KB dene
-            ranked = self._rank_kb(text)
-            if ranked and ranked[0][1] >= 1.5:
-                return _tag(self._kb_result(ranked[0][0]))
-            result = self._default_code_reply(text)
-            if decision.plan:
+            result = self._default_code_reply(raw)
+            if decision.plan and result.get("source") == "chat":
                 result["reply"] = (
                     "Plan: " + " → ".join(decision.plan) + "\n\n" + result["reply"]
                 )
