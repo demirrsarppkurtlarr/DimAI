@@ -82,6 +82,7 @@ class DesignSpec:
 
 # Domain detectors → specialized but still design-driven composers
 _DOMAIN_HINTS: list[tuple[str, tuple[str, ...]]] = [
+    ("3d", ("3d", "raycast", "pseudo 3d", "pseudo-3d")),
     ("rps", ("tas kagit", "tas-kagit", "rock paper", "rps")),
     ("hangman", ("adam asmaca", "hangman")),
     ("tictactoe", ("xox", "tic tac", "tic-tac", "tictactoe")),

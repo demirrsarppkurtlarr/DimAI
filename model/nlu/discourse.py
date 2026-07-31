@@ -69,6 +69,17 @@ _HOW_SELF = re.compile(
     r"seni\s+anlat|kendini\s+anlat)\b",
     re.I,
 )
+_CODING = re.compile(
+    r"("
+    r"kod\s*yaz|write\s*code|program\s*yaz|script\s*yaz|"
+    r"oyun\s*(yaz|yap|olustur)|game\s*(yaz|yap|make|create|write)|"
+    r"3d\s*oyun|make\s*(a\s*)?(3d\s*)?game|"
+    r"(todo|chatbot|flask|fastapi|react)\s*(yaz|yap|olustur)|"
+    r"(yaz|yap|olustur|uret|make|create|write).{0,24}(oyun|kod|game|app|api|todo)|"
+    r"(oyun|kod|game|app|todo|3d).{0,16}(yaz|yap|olustur|uret|make|create|write)"
+    r")",
+    re.I,
+)
 _DEFINITION = re.compile(
     r"\b(\w+)\s+(nedir|ne\s+demek|hakkinda)\b|\bwhat\s+is\b|\bexplain\b",
     re.I,
@@ -127,6 +138,17 @@ def decide(
             intent=Intent.CONVERSATION,
             confidence=0.95,
             reason="how-self / capability question",
+        )
+
+    # Coding / make-a-game speech acts — never clarify or stick to old project
+    if _CODING.search(folded) or (
+        any(v in folded.split() for v in ("yaz", "yap", "olustur", "make", "create", "write"))
+        and any(n in folded for n in ("oyun", "kod", "game", "todo", "3d", "api", "flask", "chatbot"))
+    ):
+        return DiscourseDecision(
+            intent=Intent.CODING,
+            confidence=0.93,
+            reason="coding/make speech act",
         )
 
     # Explicit comparisons — answer, don't clarify

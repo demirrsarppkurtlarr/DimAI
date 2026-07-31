@@ -1133,8 +1133,16 @@ if __name__ == "__main__":
     return f"«{title}» için sıfırdan uygulama:", code, "python"
 
 
+
+def _gen_3d_bridge(text: str) -> tuple[str, str, str]:
+    from model.game_3d import gen_3d_ascii
+
+    return gen_3d_ascii(text)
+
+
 # pattern → generator (order matters: more specific first)
 _RULES: list[tuple[tuple[str, ...], Callable]] = [
+    (("3d", "raycast", "pseudo 3d", "pseudo-3d"), _gen_3d_bridge),
     (("tas kagit", "tas-kagit", "rock paper", "rps"), _gen_rps),
     (("adam asmaca", "hangman"), _gen_hangman),
     (("xox", "tic tac", "tic-tac", "tictactoe"), _gen_tic_tac_toe),
@@ -1161,6 +1169,7 @@ _RULES: list[tuple[tuple[str, ...], Callable]] = [
     (("html", "landing", "web sayfa"), _gen_html_page),
     (("sql", "schema", "tablo olustur"), _gen_sql_schema),
 ]
+
 
 
 def _match_rule(n: str):
@@ -1194,8 +1203,10 @@ def synthesize(
 
     if vague:
         raw = "zorluk seviyeli sayi tahmin oyunu yaz"
+    elif "3d" in n or "raycast" in n:
+        raw = "3d pseudo raycast koridor oyunu yaz"
     elif re.search(r"(^|\s)oyun(\s|$)", n) and not any(
-        k in n for k in ("tahmin", "xox", "asmaca", "hangman", "rps", "tas", "snake", "quiz")
+        k in n for k in ("tahmin", "xox", "asmaca", "hangman", "rps", "tas", "snake", "quiz", "3d")
     ):
         raw = "skor tablolu tas kagit makas oyunu yaz"
 

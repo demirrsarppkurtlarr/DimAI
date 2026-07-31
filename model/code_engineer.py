@@ -89,6 +89,7 @@ def _specialize(spec: DesignSpec) -> Optional[tuple[str, str, str]]:
     from model import codegen as cg
 
     mapping = {
+        "3d": None,
         "rps": cg._gen_rps,
         "hangman": cg._gen_hangman,
         "tictactoe": cg._gen_tic_tac_toe,
@@ -115,6 +116,10 @@ def _specialize(spec: DesignSpec) -> Optional[tuple[str, str, str]]:
         "html": cg._gen_html_page,
         "sql": cg._gen_sql_schema,
     }
+    if spec.known_domain == "3d":
+        from model.game_3d import gen_3d_ascii
+
+        return gen_3d_ascii(spec.goal)
     fn = mapping.get(spec.known_domain)
     if not fn:
         return None

@@ -199,7 +199,7 @@ class ToolManager:
         return ToolResult(name=ToolName.TIME, ok=True, payload={"reply": ans or ""})
 
     def _kb(self, msg: str, state: PipelineState) -> ToolResult:
-        from model.brain import brain, _norm
+        from model.rag import retrieve_for_tools
 
         q = msg
         intent = state.intent.intent.value if state.intent else ""
@@ -209,14 +209,9 @@ class ToolManager:
                 q = f"{topic} nedir"
             elif topic.lower() not in q.lower():
                 q = f"{topic} {q}"
-        ranked = brain._rank_kb(_norm(q))
-        if not ranked or ranked[0][1] < 2.0:
-            return ToolResult(name=ToolName.KB, ok=False, error="no kb hit")
-        entry = ranked[0][0]
-        payload = {"reply": entry["a"], "score": ranked[0][1], "source": "kb"}
-        if entry.get("c") and intent == "coding":
-            payload["code"] = entry["c"]
-            payload["lang"] = entry.get("l", "python")
+        payload = retrieve_for_tools(q, intent=intent)
+        if not payload:
+            return ToolResult(name=ToolName.KB, ok=False, error="no rag hit")
         return ToolResult(name=ToolName.KB, ok=True, payload=payload)
 
 

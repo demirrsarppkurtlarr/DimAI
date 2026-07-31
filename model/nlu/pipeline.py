@@ -170,6 +170,10 @@ class NLUPipeline:
                 state.intent.intent = Intent.CONVERSATION
                 state.intent.confidence = max(state.intent.confidence, 0.9)
                 state.add_trace("clarify→conversation")
+            elif any(x in fold for x in ("yaz", "yap", "oyun", "kod", "3d", "game", "todo", "olustur")):
+                state.intent.intent = Intent.CODING
+                state.intent.confidence = max(state.intent.confidence, 0.9)
+                state.add_trace("clarify→coding")
 
         # Soft meaning-implied intent when embedding is weak
         if (
