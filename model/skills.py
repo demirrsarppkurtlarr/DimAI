@@ -759,6 +759,7 @@ _SPECIAL_CODES = {
     "efito": "Efe Alsancak!!!",
     "kettle": "Göksel Derin SUyolcu hahaha!!",
     "saral": "Ali Abiiii!!!",
+    "kronik": "w1 kronik void",
 }
 
 
