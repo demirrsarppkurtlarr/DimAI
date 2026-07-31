@@ -29,5 +29,6 @@ data/tr_code_corpus.tmp
 data/huge_shards/
 data/huge_manifest.json
 # huge_learned_seed.json + huge_manifest_summary.json ARE committed
+data/kb_hot_chunks.json
 .pytest_cache/
 .mypy_cache/

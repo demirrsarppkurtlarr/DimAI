@@ -1,7 +1,7 @@
-"""Phase 6 — lightweight RAG over DimAI knowledge sources.
+"""Phase 6 — RAG over DimAI knowledge: structured KB → top-k index → learned.
 
-Ranks: internal KB → learned store → (optional) embedding similarity.
-Retrieves only relevant hits; abstains when confidence is low.
+Uses hybrid embedding+stem retrieval so curated seeds are actually findable,
+not just loaded into RAM. Abstains when confidence is low.
 """
 from __future__ import annotations
 
@@ -13,18 +13,42 @@ from typing import Any, Optional
 class RagHit:
     reply: str
     score: float
-    source: str  # kb | learned
+    source: str  # kb | kb_index | learned
     url: str = ""
     meta: dict[str, Any] | None = None
+    code: str = ""
+    lang: str = ""
 
 
-def retrieve(query: str, *, min_score: float = 2.0) -> Optional[RagHit]:
+def retrieve(query: str, *, min_score: float = 2.0, intent: str = "") -> Optional[RagHit]:
     """Return the best grounded answer or None (avoid hallucinated filler)."""
     q = (query or "").strip()
     if not q:
         return None
 
-    # 1) Structured KB (brain)
+    intent_l = (intent or "").lower()
+    q_fold = q.casefold()
+
+    # Make/build coding asks belong to invent/codegen — do not paste a generic
+    # "kod yaz" KB starter or a random HF snippet as the product.
+    try:
+        from model.code_policy import is_capability_prompt, needs_topic_clarify
+
+        make_verbs = (" yaz", "yap", "olustur", "oluştur", "write", "make", "create", "kodla")
+        is_make = intent_l in {"coding", "code", "command"} and any(
+            v.strip() in q_fold or q_fold.endswith(v.strip()) or f" {v.strip()} " in f" {q_fold} "
+            for v in make_verbs
+        )
+        explainer = any(
+            x in q_fold
+            for x in ("nedir", "nasil", "nasıl", "what is", "how does", "acikla", "açıkla", "anlat", "why")
+        )
+        if (is_make or is_capability_prompt(q) or needs_topic_clarify(q)) and not explainer:
+            return None
+    except Exception:
+        pass
+
+    # 1) Structured KB (brain) — high-precision hand entries
     try:
         from model.brain import brain, _norm
 
@@ -36,11 +60,42 @@ def retrieve(query: str, *, min_score: float = 2.0) -> Optional[RagHit]:
                 score=float(ranked[0][1]),
                 source="kb",
                 meta={"keys": entry.get("k"), "has_code": bool(entry.get("c"))},
+                code=str(entry.get("c") or ""),
+                lang=str(entry.get("l") or "python"),
             )
     except Exception:
         pass
 
-    # 2) Learned Q&A store (includes HF code-instruct seeds)
+    # 2) Knowledge index — top-k hybrid over all seeded corpora (+ Supabase cold)
+    try:
+        from model.kb_index import knowledge_index, synthesize_hits
+
+        kind = None
+        if intent_l in {"coding", "code", "command"}:
+            kind = "code"
+        elif intent_l in {"conversation", "chat"}:
+            kind = "chat"
+        hits = knowledge_index.search(q, top_k=6, kind=kind, min_score=0.30)
+        # If code-biased search is weak, retry open search
+        if kind and (not hits or hits[0].score < 0.38):
+            open_hits = knowledge_index.search(q, top_k=6, kind=None, min_score=0.30)
+            if open_hits and (not hits or open_hits[0].score > hits[0].score):
+                hits = open_hits
+        payload = synthesize_hits(hits)
+        if payload and float(payload.get("score") or 0) >= 0.34:
+            return RagHit(
+                reply=str(payload.get("reply") or ""),
+                score=1.2 + float(payload["score"]),
+                source=str(payload.get("source") or "kb_index"),
+                url=str(payload.get("url") or ""),
+                meta=payload.get("meta") if isinstance(payload.get("meta"), dict) else None,
+                code=str(payload.get("code") or ""),
+                lang=str(payload.get("lang") or "python"),
+            )
+    except Exception:
+        pass
+
+    # 3) Legacy learned store (exact-ish stem match) — write-path compatibility
     try:
         from model.web_research import learned
 
@@ -52,6 +107,8 @@ def retrieve(query: str, *, min_score: float = 2.0) -> Optional[RagHit]:
                 source="learned",
                 url=str(hit.get("url") or ""),
                 meta={"has_code": bool(hit.get("c")), "lang": hit.get("l", "python")},
+                code=str(hit.get("c") or ""),
+                lang=str(hit.get("l") or "python"),
             )
     except Exception:
         pass
@@ -61,18 +118,29 @@ def retrieve(query: str, *, min_score: float = 2.0) -> Optional[RagHit]:
 
 def retrieve_for_tools(query: str, *, intent: str = "") -> Optional[dict]:
     """Shape a tool payload; skip code blobs unless coding intent."""
-    hit = retrieve(query)
-    if not hit or not hit.reply.strip():
+    hit = retrieve(query, intent=intent)
+    if not hit:
         return None
+    if not (hit.reply or "").strip() and not hit.code:
+        return None
+
     out: dict[str, Any] = {
-        "reply": hit.reply,
+        "reply": hit.reply or "",
         "score": hit.score,
         "source": hit.source,
     }
     if hit.url:
         out["url"] = hit.url
-    if intent == "coding" and hit.meta and hit.meta.get("has_code"):
-        # Prefer structured KB code, else learned HF seed code
+    if hit.meta:
+        out["meta"] = hit.meta
+
+    want_code = intent in {"coding", "code", "command"}
+    if want_code and hit.code:
+        out["code"] = hit.code
+        out["lang"] = hit.lang or "python"
+        if not out["reply"]:
+            out["reply"] = "Bilgi indeksinden ilgili kod örneği:"
+    elif want_code and hit.meta and hit.meta.get("has_code") and not hit.code:
         try:
             from model.brain import brain, _norm
 
@@ -82,16 +150,6 @@ def retrieve_for_tools(query: str, *, intent: str = "") -> Optional[dict]:
                 if entry.get("c"):
                     out["code"] = entry["c"]
                     out["lang"] = entry.get("l", "python")
-                    return out
         except Exception:
             pass
-        try:
-            from model.web_research import learned
-
-            learned_hit = learned.lookup(query)
-            if learned_hit and learned_hit.get("c"):
-                out["code"] = learned_hit["c"]
-                out["lang"] = learned_hit.get("l", "python")
-        except Exception:
-            pass
-    return out
+    return out if out.get("reply") or out.get("code") else None
