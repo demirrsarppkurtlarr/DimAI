@@ -365,8 +365,14 @@ def _keepalive_while_training() -> None:
     if not url:
         return
 
+    # Tek bir keepalive thread yeter
+    import threading as _th
+    if any(t.name == "keepalive" and t.is_alive() for t in _th.enumerate()):
+        return
+
     def ping() -> None:
-        while trainer.job.get("active"):
+        # Eğitim işi VEYA self-train (autolearn) sürdüğü müddetçe uyanık kal
+        while trainer.job.get("active") or trainer.state.running:
             _t.sleep(240)
             try:
                 _rq.get(f"{url}/api/health", timeout=10)
@@ -456,6 +462,7 @@ def _ensure_worker_threads() -> None:
         interval = float(os.environ.get("DIMAI_AUTOLEARN_INTERVAL", "3"))
         if interval > 0:
             trainer.start_autolearn(interval_sec=interval)
+            _keepalive_while_training()
     # Deep training: automatically continue toward a step target in the
     # background (keepalive pings prevent Render free-tier sleep).
     try:
