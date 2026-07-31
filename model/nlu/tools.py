@@ -197,6 +197,16 @@ class ToolManager:
         if refs and len(msg.split()) <= 4:
             topic = next(iter(refs.values()))
             msg = f"{topic} {msg}"
+        # "örnek kod göster" after a topic → code for THAT topic, not clarify
+        try:
+            from model.code_policy import needs_topic_clarify as _ntc
+            from model.nlu.memory import memory_engine as _mem
+
+            topic_ctx = (_mem.store.topic or _mem.store.project or "").strip()
+            if topic_ctx and _ntc(msg) and not _ntc(f"{topic_ctx} {msg}"):
+                msg = f"{topic_ctx} {msg}"
+        except Exception:
+            pass
         made = codegen.synthesize(
             msg,
             project_context=self._project_context(state),
@@ -236,7 +246,8 @@ class ToolManager:
         if state.reasoning and state.reasoning.resolved_refs and not (state.plan and state.plan.search_query):
             topic = next(iter(state.reasoning.resolved_refs.values()))
             if topic.lower() not in q.lower():
-                q = f"{topic} nedir"
+                # Keep the user's actual question; just anchor it to the topic.
+                q = f"{topic} {msg}".strip()
         # Prefer live research immediately when possible (person / kimdir)
         try:
             from model import web_research

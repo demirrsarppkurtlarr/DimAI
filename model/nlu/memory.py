@@ -107,9 +107,10 @@ class MemoryEngine:
         if self.store.topic:
             parts = re.findall(r"[A-Za-zÇĞİÖŞÜçğıöşü0-9_+#.-]+", self.store.topic)
             stop = {
-                "nedir", "nasil", "yaz", "what", "is", "the", "a", "bir", "ne",
+                "nedir", "nasil", "yaz", "what", "is", "bir", "ne",
                 "hakkinda", "kod", "code", "write", "please", "lutfen",
                 "anlat", "acikla", "neden", "how", "why", "about", "daha", "devam",
+                "bilgi", "ver", "bana",
             }
             parts = [
                 p
