@@ -318,6 +318,10 @@ class NLUPipeline:
         if draft.get("code"):
             payload["code"] = draft["code"]
             payload["lang"] = draft.get("lang") or "python"
+        if draft.get("design"):
+            payload["design"] = draft["design"]
+        if draft.get("review"):
+            payload["review"] = draft["review"]
         if draft.get("research_query"):
             payload["research_query"] = draft["research_query"]
             payload["source"] = draft.get("source") or "fallback"

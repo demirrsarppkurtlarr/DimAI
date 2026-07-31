@@ -87,7 +87,13 @@ class ToolManager:
                     break
 
         if plan and plan.improve_code and prior:
-            made = codegen.improve(prior, msg, lang=lang)
+            made = codegen.improve(
+                prior,
+                msg,
+                lang=lang,
+                project_context=self._project_context(state),
+                user_language=(state.plan.language if state.plan else "tr"),
+            )
             if made:
                 return ToolResult(name=ToolName.CODEGEN, ok=True, payload=made)
 
@@ -95,10 +101,23 @@ class ToolManager:
         if refs and len(msg.split()) <= 4:
             topic = next(iter(refs.values()))
             msg = f"{topic} {msg}"
-        made = codegen.synthesize(msg)
+        made = codegen.synthesize(
+            msg,
+            project_context=self._project_context(state),
+            user_language=(state.plan.language if state.plan else "tr"),
+        )
         if not made:
             return ToolResult(name=ToolName.CODEGEN, ok=False, error="no code synthesized")
         return ToolResult(name=ToolName.CODEGEN, ok=True, payload=made)
+
+    def _project_context(self, state: PipelineState) -> str:
+        bits: list[str] = []
+        for h in state.memory_hits:
+            if h.kind in {"project", "topic"} and h.content:
+                bits.append(h.content)
+        if state.reasoning and state.reasoning.user_goal:
+            bits.append(state.reasoning.user_goal[:120])
+        return " | ".join(bits[:3])
 
     def _web(self, msg: str, state: PipelineState) -> ToolResult:
         q = (state.plan.search_query if state.plan and state.plan.search_query else "") or msg

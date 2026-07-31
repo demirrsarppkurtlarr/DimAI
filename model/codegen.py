@@ -1,6 +1,7 @@
-"""DimAI code synthesizer — kullanıcı isteğinden sıfırdan çalışır kod üretir.
+"""DimAI code synthesizer — design-first, project-fitted code generation.
 
-Hazır KB snippet'lerine yaslanmaz; isteği ayrıştırıp hedefe özel kod kurar.
+Phase 3 flow: DesignSpec → implement → review.
+Does not search the web for full source implementations; composes locally.
 """
 from __future__ import annotations
 
@@ -181,58 +182,84 @@ if __name__ == "__main__":
     return "Skor tablolu taş-kağıt-makas (gelişmiş sürüm):", code, "python"
 
 
-def improve(prior_code: str, request: str = "", *, lang: str = "python") -> Optional[dict]:
-    """Önceki kodu gerçekten geliştir — aynı kısa snippet'i tekrar etme."""
+def improve(
+    prior_code: str,
+    request: str = "",
+    *,
+    lang: str = "python",
+    project_context: str = "",
+    user_language: str = "tr",
+) -> Optional[dict]:
+    """Önceki kodu mimariyle geliştir — tutorial yapıştırma yok."""
     prior = (prior_code or "").strip()
     if not prior:
         return None
     n = _norm(request)
-    # Detect what the prior code roughly is
     low = prior.lower()
 
-    if "tas" in low and "makas" in low or "rock" in low and "paper" in low:
-        reply, code, L = _gen_rps(n)
-        return {
-            "reply": "Önceki taş-kağıt-makas kodunu geliştirdim: skor, alias, geçmiş, temiz çıkış.",
-            "code": code.strip() + "\n",
-            "lang": L,
-            "source": "codegen",
-        }
-    if "randint" in low and ("tahmin" in low or "guess" in low or "hedef" in low):
-        reply, code, L = _gen_guess_game_rich(n)
-        return {
-            "reply": "Sayı tahmin oyununu geliştirdim: zorluk, skor, istatistik, tekrar menüsü.",
-            "code": code.strip() + "\n",
-            "lang": L,
-            "source": "codegen",
-        }
-    if "todo" in low or "yapilacak" in low or "maddeler" in low:
-        reply, code, L = _gen_todo_rich(n)
-        return {
-            "reply": "TODO uygulamasını geliştirdim: tamamlandı işaretleme, arama, kalıcı JSON.",
-            "code": code.strip() + "\n",
-            "lang": L,
-            "source": "codegen",
-        }
+    from model.code_design import compare_alternatives, design
+    from model.code_engineer import implement
+    from model.code_review import apply_fixes, review
 
-    # Generic improvement wrapper: add CLI, docstring, error handling, main
+    # Known family → redesigned richer variant under DesignSpec
+    domain_hint = ""
+    if ("tas" in low and "makas" in low) or ("rock" in low and "paper" in low):
+        domain_hint = "skor tablolu tas kagit makas oyunu gelistir"
+    elif "randint" in low and ("tahmin" in low or "guess" in low or "hedef" in low):
+        domain_hint = "zorluk seviyeli sayi tahmin oyunu gelistir"
+    elif "todo" in low or "yapilacak" in low or "maddeler" in low:
+        domain_hint = "todo list uygulamasini gelistir ara tamamla kaydet"
+
+    if domain_hint:
+        spec = design(
+            f"{domain_hint} {request}".strip(),
+            project_context=project_context,
+            prior_code=prior,
+            improve=True,
+        )
+        for line in compare_alternatives(spec):
+            spec.architecture_notes.append(line)
+        payload = implement(spec, user_language=user_language)
+        payload["reply"] = (
+            ("Önceki kodun amacını koruyup mimariyi yükselttim:\n\n" if user_language != "en" else "Kept prior intent, raised the architecture:\n\n")
+            + payload["reply"]
+        )
+        report = review(str(payload.get("code") or ""), spec, lang=str(payload.get("lang") or lang))
+        payload = apply_fixes(payload, report)
+        payload["review"] = {
+            "score": report.score,
+            "originality": report.originality,
+            "issues": report.issues,
+            "suggestions": report.suggestions,
+        }
+        return payload
+
+    # Generic: wrap prior into a modular shell designed for this project
     slug = _slug(request) if request else "gelistirilmis"
     req_note = request or "daha iyi / daha uzun"
+    req_safe = req_note.replace('"""', "'")
+    spec = design(
+        req_note,
+        project_context=project_context,
+        prior_code=prior,
+        improve=True,
+    )
     improved = (
-        '"""Geliştirilmiş sürüm — kullanıcı isteği: '
-        + req_note.replace('"""', "'")
-        + '."""\n'
+        '"""Geliştirilmiş sürüm — DimAI design-first improvement.\n\n'
+        f"İstek: {req_safe}\n"
+        "Kararlar: domain logic korunur; I/O ve hata yönetimi sınırda toplanır.\n"
+        '"""\n'
         "from __future__ import annotations\n\n"
         "import traceback\n"
         "from dataclasses import dataclass, field\n"
         "from pathlib import Path\n"
         "from typing import Any\n\n\n"
-        "# --- önceki mantığın temizlenmiş / genişletilmiş hali ---\n"
+        "# --- prior logic (preserved, then orchestrated) ---\n"
         + prior
         + "\n\n\n"
         "@dataclass\n"
         "class AppState:\n"
-        '    """Çalışma zamanı durumu: log + ayarlar."""\n'
+        '    """Runtime façade — logging + settings (SRP)."""\n'
         "    logs: list[str] = field(default_factory=list)\n"
         '    ayarlar: dict[str, Any] = field(default_factory=lambda: {"debug": True})\n\n'
         "    def log(self, msg: str) -> None:\n"
@@ -262,15 +289,30 @@ def improve(prior_code: str, request: str = "", *, lang: str = "python") -> Opti
         'if __name__ == "__main__":\n'
         "    main()\n"
     )
-    return {
+    payload = {
         "reply": (
-            "Önceki kodunu bozmadan geliştirdim: durum nesnesi, hata yakalama, "
-            "log dosyası ve daha düzenli `main` akışı ekledim."
+            "Önceki kodunu bozmadan mimari kabuk ekledim: durum nesnesi, hata sınırı, "
+            "log ve `main` orkestrasyonu — tutorial kopyası değil, senin koda göre uyarlandı.\n\n"
+            + "\n".join(spec.summary_lines(language=user_language))
         ),
         "code": improved.strip() + "\n",
         "lang": lang or "python",
         "source": "codegen",
+        "design": {
+            "goal": spec.goal,
+            "problem_type": spec.problem_type,
+            "confidence": spec.confidence,
+        },
     }
+    report = review(payload["code"], spec, lang=payload["lang"])
+    payload = apply_fixes(payload, report)
+    payload["review"] = {
+        "score": report.score,
+        "originality": report.originality,
+        "issues": report.issues,
+        "suggestions": report.suggestions,
+    }
+    return payload
 
 
 def _gen_guess_game_rich(_: str) -> tuple[str, str, str]:
@@ -1195,49 +1237,62 @@ def _match_rule(n: str):
     return None
 
 
-def synthesize(message: str) -> Optional[dict]:
-    """Kullanıcı mesajından kod üret. Başarısızsa None."""
+def synthesize(
+    message: str,
+    *,
+    project_context: str = "",
+    user_language: str = "tr",
+) -> Optional[dict]:
+    """Design → implement → review. Kullanıcı mesajından orijinal kod üret."""
     raw = (message or "").strip()
     if not raw:
         return None
     n = _norm(raw)
-    lang = _detect_lang(n)
 
-    # belirsiz "kod yaz / bir şey yaz" → net bir uygulama seç (fibonacci DEĞİL)
+    # belirsiz "kod yaz" → design-first guess game (fibonacci DEĞİL)
     vague = n in {
         "kod yaz", "kodu yaz", "bir kod yaz", "bana kod yaz", "write code",
         "bir sey yaz", "bir şey yaz", "bana bir sey yaz", "yaz bir sey",
         "bir sey kodla", "kodla", "program yaz", "script yaz",
-    } or (set(n.split()) <= {"kod", "yaz", "bana", "bir", "sey", "şey", "lutfen", "code", "write"} and "fibonacci" not in n)
+    } or (
+        set(n.split()) <= {"kod", "yaz", "bana", "bir", "sey", "şey", "lutfen", "code", "write"}
+        and "fibonacci" not in n
+    )
 
     if vague:
-        reply, code, lang = _gen_guess_game_rich(n)
-        reply = (
-            "Net bir konu vermedin; zorluk seviyeli sayı tahmin oyunu yazdım. "
-            "İstersen doğrudan iste: `todo yaz`, `chatbot yaz`, `flask api yaz`, `şifre üretici yaz`…"
-        )
-        return {"reply": reply, "code": code.strip() + "\n", "lang": lang, "source": "codegen"}
-
-    # "oyun yaz" ama tür yok → gelişmiş taş-kağıt-makas
-    if re.search(r"(^|\s)oyun(\s|$)", n) and not any(
+        raw = "zorluk seviyeli sayi tahmin oyunu yaz"
+    elif re.search(r"(^|\s)oyun(\s|$)", n) and not any(
         k in n for k in ("tahmin", "xox", "asmaca", "hangman", "rps", "tas", "snake", "quiz")
     ):
-        reply, code, lang = _gen_rps(n)
-        reply = (
-            "Hangi oyunu istediğin net değildi; skor tablolu taş-kağıt-makas yazdım. "
-            "XOX / adam asmaca / sayı tahmin de diyebilirsin. `geliştir` dersen daha da büyütürüm."
+        raw = "skor tablolu tas kagit makas oyunu yaz"
+
+    from model.code_design import compare_alternatives, design
+    from model.code_engineer import implement
+    from model.code_review import apply_fixes, review
+
+    spec = design(raw, project_context=project_context)
+    # Attach alternative comparison into architecture notes (internal reasoning)
+    for line in compare_alternatives(spec):
+        spec.architecture_notes.append(line)
+
+    payload = implement(spec, user_language=user_language)
+    if vague:
+        payload["reply"] = (
+            "Net bir konu vermedin; önce küçük bir oyun mimarisi kurup "
+            "zorluk seviyeli sayı tahmin yazdım.\n\n" + payload["reply"]
         )
-        return {"reply": reply, "code": code.strip() + "\n", "lang": lang, "source": "codegen"}
+    elif "tas kagit" in _norm(raw) and "oyun" in n and not _match_rule(n):
+        payload["reply"] = (
+            "Oyun türü net değildi; rules/state/cli ayrımıyla taş-kağıt-makas tasarladım.\n\n"
+            + payload["reply"]
+        )
 
-    fn = _match_rule(n)
-    if fn is None:
-        reply, code, lang = _gen_generic(raw, lang)
-    else:
-        reply, code, lang = fn(raw)
-
-    return {
-        "reply": reply,
-        "code": code.strip() + "\n",
-        "lang": lang,
-        "source": "codegen",
+    report = review(str(payload.get("code") or ""), spec, lang=str(payload.get("lang") or "python"))
+    payload = apply_fixes(payload, report)
+    payload["review"] = {
+        "score": report.score,
+        "originality": report.originality,
+        "issues": report.issues,
+        "suggestions": report.suggestions,
     }
+    return payload

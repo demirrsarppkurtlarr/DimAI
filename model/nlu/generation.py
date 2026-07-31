@@ -68,19 +68,22 @@ class ResponseGenerator:
             if not tr.ok:
                 continue
             if tr.name == ToolName.CODEGEN:
-                return self._with_voice(
-                    {
-                        "reply": tr.payload.get("reply") or (
-                            "İşte senin isteğine göre tasarladığım kod:"
-                            if lang == "tr"
-                            else "Here's code designed for your request:"
-                        ),
-                        "code": tr.payload.get("code"),
-                        "lang": tr.payload.get("lang", "python"),
-                        "source": "codegen",
-                    },
-                    state,
+                reply = tr.payload.get("reply") or (
+                    "İşte senin isteğine göre tasarladığım kod:"
+                    if lang == "tr"
+                    else "Here's code designed for your request:"
                 )
+                out = {
+                    "reply": reply,
+                    "code": tr.payload.get("code"),
+                    "lang": tr.payload.get("lang", "python"),
+                    "source": "codegen",
+                }
+                if tr.payload.get("design"):
+                    out["design"] = tr.payload["design"]
+                if tr.payload.get("review"):
+                    out["review"] = tr.payload["review"]
+                return self._with_voice(out, state)
             if tr.name in {ToolName.MATH, ToolName.TRANSLATE, ToolName.WEATHER, ToolName.TIME}:
                 return self._with_voice(
                     {"reply": tr.payload.get("reply", ""), "source": tr.name.value},
