@@ -279,11 +279,12 @@ def looks_like_new_question(text: str) -> bool:
     }:
         return False
     if any(x in f for x in (
-        "karsilastir", "nedir", "nasil", "neden", "kimdir", "yaz", "write",
+        "karsilastir", "nedir", "nasil", "neden", "kimdir", "yaz", "yap", "oyun",
+        "kod", "3d", "game", "todo", "olustur", "write", "make", "create",
         "compare", "what", "how", "why", "vs", "farki",
     )):
         return True
-    return len(words) >= 4
+    return len(words) >= 3
 
 
 def answer_comparison(text: str, *, language: str = "tr") -> Optional[str]:

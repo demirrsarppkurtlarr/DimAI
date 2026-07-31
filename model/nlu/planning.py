@@ -20,17 +20,28 @@ class PlanningEngine:
             c for c in message.lower().replace("ı", "i").replace("İ", "i")
         )
         tr_markers = {
-            "nedir", "nasil", "yaz", "anlat", "icin", "bir", "bu", "ne", "mi", "mu",
-            "misin", "kod", "lutfen", "merhaba", "selam", "tesekkur", "kac", "neden",
-            "hakkinda", "ornek", "cevir", "ingilizce",
+            "nedir", "nasil", "yaz", "yap", "anlat", "icin", "bir", "bu", "ne", "mi", "mu",
+            "misin", "kod", "oyun", "lutfen", "merhaba", "selam", "tesekkur", "kac", "neden",
+            "hakkinda", "ornek", "cevir", "ingilizce", "gelistir", "olustur", "bana",
+            "todo", "chatbot", "karsilastir", "farki",
         }
         words = set(
             folded.translate(str.maketrans("çğıöşü", "cgiosu")).split()
         )
+        # Default Turkish for this product unless clearly English prose
         if words & tr_markers or any(c in message for c in "çğıöşüÇĞİÖŞÜ"):
             lang = "tr"
-        elif message.isascii() and len(message.split()) >= 3:
-            lang = "en"
+        elif message.isascii() and len(message.split()) >= 4 and not (words & {
+            "oyun", "kod", "yap", "yaz", "todo", "3d", "gelistir",
+        }):
+            # Longer ASCII without TR tech verbs → English
+            en_hints = {"the", "what", "how", "please", "write", "make", "create", "about"}
+            if words & en_hints:
+                lang = "en"
+            else:
+                lang = "tr"
+        else:
+            lang = "tr"
 
         plan = ResponsePlan(language=lang, tone="helpful", style="natural")
 
@@ -58,10 +69,15 @@ class PlanningEngine:
             substantive = any(
                 x in fold
                 for x in (
-                    "karsilastir", "nedir", "nasil", "yaz", "compare", "what", "how",
-                    "vs", "farki", "kimdir", "arastir",
+                    "karsilastir", "nedir", "nasil", "yaz", "yap", "oyun", "kod",
+                    "compare", "what", "how", "vs", "farki", "kimdir", "arastir",
+                    "3d", "game", "todo", "olustur",
                 )
             )
+            if substantive and any(x in fold for x in ("yaz", "yap", "oyun", "kod", "game", "3d", "todo", "olustur")):
+                plan.tools = [ToolName.CODEGEN]
+                plan.needs_clarification = False
+                return plan
             if not substantive:
                 plan.needs_clarification = True
                 plan.clarification_question = (

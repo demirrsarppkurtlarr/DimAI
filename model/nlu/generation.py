@@ -177,16 +177,11 @@ class ResponseGenerator:
         wants_continue = any("continue" in n or "incomplete" in n for n in meaning)
         fresh = looks_like_new_question(state.raw)
 
-        # Fresh questions must NOT get the stuck "aklımda / format pick" loop
-        if fresh and not wants_continue:
+        # Never surface sticky project/topic prompts on fresh asks
+        project = ""
+        if not wants_continue:
             about = ""
-
-        if about and wants_continue:
-            about = about
-        elif not wants_continue:
-            about = ""  # only bind topic on explicit continue
-        else:
-            about = about or topic
+            topic = ""
 
         if plan.language == "en":
             if intent == Intent.OPINION:
