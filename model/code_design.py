@@ -114,6 +114,28 @@ _DOMAIN_HINTS: list[tuple[str, tuple[str, ...]]] = [
     ("react", ("react", "usestate", "component", "sayac yaz", "counter")),
     ("html", ("html", "landing", "web sayfa")),
     ("sql", ("sql", "schema", "tablo olustur")),
+    # Extended coding domains — no canned generator: design-first invent with
+    # the right problem shape (game/cli/api/data) instead of generic CRUD.
+    ("snake", ("snake", "yilan oyunu")),
+    ("tetris", ("tetris",)),
+    ("pong", ("pong",)),
+    ("maze", ("labirent", "maze")),
+    ("memory_game", ("hafiza oyunu", "eslestirme oyunu", "memory game")),
+    ("blog", ("blog",)),
+    ("inventory", ("stok", "envanter", "inventory", "depo takip")),
+    ("library", ("kutuphane", "kitap odunc", "library app")),
+    ("kanban", ("kanban", "pano", "board app")),
+    ("notes", ("not defteri", "notes app", "not uygulama")),
+    ("pomodoro", ("pomodoro",)),
+    ("expense", ("harcama", "butce", "bütçe", "expense", "gider takip")),
+    ("weather_app", ("hava durumu uygulama", "weather app")),
+    ("url_shortener", ("url kisalt", "link kisalt", "url shortener")),
+    ("markdown", ("markdown",)),
+    ("regex_tool", ("regex", "duzenli ifade")),
+    ("jwt_auth", ("jwt", "token auth", "oauth")),
+    ("websocket", ("websocket", "socket.io", "canli sohbet uygulama")),
+    ("scheduler", ("zamanlayici", "scheduler", "cron gorev")),
+    ("cache_layer", ("cache", "onbellek", "redis benzeri")),
 ]
 
 
@@ -151,17 +173,17 @@ def _match_domain(n: str) -> str:
 
 
 def _problem_type(n: str, domain: str) -> str:
-    if domain in {"rps", "hangman", "tictactoe", "guess", "quiz"}:
+    if domain in {"rps", "hangman", "tictactoe", "guess", "quiz", "snake", "tetris", "pong", "maze", "memory_game"}:
         return "game"
-    if domain in {"flask", "fastapi"}:
+    if domain in {"flask", "fastapi", "blog", "url_shortener", "jwt_auth", "websocket", "weather_app"}:
         return "api"
     if domain in {"react", "html"}:
         return "ui"
-    if domain in {"csv", "file_stats", "scrape", "http"}:
+    if domain in {"csv", "file_stats", "scrape", "http", "markdown", "regex_tool"}:
         return "data_pipeline"
-    if domain in {"binary_search", "fibonacci", "sort", "email", "unit", "password", "countdown"}:
+    if domain in {"binary_search", "fibonacci", "sort", "email", "unit", "password", "countdown", "cache_layer", "scheduler"}:
         return "algorithm"
-    if domain in {"todo", "chatbot", "calculator", "json_crud"}:
+    if domain in {"todo", "chatbot", "calculator", "json_crud", "inventory", "library", "kanban", "notes", "pomodoro", "expense"}:
         return "cli_app"
     if any(x in n for x in ("api", "endpoint", "server", "flask", "fastapi")):
         return "api"

@@ -101,7 +101,7 @@ def retrieve(query: str, *, min_score: float = 2.0, intent: str = "") -> Optiona
         if is_settings_howto(q) and intent_l not in {"coding", "code", "command"}:
             hits = []
         payload = synthesize_hits(hits, query=q)
-        if payload and float(payload.get("score") or 0) >= 0.38:
+        if payload and float(payload.get("score") or 0) >= 0.42:
             return RagHit(
                 reply=str(payload.get("reply") or ""),
                 score=1.2 + float(payload["score"]),

@@ -103,8 +103,8 @@ def status():
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "kb-index-v13",
-        "codegen": "first-principles",
+        "phase": "coding-params-v14",
+        "codegen": "first-principles+40-domains",
         "rag": "kb+topk-hybrid+learned+supabase-cold",
         "tool_policy": "auto",
         "hf_code_seed": True,
@@ -422,7 +422,7 @@ def _startup() -> None:
     """
     if trainer.state.steps == 0:
         print("DimAI: bootstrap training (first run)...")
-        trainer.bootstrap_train(steps=int(os.environ.get("DIMAI_BOOTSTRAP_STEPS", "200")))
+        trainer.bootstrap_train(steps=int(os.environ.get("DIMAI_BOOTSTRAP_STEPS", "1200")))
     else:
         print(f"DimAI: checkpoint loaded at step {trainer.state.steps}")
     trainer.state.running = False
@@ -446,6 +446,17 @@ def _ensure_worker_threads() -> None:
         interval = float(os.environ.get("DIMAI_AUTOLEARN_INTERVAL", "3"))
         if interval > 0:
             trainer.start_autolearn(interval_sec=interval)
+    # Deep training: automatically continue toward a step target in the
+    # background (keepalive pings prevent Render free-tier sleep).
+    try:
+        auto_target = int(os.environ.get("DIMAI_AUTO_TRAIN_TARGET", "25000"))
+        if auto_target > 0 and trainer.state.steps < auto_target and not trainer.job.get("active"):
+            remaining = auto_target - trainer.state.steps
+            job = trainer.start_training_job(remaining)
+            _keepalive_while_training()
+            print(f"[worker] auto training job → target {auto_target} ({remaining} steps): {job}", flush=True)
+    except Exception as exc:
+        print(f"[worker] auto train skipped: {exc}", flush=True)
 
 
 if __name__ == "__main__":
