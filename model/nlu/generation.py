@@ -158,6 +158,33 @@ class ResponseGenerator:
         if cmp:
             return self._with_voice({"reply": cmp, "source": "chat"}, state)
 
+        # Phase 11: directly use HF Turkish/chat learned seeds when tools missed
+        try:
+            from model.web_research import learned
+            from .quality import present_code_answer
+
+            hit = learned.lookup(state.raw) or learned.lookup(state.normalized or state.raw)
+            if hit and hit.get("a") and len(str(hit["a"])) >= 24:
+                if hit.get("c"):
+                    shaped = present_code_answer(
+                        question=state.raw,
+                        answer=str(hit["a"]),
+                        code=str(hit["c"]),
+                        lang=str(hit.get("l") or "python"),
+                        language=lang,
+                    )
+                    return self._with_voice(shaped, state)
+                return self._with_voice(
+                    {
+                        "reply": str(hit["a"]),
+                        "source": "learned",
+                        "url": hit.get("url") or "",
+                    },
+                    state,
+                )
+        except Exception:
+            pass
+
         if plan.needs_clarification and plan.clarification_question:
             # Never clarify away a clear new question
             if looks_like_new_question(state.raw):

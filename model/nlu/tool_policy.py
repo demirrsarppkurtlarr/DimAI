@@ -90,7 +90,12 @@ def select_tools(
         return ToolDecision([ToolName.WEB, ToolName.KB], "explicit research", forbid)
 
     if intent.intent == Intent.CONVERSATION:
-        return ToolDecision([ToolName.CHAT, ToolName.MEMORY], "persona + memory", forbid)
+        # Chat turns still check learned TR seeds via KB first (ChatGPT-like recall)
+        return ToolDecision(
+            [ToolName.KB, ToolName.CHAT, ToolName.MEMORY],
+            "persona + Turkish learned recall",
+            forbid,
+        )
 
     if intent.intent == Intent.PLANNING:
         return ToolDecision([ToolName.CHAT, ToolName.MEMORY], "plan from context", forbid)

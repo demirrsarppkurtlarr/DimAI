@@ -29,6 +29,13 @@ SOURCES = [
     ("ise-uiuc/Magicoder-Evol-Instruct-110K", "default", "train", "response"),
     ("bigcode/self-oss-instruct-sc2-exec-filter-50k", "default", "train", "response"),
     ("christopher/rosetta-code", "default", "train", "code"),
+    # Turkish code / instruct (online autolearn)
+    ("berhaan/Turkish-CodeAlpaca-20k", "default", "train", "output"),
+    ("duxx/code-instruction-turkish", "default", "train", "answer"),
+    ("erythropygia/Instruct-Python-Code-Turkish", "default", "train", "output"),
+    ("alztrk/turkish-code-instructions", "default", "train", "response"),
+    ("TFLai/Turkish-Alpaca", "default", "train", "output"),
+    ("malhajar/alpaca-evol-instruct-turkish", "default", "train", "response"),
 ]
 
 FENCE = re.compile(r"```(?:python|py)?\s*(.*?)```", re.S | re.I)
