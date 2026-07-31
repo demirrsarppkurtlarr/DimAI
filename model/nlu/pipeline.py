@@ -134,6 +134,23 @@ class NLUPipeline:
             state.discourse_improve = disc.improve_code
             state.add_trace(f"discourse:{disc.reason}")
 
+        # Never leave clear asks as clarify
+        if state.intent.intent == Intent.CLARIFY:
+            fold = (state.normalized or state.raw).lower().replace("ı", "i")
+            fold = fold.translate(str.maketrans("çğıöşü", "cgiosu"))
+            if any(x in fold for x in ("karsilastir", "vs", "farki", "compare")):
+                state.intent.intent = Intent.OPINION
+                state.intent.confidence = max(state.intent.confidence, 0.8)
+                state.add_trace("clarify→opinion")
+            elif any(x in fold for x in ("nedir", "ne demek", "what is", "kimdir")):
+                state.intent.intent = Intent.QUESTION
+                state.intent.confidence = max(state.intent.confidence, 0.75)
+                state.add_trace("clarify→question")
+            elif any(x in fold for x in ("calisiyorsun", "how do you work", "sen kimsin")):
+                state.intent.intent = Intent.CONVERSATION
+                state.intent.confidence = max(state.intent.confidence, 0.9)
+                state.add_trace("clarify→conversation")
+
         # Soft meaning-implied intent when embedding is weak
         if (
             meaning.implied_intent
@@ -203,8 +220,16 @@ class NLUPipeline:
         )
         if state.discourse_search_query and state.plan:
             state.plan.search_query = state.discourse_search_query
-            state.plan.tools = [ToolName.WEB]
-            state.plan.needs_clarification = False
+            # Only force WEB for search intents — comparisons keep KB+CHAT(+WEB)
+            if state.intent and state.intent.intent == Intent.SEARCH:
+                state.plan.tools = [ToolName.WEB]
+                state.plan.needs_clarification = False
+            elif state.intent and state.intent.intent == Intent.OPINION:
+                state.plan.tools = [ToolName.KB, ToolName.CHAT, ToolName.WEB]
+                state.plan.needs_clarification = False
+            elif state.intent and state.intent.intent == Intent.QUESTION:
+                state.plan.tools = [ToolName.KB, ToolName.WEB]
+                state.plan.needs_clarification = False
         if state.discourse_improve and state.plan:
             state.plan.improve_code = True
             state.plan.tools = [ToolName.CODEGEN]
@@ -307,6 +332,12 @@ class NLUPipeline:
                 "refs": refs,
                 "meaning": state.meaning_notes,
                 "plan_tools": [t.value for t in (state.plan.tools if state.plan else [])],
+                "reasoning": {
+                    "confidence": state.reasoning.confidence if state.reasoning else 0,
+                    "subgoals": (state.reasoning.subgoals if state.reasoning else [])[:4],
+                    "alternatives": (state.reasoning.alternatives if state.reasoning else [])[:3],
+                    "self_checks": (state.reasoning.self_checks if state.reasoning else [])[:3],
+                },
                 "validation": {
                     "score": state.validation.score if state.validation else 0,
                     "issues": state.validation.issues if state.validation else [],

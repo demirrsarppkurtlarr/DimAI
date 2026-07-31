@@ -51,7 +51,7 @@ def status():
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "coding-v3",
+        "phase": "reasoning-v4",
         "codegen": "design-implement-review",
     }
     try:

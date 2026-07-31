@@ -58,6 +58,21 @@ _SAME_PROJECT = re.compile(
     r"onceki\s+proje|previous\s+(?:one|project)|ustundeki)\b",
     re.I,
 )
+_COMPARE = re.compile(
+    r"\b(karsilastir|karşılaştır|karsilastirma|farki|farkı|farklar|"
+    r"vs\.?|versus|hangisi\s+daha|compare|comparison|between)\b",
+    re.I,
+)
+_HOW_SELF = re.compile(
+    r"\b(sen\s+nasil\s+calisiyorsun|nasil\s+calisiyorsun|how\s+do\s+you\s+work|"
+    r"how\s+are\s+you\s+built|nasil\s+isliyorsun|ne\s+yapabiliyorsun|"
+    r"seni\s+anlat|kendini\s+anlat)\b",
+    re.I,
+)
+_DEFINITION = re.compile(
+    r"\b(\w+)\s+(nedir|ne\s+demek|hakkinda)\b|\bwhat\s+is\b|\bexplain\b",
+    re.I,
+)
 _STOP_NAME = {
     "bu", "su", "o", "bir", "the", "a", "an", "web", "de", "da", "icin",
     "bana", "nedir", "nasil", "ne", "kim", "who", "is",
@@ -106,6 +121,23 @@ def decide(
             reason="repair/improve prior code",
         )
 
+    # Self-model questions — never stuck on prior topic
+    if _HOW_SELF.search(folded):
+        return DiscourseDecision(
+            intent=Intent.CONVERSATION,
+            confidence=0.95,
+            reason="how-self / capability question",
+        )
+
+    # Explicit comparisons — answer, don't clarify
+    if _COMPARE.search(folded) and len(folded.split()) >= 2:
+        return DiscourseDecision(
+            intent=Intent.OPINION,
+            confidence=0.9,
+            search_query=raw.strip(),
+            reason="compare/vs speech act",
+        )
+
     if _PERSON_Q.search(raw) or (
         _SEARCH.search(folded)
         and len([w for w in folded.split() if w not in _STOP_NAME]) >= 1
@@ -133,6 +165,15 @@ def decide(
             confidence=0.7,
             improve_code=True,
             reason="improve requested",
+        )
+
+    # Definitional "X nedir" with content — question, not clarify
+    if _DEFINITION.search(folded) and len([w for w in folded.split() if w not in _STOP_NAME]) >= 1:
+        return DiscourseDecision(
+            intent=Intent.QUESTION,
+            confidence=0.82,
+            search_query=extract_search_topic(raw) or raw,
+            reason="definitional question",
         )
 
     # Continuation / incomplete follow-ups when prior topic exists
