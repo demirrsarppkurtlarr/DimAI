@@ -1220,6 +1220,14 @@ def synthesize(
         spec.architecture_notes.append(line)
 
     payload = implement(spec, user_language=user_language)
+    # Policy stamp in design metadata
+    design_meta = dict(payload.get("design") or {})
+    design_meta["policy"] = {
+        "design_first": True,
+        "web_full_source": False,
+        "invented": bool(design_meta.get("invented", True)),
+    }
+    payload["design"] = design_meta
     if vague:
         payload["reply"] = (
             "Net bir konu vermedin; önce küçük bir oyun mimarisi kurup "

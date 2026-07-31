@@ -29,6 +29,10 @@ _TUTORIAL_SMELLS = (
     r"copy this from",
     r"from the tutorial",
     r"stackoverflow",
+    r"github\.com/.+/blob",
+    r"cloned from",
+    r"based on the tutorial",
+    r"as seen on youtube",
 )
 
 
@@ -80,11 +84,19 @@ def review(
         if spec.modules and named == 0:
             suggestions.append("align identifiers with designed module names")
             originality -= 0.05
+        if spec.modules and ("class " not in text and text.count("def ") < 2):
+            issues.append("missing modular structure vs design")
+            originality -= 0.1
         for inv in spec.invariants[:2]:
             if "no input" in inv.lower() and "input(" in text:
                 # Still ok if only in main — soft
                 if text.count("input(") > 3:
                     suggestions.append("push more input() calls behind CLI boundary")
+        # SOLID: service/domain split soft signal
+        if spec.problem_type == "cli_app" and "class " in text and "def main" in text:
+            pass  # good
+        elif spec.problem_type == "cli_app" and "input(" in text and "class " not in text:
+            suggestions.append("extract a service/domain class (SRP)")
 
     originality = max(0.0, min(1.0, originality))
     score = originality

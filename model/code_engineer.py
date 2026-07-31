@@ -37,21 +37,31 @@ def _reply_for(spec: DesignSpec, *, language: str = "tr") -> str:
 
 
 def implement(spec: DesignSpec, *, user_language: str = "tr") -> dict:
-    """Turn a DesignSpec into runnable code + engineer-style reply."""
-    # Prefer specialized DimAI composers when domain is known (still design-framed)
-    if spec.known_domain:
+    """Turn a DesignSpec into runnable code + engineer-style reply.
+
+    Invents project-specific systems by default. Specialized DimAI demos are
+    used only for bare classic requests (e.g. plain `todo yaz`), never as a
+    substitute for inventing around the user's domain words.
+    """
+    from model.code_policy import engineer_preamble, should_invent
+
+    invent = should_invent(spec.known_domain, list(spec.domain_keywords))
+    design_note = _reply_for(spec, language=user_language)
+    preamble = engineer_preamble(user_language)
+
+    if spec.known_domain and not invent:
         specialized = _specialize(spec)
         if specialized:
             reply, code, lang = specialized
-            design_note = _reply_for(spec, language=user_language)
             return {
-                "reply": design_note + "\n\n" + reply,
+                "reply": preamble + "\n\n" + design_note + "\n\n" + reply,
                 "code": code.strip() + "\n",
                 "lang": lang,
                 "source": "codegen",
-                "design": _design_payload(spec),
+                "design": {**_design_payload(spec), "invented": False},
             }
 
+    # First principles composition for this project's request
     if spec.language == "javascript":
         reply, code, lang = _compose_js(spec)
     elif spec.language == "html":
@@ -61,13 +71,12 @@ def implement(spec: DesignSpec, *, user_language: str = "tr") -> dict:
     else:
         reply, code, lang = _compose_python(spec)
 
-    design_note = _reply_for(spec, language=user_language)
     return {
-        "reply": design_note + "\n\n" + reply,
+        "reply": preamble + "\n\n" + design_note + "\n\n" + reply,
         "code": code.strip() + "\n",
         "lang": lang,
         "source": "codegen",
-        "design": _design_payload(spec),
+        "design": {**_design_payload(spec), "invented": True},
     }
 
 
