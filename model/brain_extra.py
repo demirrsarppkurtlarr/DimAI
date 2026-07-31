@@ -1221,7 +1221,7 @@ print(loaded["isim"])''', "l": "python"},
      "a": "**localStorage**, tarayıcıda origin bazlı anahtar-değer saklama API'sidir.\n\n• ~5MB, kalıcı (sekme kapanınca silinmez)\n• Sadece string; hassas veri koyma\n• Alternatif: sessionStorage, IndexedDB"},
 
     {"k": ["blob nedir programlama", "blob nedir", "binary large object"],
-     "a": "**BLOB (Binary Large Object)**, büyük ikili veri (dosya, görüntü, video) saklama kavramıdır.\n\n• DB'de blob sütunu veya object storage (S3)\n• JS'te `Blob` / `File` API\n\nNot: "blob" yaratık görselleriyle karıştırma."},
+     "a": "**BLOB (Binary Large Object)**, büyük ikili veri (dosya, görüntü, video) saklama kavramıdır.\n\n• DB'de blob sütunu veya object storage (S3)\n• JS'te `Blob` / `File` API\n\nNot: 'blob' yaratık görselleriyle karıştırma."},
 
     {"k": ["list comprehension nedir", "python list comprehension", "liste ureteci nedir"],
      "a": "**List comprehension**, Python'da listeyi tek satırda üretmenin kısa yoludur.\n\n```python\nkareler = [x*x for x in range(10) if x % 2 == 0]\n```\n\nOkunaklı filtre+map için ideal; aşırı karmaşıksa normal döngü yeğlenir."},
