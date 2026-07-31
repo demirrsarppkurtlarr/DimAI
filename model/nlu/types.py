@@ -159,6 +159,8 @@ class PipelineState:
     final_payload: dict[str, Any] = field(default_factory=dict)
     discourse_search_query: str = ""
     discourse_improve: bool = False
+    meaning_notes: list[str] = field(default_factory=list)
+    meaning_expanded: str = ""
 
     # Trace for debugging / UI "thinking"
     trace: list[str] = field(default_factory=list)

@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, Optional
 
+from .conversation import anti_robotic, memory_name, persona_reply
 from .types import Intent, PipelineState, ValidationReport
 
 
@@ -18,7 +19,6 @@ class ValidationEngine:
             answered = False
             issues.append("coding intent without code")
         if intent == Intent.MATH and not any(ch.isdigit() for ch in reply):
-            # soft — unit answers may lack digits rarely
             pass
 
         used_context = True
@@ -26,13 +26,24 @@ class ValidationEngine:
             ante = next(iter(state.reasoning.resolved_refs.values())).lower()
             blob = (reply + " " + str(draft.get("code") or "")).lower()
             if ante and ante not in blob and intent != Intent.CONVERSATION:
-                # not fatal for chat, but flag for regen on coding/search
                 if intent in {Intent.CODING, Intent.QUESTION, Intent.EXPLANATION, Intent.SEARCH}:
                     used_context = False
                     issues.append(f"missing resolved referent '{ante}'")
 
+        # Incomplete / continue turns should acknowledge topic when available
+        if state.meaning_notes and any("incomplete" in n or "continue" in n for n in state.meaning_notes):
+            topic = ""
+            for h in state.memory_hits:
+                if h.kind == "topic":
+                    topic = h.content
+                    break
+            if topic and topic.split()[0].lower() not in reply.lower() and intent != Intent.CONVERSATION:
+                # soft — may still be ok if weave failed
+                if len(reply) < 40:
+                    used_context = False
+                    issues.append("thin reply for continuation")
+
         consistent = True
-        # Contradiction heuristic: denying previous preference name
         for h in state.memory_hits:
             if h.kind == "preference" and "name=" in h.content:
                 name = h.content.split("name=")[-1].split(",")[0].strip()
@@ -43,6 +54,19 @@ class ValidationEngine:
         fluent = len(reply) >= 8 and not reply.lower().startswith("error")
         if reply.count("?") > 3 and intent != Intent.CLARIFY:
             issues.append("too many questions")
+        if re.search(r"\b(as an ai|bir yapay zeka olarak)\b", reply, re.I):
+            issues.append("robotic self-reference")
+            fluent = False
+
+        # Repetition vs last AI turn
+        last_ai = ""
+        for h in reversed(state.history[-6:]):
+            if h.get("role") in ("ai", "assistant"):
+                last_ai = str(h.get("content") or "")
+                break
+        if last_ai and reply and reply.strip() == last_ai.strip():
+            issues.append("exact repeat of previous reply")
+            consistent = False
 
         score = 1.0
         if not answered:
@@ -91,6 +115,12 @@ class ValidationEngine:
             )
             if topic.lower() not in reply.lower():
                 out["reply"] = prefix + reply
+        if "robotic self-reference" in report.issues:
+            out["reply"] = anti_robotic(str(out.get("reply") or ""))
+        if "exact repeat of previous reply" in report.issues:
+            name = memory_name(state.memory_hits)
+            out["reply"] = persona_reply("help", language=lang, name=name)
+            out["source"] = "chat"
         if not out.get("reply"):
             out["reply"] = (
                 "Bir saniye — isteğini net anlayamadım. Bir cümleyle tekrar yazar mısın?"

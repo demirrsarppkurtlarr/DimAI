@@ -103,6 +103,14 @@ class PlanningEngine:
         if reasoning.resolved_refs:
             plan.answer_points.insert(0, "Honor resolved references from memory")
 
+        # Continuity cues in reasoning notes
+        if any("incomplete" in n or "continue" in n or "same_project" in n for n in reasoning.notes):
+            plan.needs_clarification = False
+            if ToolName.CHAT in plan.tools and ToolName.KB not in plan.tools:
+                if intent.intent in {Intent.EXPLANATION, Intent.QUESTION}:
+                    plan.tools = [ToolName.KB, ToolName.CHAT]
+            plan.answer_points.insert(0, "Continue prior topic naturally")
+
         # If coding but extremely vague, still generate — don't block with clarify
         if intent.intent == Intent.CODING and reasoning.open_questions:
             plan.needs_clarification = False

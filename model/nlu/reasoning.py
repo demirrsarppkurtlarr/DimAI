@@ -64,7 +64,7 @@ class ReasoningEngine:
             Intent.TRANSLATION: "Translate faithfully; keep register.",
             Intent.MATH: "Compute exactly; show brief reasoning.",
             Intent.WEATHER: "Fetch live weather and report temperature in Celsius only.",
-            Intent.CONVERSATION: "Reply warmly, offer useful next step without being pushy.",
+            Intent.CONVERSATION: "Reply warmly with DimAI personality; keep thread; never sound robotic.",
             Intent.OPINION: "Give a balanced, practical opinion with reasons.",
             Intent.CREATIVE: "Generate original creative text.",
             Intent.PLANNING: "Break into ordered actionable steps.",
@@ -75,6 +75,12 @@ class ReasoningEngine:
 
         if intent.secondary:
             notes.append(f"Secondary intent signal: {intent.secondary.value}")
+
+        # Prefer continuity over clarification when memory has a topic
+        if topic_hits and intent.intent in {Intent.CLARIFY, Intent.UNKNOWN}:
+            notes.append("Prefer continuing active topic over blank clarify.")
+            if open_q:
+                open_q = [q for q in open_q if "ambiguous" not in q.lower()]
 
         return ReasoningFrame(
             user_goal=goal,

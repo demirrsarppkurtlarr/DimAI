@@ -20,7 +20,11 @@ class ToolManager:
         return results
 
     def _dispatch(self, tool: ToolName, state: PipelineState) -> ToolResult:
-        msg = state.normalized or state.raw
+        msg = (
+            state.meaning_expanded
+            or state.normalized
+            or state.raw
+        )
         if tool == ToolName.CODEGEN:
             return self._codegen(msg, state)
         if tool == ToolName.MATH:

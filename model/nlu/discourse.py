@@ -42,6 +42,22 @@ _IMPROVE = re.compile(
     r"kodu\s+duzelt|kodu\s+iyi|uzat|enrich)\b",
     re.I,
 )
+_CONTINUE = re.compile(
+    r"^(?:daha(?:\s+anlat)?|devam(?:\s+et)?|anlat|acikla|"
+    r"continue|again|more|go\s+on|tell\s+me\s+more|elaborate)\s*[.?!]*$",
+    re.I,
+)
+_INDIRECT_Q = re.compile(
+    r"\b(acaba|sence|merak\s+ediyorum|merak\s+ettim|bilgin\s+var\s+mi|"
+    r"i\s+wonder|do\s+you\s+know|could\s+you\s+tell|any\s+idea|"
+    r"what\s+about|how\s+about|ne\s+dersin)\b",
+    re.I,
+)
+_SAME_PROJECT = re.compile(
+    r"\b(ayni\s+proje|same\s+project|bu\s+proje|this\s+project|"
+    r"onceki\s+proje|previous\s+(?:one|project)|ustundeki)\b",
+    re.I,
+)
 _STOP_NAME = {
     "bu", "su", "o", "bir", "the", "a", "an", "web", "de", "da", "icin",
     "bana", "nedir", "nasil", "ne", "kim", "who", "is",
@@ -73,7 +89,12 @@ def extract_search_topic(text: str) -> str:
     return raw
 
 
-def decide(text: str, *, has_prior_code: bool = False) -> DiscourseDecision:
+def decide(
+    text: str,
+    *,
+    has_prior_code: bool = False,
+    has_topic: bool = False,
+) -> DiscourseDecision:
     raw = text or ""
     folded = _fold(raw)
 
@@ -107,12 +128,38 @@ def decide(text: str, *, has_prior_code: bool = False) -> DiscourseDecision:
         )
 
     if _IMPROVE.search(folded):
-        # improve asked but no code in memory yet
         return DiscourseDecision(
             intent=Intent.CODING,
             confidence=0.7,
             improve_code=True,
             reason="improve requested",
+        )
+
+    # Continuation / incomplete follow-ups when prior topic exists
+    if has_topic and (
+        _CONTINUE.match(folded.strip())
+        or _SAME_PROJECT.search(folded)
+        or folded.strip() in {"peki", "ya", "ee", "hmm", "ok", "okay", "tamam"}
+    ):
+        return DiscourseDecision(
+            intent=Intent.EXPLANATION,
+            confidence=0.82,
+            reason="continue/incomplete follow-up",
+        )
+
+    # Indirect questions → treat as question/search, not chitchat
+    if _INDIRECT_Q.search(folded) and len(folded.split()) >= 3:
+        if _PERSON_Q.search(raw) or "kim" in folded or "who" in folded:
+            return DiscourseDecision(
+                intent=Intent.SEARCH,
+                confidence=0.78,
+                search_query=extract_search_topic(raw) or raw,
+                reason="indirect person/search",
+            )
+        return DiscourseDecision(
+            intent=Intent.QUESTION,
+            confidence=0.75,
+            reason="indirect question",
         )
 
     return DiscourseDecision()

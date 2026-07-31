@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from .conversation import analyze_meaning
 from .embedding import EmbeddingEngine, embedding_engine
 from .entity import EntityEngine, entity_engine
 from .generation import ResponseGenerator, response_generator
@@ -75,10 +76,30 @@ class NLUPipeline:
         # Coreference expansion
         expanded, refs, ents = self.memory.resolve_references(state.normalized, state.entities)
         state.entities = ents
+
+        # Conversation meaning: incomplete / indirect / continue / same project
+        meaning = analyze_meaning(
+            expanded,
+            topic=self.memory.store.topic,
+            last_code=self.memory.store.last_code,
+            entities=state.entities,
+            memory=state.memory_hits,
+        )
+        state.meaning_notes = list(meaning.notes)
+        state.meaning_expanded = meaning.expanded
+        if meaning.expanded and meaning.expanded != expanded:
+            expanded = meaning.expanded
+            note = ",".join(meaning.notes[:3]) if meaning.notes else "expand"
+            state.add_trace(f"meaning:{note}")
+        elif meaning.notes:
+            state.add_trace("meaning:" + ",".join(meaning.notes[:3]))
+
         if refs:
             # Re-embed expanded utterance for better intent/retrieval
             state.embedding = self.emb.encode(expanded)
             state.add_trace(f"coref:{list(refs.values())[:3]}")
+        elif meaning.expanded != state.normalized:
+            state.embedding = self.emb.encode(expanded)
 
         # 4 Intent on meaning vector
         state.intent = self.intents.predict(expanded, state.embedding)
@@ -95,19 +116,33 @@ class NLUPipeline:
                 if h.get("role") in ("ai", "assistant") and "```" in str(h.get("content") or ""):
                     has_code = True
                     break
-                # client may store code separately in prior turns via plain text patterns
                 c = str(h.get("content") or "")
                 if h.get("role") in ("ai", "assistant") and ("def " in c or "import " in c):
                     has_code = True
                     break
 
-        disc = discourse_decide(state.raw, has_prior_code=has_code)
+        has_topic = bool(self.memory.store.topic or self.memory.store.project)
+        disc = discourse_decide(
+            state.raw,
+            has_prior_code=has_code,
+            has_topic=has_topic,
+        )
         if disc.intent and disc.confidence >= 0.7:
             state.intent.intent = disc.intent
             state.intent.confidence = max(state.intent.confidence, disc.confidence)
             state.discourse_search_query = disc.search_query
             state.discourse_improve = disc.improve_code
             state.add_trace(f"discourse:{disc.reason}")
+
+        # Soft meaning-implied intent when embedding is weak
+        if (
+            meaning.implied_intent
+            and state.intent.confidence < 0.45
+            and state.intent.intent in {Intent.CLARIFY, Intent.UNKNOWN, Intent.CONVERSATION}
+        ):
+            state.intent.intent = meaning.implied_intent
+            state.intent.confidence = max(state.intent.confidence, 0.55)
+            state.add_trace(f"meaning-intent:{meaning.implied_intent.value}")
 
         # Discourse: resolved refs + elaboration cues → explanation
         if refs and state.intent.intent in {
@@ -147,6 +182,17 @@ class NLUPipeline:
             state.reasoning.notes.append(f"search_query={state.discourse_search_query}")
         if state.discourse_improve:
             state.reasoning.notes.append("improve_prior_code")
+        if meaning.is_incomplete:
+            state.reasoning.notes.append("incomplete_utterance")
+            state.reasoning.assumptions.append("User message is incomplete; filled from context.")
+        if meaning.is_indirect:
+            state.reasoning.notes.append("indirect_question")
+        if meaning.same_project:
+            state.reasoning.notes.append("same_project")
+            if self.memory.store.project:
+                state.reasoning.assumptions.append(
+                    f"Continuing project: {self.memory.store.project}"
+                )
         state.add_trace(f"reason:{state.reasoning.strategy[:48]}")
 
         # Plan with language from original user text
@@ -168,6 +214,11 @@ class NLUPipeline:
                 "Add features, structure, and error handling",
                 "Keep it runnable",
             ]
+        # Incomplete continue → prefer KB then chat, not clarify
+        if meaning.wants_continue and state.plan and state.intent.intent == Intent.EXPLANATION:
+            state.plan.tools = [ToolName.KB, ToolName.CHAT]
+            state.plan.needs_clarification = False
+            state.plan.style = "step_by_step"
         state.add_trace(
             "plan:tools=" + ",".join(t.value for t in state.plan.tools)
         )
@@ -194,18 +245,45 @@ class NLUPipeline:
             state.add_trace("regenerated")
 
         # Persist memory for this turn
-        self.memory.remember_turn("user", state.raw, entities=state.entities)
+        action = ""
+        if state.intent:
+            action = f"intent:{state.intent.intent.value}"
+        self.memory.remember_turn("user", state.raw, entities=state.entities, action=action)
         self.memory.remember_turn(
             "ai",
             str(draft.get("reply") or ""),
             code=str(draft.get("code") or ""),
             lang=str(draft.get("lang") or ""),
+            action=f"source:{draft.get('source') or 'nlu'}",
         )
         # Update topic from substantive coding/question turns
         if state.intent and state.intent.intent.value in {
             "coding", "question", "explanation", "search"
         }:
-            self.memory.store.topic = state.normalized[:160]
+            incomplete = any(
+                "incomplete" in n or "continue" in n or "same-project" in n
+                for n in (state.meaning_notes or [])
+            )
+            # Don't clobber a good topic with "daha / devam" fragments
+            if not incomplete and len((state.normalized or "").split()) >= 2:
+                label = state.normalized[:160]
+                for e in state.entities:
+                    if e.type.value in {"product", "language", "topic", "person", "company"}:
+                        label = e.normalized or e.text
+                        break
+                import re as _re
+                label = _re.sub(
+                    r"\b(nedir|nasil|anlat|acikla|yaz|what|is|how|why)\b",
+                    " ",
+                    label,
+                    flags=_re.I,
+                )
+                label = _re.sub(r"\s+", " ", label).strip() or state.normalized[:80]
+                # Ignore ultra-generic labels
+                if label.lower() not in {"daha", "devam", "continue", "more", "peki", "ok"}:
+                    self.memory.store.topic = label[:160]
+                    if state.intent.intent.value == "coding":
+                        self.memory.store.project = label[:120]
 
         thinking = " → ".join(state.trace[-10:])
         payload: Dict[str, Any] = {
@@ -227,6 +305,7 @@ class NLUPipeline:
                     for e in state.entities[:12]
                 ],
                 "refs": refs,
+                "meaning": state.meaning_notes,
                 "plan_tools": [t.value for t in (state.plan.tools if state.plan else [])],
                 "validation": {
                     "score": state.validation.score if state.validation else 0,

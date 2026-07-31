@@ -13,12 +13,15 @@ _LEXICON: frozenset[str] = frozenset(
     merhaba selam nasilsin naber tesekkur lutfen tamam peki evet hayir
     nedir nasil neden niye kimdir hakkinda anlat acikla ornek yaz olustur
     kod python javascript typescript java react flask django docker git
-    sql html css api redis postgres mongodb kubernetes kubernetesjs vercel render
+    sql html css api redis postgres mongodb vercel nextjs render
     chatbot todo oyun sifre hesap makinesi cevir ingilizce turkce
     bugun yarin dun saat hava istanbul ankara izmir
     hello thanks please what how why when where who code write explain
     translate continue again same that this help please sorry
     fibonacci binary search algorithm function class variable project
+    gelistir improve refactor optimize debug hata duzelt onceki ayni
+    proje devam daha fazla anlat acaba sence merak ediyorum
+    fastapi nextjs
     """.split()
 )
 

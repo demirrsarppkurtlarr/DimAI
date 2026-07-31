@@ -48,7 +48,7 @@ def status():
     payload["learned_count"] = learned.count()
     payload["learned_backend"] = learned.backend
     payload["train_job"] = trainer.job_status()
-    payload["nlu"] = {"pipeline": "stages-1-10", "provider": "local-template"}
+    payload["nlu"] = {"pipeline": "stages-1-10", "provider": "local-template", "phase": "conversation-v2"}
     try:
         payload["improve"] = improve.status()
     except Exception:

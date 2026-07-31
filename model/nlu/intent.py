@@ -22,6 +22,11 @@ _INTENT_EXAMPLES: Dict[Intent, List[str]] = {
         "when was kubernetes created",
         "farki nedir",
         "aciklar misin",
+        "acaba docker ne ise yarar",
+        "sence bu ne demek",
+        "merak ediyorum redis nedir",
+        "i wonder what vercel is",
+        "do you know what flask does",
     ],
     Intent.COMMAND: [
         "open the file",
@@ -42,6 +47,8 @@ _INTENT_EXAMPLES: Dict[Intent, List[str]] = {
         "sikildim konusaim",
         "good morning",
         "thanks a lot",
+        "sen kimsin",
+        "ne yapabilirsin",
     ],
     Intent.OPINION: [
         "what do you think about this",
@@ -62,6 +69,12 @@ _INTENT_EXAMPLES: Dict[Intent, List[str]] = {
         "tell me more about it",
         "can you elaborate",
         "biraz daha detay",
+        "devam et",
+        "continue",
+        "daha",
+        "go on",
+        "ayni proje",
+        "same project",
     ],
     Intent.CODING: [
         "write a python function",
