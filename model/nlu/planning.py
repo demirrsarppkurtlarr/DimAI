@@ -52,15 +52,29 @@ class PlanningEngine:
             return plan
 
         if reasoning.open_questions and intent.intent in {Intent.CLARIFY, Intent.UNKNOWN}:
-            plan.needs_clarification = True
-            plan.clarification_question = (
-                "Tam olarak neyi istediğini bir cümleyle söylersen daha isabetli yardımcı olurum."
-                if lang == "tr"
-                else "Could you rephrase what you need in one clear sentence?"
+            # Don't clarify if the message already looks like a real ask
+            fold = "".join(c for c in message.lower().replace("ı", "i"))
+            fold = fold.translate(str.maketrans("çğıöşü", "cgiosu"))
+            substantive = any(
+                x in fold
+                for x in (
+                    "karsilastir", "nedir", "nasil", "yaz", "compare", "what", "how",
+                    "vs", "farki", "kimdir", "arastir",
+                )
             )
-            plan.tools = [ToolName.CHAT]
-            plan.answer_points = ["Ask for clarification"]
-            return plan
+            if not substantive:
+                plan.needs_clarification = True
+                plan.clarification_question = (
+                    "Tam olarak neyi istediğini bir cümleyle söylersen daha isabetli yardımcı olurum."
+                    if lang == "tr"
+                    else "Could you rephrase what you need in one clear sentence?"
+                )
+                plan.tools = [ToolName.CHAT]
+                plan.answer_points = ["Ask for clarification"]
+                return plan
+            # Fall through — treat as question/opinion instead of blocking
+            plan.tools = [ToolName.KB, ToolName.WEB, ToolName.CHAT]
+            plan.needs_clarification = False
 
         intent_map = {
             Intent.CODING: [ToolName.CODEGEN],
@@ -71,7 +85,7 @@ class PlanningEngine:
             Intent.QUESTION: [ToolName.KB, ToolName.WEB],
             Intent.EXPLANATION: [ToolName.KB, ToolName.CHAT],
             Intent.CONVERSATION: [ToolName.CHAT],
-            Intent.OPINION: [ToolName.CHAT, ToolName.KB],
+            Intent.OPINION: [ToolName.KB, ToolName.CHAT, ToolName.WEB],
             Intent.CREATIVE: [ToolName.CHAT],
             Intent.PLANNING: [ToolName.CHAT],
             Intent.COMMAND: [ToolName.CHAT],

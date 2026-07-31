@@ -192,6 +192,13 @@ PERSONA_TR = {
         "Ben DimAI — seninle birlikte düşünen bir kod asistanıyım. "
         "Ezber cevap değil; senin bağlamına göre ilerlemeyi tercih ederim."
     ),
+    "how_work": (
+        "Şöyle çalışıyorum: mesajını normalize edip anlamlandırıyorum, "
+        "gerekirse hafızadaki konuyu / kodu bağlarım, sonra araç seçerim "
+        "(bilgi bankası, kod üretimi, web, hava…). "
+        "Kodda önce mimariyi kurup sonra yazarım — tutorial yapıştırmazam. "
+        "Kısaca: anla → planla → uygula → kontrol et."
+    ),
     "help": (
         "Şunlarda yanındayım: kavram açıklamak, sıfırdan kod tasarlamak, "
         "hata ayıklamak, çeviri, hava/saat ve proje planı. "
@@ -213,6 +220,12 @@ PERSONA_EN = {
         "I'm DimAI — a coding partner that thinks with you. "
         "I prefer context over canned answers."
     ),
+    "how_work": (
+        "I normalize your message, resolve context from memory, pick tools "
+        "(KB, codegen, web, weather…), then answer. "
+        "For code I design modules first, then implement — no tutorial paste. "
+        "In short: understand → plan → act → check."
+    ),
     "help": (
         "I can explain ideas, design code from scratch, debug, translate, "
         "check weather/time, and sketch plans. What are we on?"
@@ -223,8 +236,14 @@ PERSONA_EN = {
 def detect_chitchat_key(text: str) -> Optional[str]:
     f = _fold(text)
     # Exact-ish short social acts (avoid matching inside longer tech asks)
-    if len(f.split()) > 8:
+    if len(f.split()) > 12:
         return None
+    if re.search(
+        r"\b(sen\s+nasil\s+calisiyorsun|nasil\s+calisiyorsun|how\s+do\s+you\s+work|"
+        r"nasil\s+isliyorsun|kendini\s+anlat)\b",
+        f,
+    ):
+        return "how_work"
     if re.search(r"\b(merhaba|selam|hello|hi|hey|slm|sa|gunaydin|good morning)\b", f):
         return "greeting"
     if re.search(r"\b(tesekkur|sagol|thanks|thank you|eyvallah)\b", f):
@@ -240,6 +259,66 @@ def detect_chitchat_key(text: str) -> Optional[str]:
             return "whoami"
     if f.strip() in {"yardim", "help", "?"}:
         return "help"
+    return None
+
+
+def looks_like_new_question(text: str) -> bool:
+    """True when the utterance is a fresh ask, not a bare continue fragment."""
+    f = _fold(text or "")
+    words = [w for w in f.split() if w]
+    if len(words) <= 2 and words and words[0] in {
+        "daha", "devam", "peki", "ya", "ok", "okay", "tamam", "more", "continue", "again",
+    }:
+        return False
+    if any(x in f for x in (
+        "karsilastir", "nedir", "nasil", "neden", "kimdir", "yaz", "write",
+        "compare", "what", "how", "why", "vs", "farki",
+    )):
+        return True
+    return len(words) >= 4
+
+
+def answer_comparison(text: str, *, language: str = "tr") -> Optional[str]:
+    """Built-in balanced comparisons when KB misses (still original DimAI voice)."""
+    f = _fold(text or "")
+    if not any(x in f for x in ("karsilastir", "vs", "versus", "farki", "compare", "hangisi")):
+        return None
+
+    if "chatgpt" in f and "gemini" in f:
+        if language == "en":
+            return (
+                "**ChatGPT vs Gemini** (practical take):\n\n"
+                "• **ChatGPT (OpenAI)** — strong general chat/coding, huge plugin/tool ecosystem, "
+                "often preferred for polished multi-step writing and code agents.\n"
+                "• **Gemini (Google)** — deep Google-data/workspace integration, strong multimodal "
+                "(esp. long context / docs), competitive reasoning on many benchmarks.\n\n"
+                "**Pick ChatGPT** for coding agents & third-party tooling; "
+                "**pick Gemini** if you live in Google Docs/Drive/Search.\n"
+                "Both change fast — for your task, constraints matter more than brand."
+            )
+        return (
+            "**ChatGPT vs Gemini** (pratik bakış):\n\n"
+            "• **ChatGPT (OpenAI)** — genel sohbet/kodda çok güçlü, araç/ekosistem geniş; "
+            "çok adımlı yazım ve kod ajanlarında sık tercih edilir.\n"
+            "• **Gemini (Google)** — Google ekosistemi + uzun bağlam/multimodal tarafta güçlü; "
+            "Drive/Docs/Search ile iç içe kullanımda avantajlı.\n\n"
+            "**ChatGPT** → kod ajanı / üçüncü parti araçlar; "
+            "**Gemini** → Google içinde yaşayan işler.\n"
+            "İkisi de hızlı evriliyor; senin kısıtların markadan daha önemli."
+        )
+
+    if "claude" in f and ("chatgpt" in f or "gpt" in f):
+        if language == "en":
+            return (
+                "**ChatGPT vs Claude**: ChatGPT often wins on tool breadth; "
+                "Claude is frequently praised for careful long-form reasoning and coding taste. "
+                "Choose by the workflow you need today."
+            )
+        return (
+            "**ChatGPT vs Claude**: ChatGPT araç genişliğinde önde; "
+            "Claude uzun/dikkatli muhakeme ve kod zevkinde sık övülür. "
+            "Bugünkü iş akışına göre seç."
+        )
     return None
 
 

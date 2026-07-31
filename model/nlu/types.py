@@ -100,6 +100,12 @@ class ReasoningFrame:
     resolved_refs: dict[str, str] = field(default_factory=dict)
     strategy: str = ""
     notes: list[str] = field(default_factory=list)
+    # Phase 4 — richer internal reasoning
+    alternatives: list[str] = field(default_factory=list)
+    confidence: float = 0.5
+    contradictions: list[str] = field(default_factory=list)
+    self_checks: list[str] = field(default_factory=list)
+    subgoals: list[str] = field(default_factory=list)
 
 
 @dataclass

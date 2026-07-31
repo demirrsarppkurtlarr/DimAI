@@ -58,6 +58,13 @@ class ValidationEngine:
             issues.append("robotic self-reference")
             fluent = False
 
+        # Contradiction / self-check soft flags
+        if state.reasoning and state.reasoning.contradictions:
+            issues.append("memory contradiction")
+            consistent = False
+        if state.reasoning and state.reasoning.confidence < 0.35 and intent != Intent.CLARIFY:
+            issues.append("low reasoning confidence")
+
         # Repetition vs last AI turn
         last_ai = ""
         for h in reversed(state.history[-6:]):
@@ -67,6 +74,18 @@ class ValidationEngine:
         if last_ai and reply and reply.strip() == last_ai.strip():
             issues.append("exact repeat of previous reply")
             consistent = False
+
+        # Stuck format-picker loop
+        if re.search(
+            r"aklımda\s*[—\-].*daha derin|keeping .+ in mind.*deeper explanation",
+            reply,
+            re.I,
+        ):
+            # Only ok on explicit continue
+            meaning = state.meaning_notes or []
+            if not any("continue" in n or "incomplete" in n for n in meaning):
+                issues.append("stuck topic template")
+                fluent = False
 
         score = 1.0
         if not answered:
@@ -80,7 +99,7 @@ class ValidationEngine:
         score -= 0.05 * len(issues)
         score = max(0.0, min(1.0, score))
 
-        should = score < 0.55 or (not answered)
+        should = score < 0.55 or (not answered) or ("stuck topic template" in issues)
         return ValidationReport(
             answered_question=answered,
             used_context=used_context,
@@ -120,6 +139,20 @@ class ValidationEngine:
         if "exact repeat of previous reply" in report.issues:
             name = memory_name(state.memory_hits)
             out["reply"] = persona_reply("help", language=lang, name=name)
+            out["source"] = "chat"
+        if "stuck topic template" in report.issues:
+            from .conversation import answer_comparison, detect_chitchat_key, persona_reply as pr
+
+            key = detect_chitchat_key(state.raw)
+            if key:
+                out["reply"] = pr(key, language=lang, name=memory_name(state.memory_hits))
+            else:
+                cmp = answer_comparison(state.raw, language=lang)
+                out["reply"] = cmp or (
+                    "Direkt soruna geleyim — neyi karşılaştırmamı veya açıklamamı istiyorsun?"
+                    if lang == "tr"
+                    else "Let's answer you directly — what should I compare or explain?"
+                )
             out["source"] = "chat"
         if not out.get("reply"):
             out["reply"] = (

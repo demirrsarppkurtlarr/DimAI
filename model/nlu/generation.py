@@ -5,8 +5,10 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Sequence
 
 from .conversation import (
+    answer_comparison,
     anti_robotic,
     detect_chitchat_key,
+    looks_like_new_question,
     memory_name,
     persona_reply,
     weave_context_prefix,
@@ -36,7 +38,6 @@ class LocalTemplateProvider(LLMProvider):
     name = "local-template"
 
     def generate(self, prompt: str, *, max_tokens: int = 512) -> str:
-        # Prompt is already a drafted reply in our local mode
         return (prompt or "")[: max(4000, max_tokens * 16)]
 
 
@@ -49,11 +50,20 @@ class ResponseGenerator:
         lang = plan.language
         tools = state.tool_results or []
 
-        # Personality-first path for clear social acts
+        # Exact easter eggs / special codes — whole message only
+        try:
+            from model import skills as _skills
+
+            if _skills.looks_like_special_code(state.raw):
+                ans = _skills.answer_special_code(state.raw)
+                if ans:
+                    return {"reply": ans, "source": "chat"}
+        except Exception:
+            pass
+
+        # Personality / how-you-work — even if prior topic exists
         chat_key = detect_chitchat_key(state.raw)
-        if chat_key and (not state.intent or state.intent.intent in {
-            Intent.CONVERSATION, Intent.CLARIFY, Intent.UNKNOWN, Intent.COMMAND
-        }):
+        if chat_key:
             name = memory_name(state.memory_hits)
             return self._with_voice(
                 {
@@ -62,6 +72,25 @@ class ResponseGenerator:
                 },
                 state,
             )
+
+        # Built-in comparisons when tools didn't answer
+        cmp = answer_comparison(state.raw, language=lang)
+        if cmp and (
+            not tools
+            or all(not t.ok or t.name in {ToolName.CHAT, ToolName.MEMORY} for t in tools)
+            or (
+                state.intent
+                and state.intent.intent == Intent.OPINION
+                and not any(t.ok and t.name == ToolName.KB and t.payload.get("reply") for t in tools)
+            )
+        ):
+            # Prefer KB if it already has a hit
+            kb_hit = next(
+                (t for t in tools if t.ok and t.name == ToolName.KB and t.payload.get("reply")),
+                None,
+            )
+            if not kb_hit:
+                return self._with_voice({"reply": cmp, "source": "chat"}, state)
 
         # Prefer successful tool payloads
         for tr in tools:
@@ -111,7 +140,17 @@ class ResponseGenerator:
                     out["allow_web"] = True
                 return self._with_voice(out, state) if src != "fallback" else out
 
+        # Comparison fallback after tools
+        if cmp:
+            return self._with_voice({"reply": cmp, "source": "chat"}, state)
+
         if plan.needs_clarification and plan.clarification_question:
+            # Never clarify away a clear new question
+            if looks_like_new_question(state.raw):
+                return self._with_voice(
+                    {"reply": self._chat_fallback(state), "source": "chat"},
+                    state,
+                )
             return self._with_voice(
                 {"reply": plan.clarification_question, "source": "chat"},
                 state,
@@ -133,13 +172,27 @@ class ResponseGenerator:
                 topic = h.content
             if h.kind == "project" and not project:
                 project = h.content
-        about = about or topic
 
         meaning = getattr(state, "meaning_notes", None) or []
         wants_continue = any("continue" in n or "incomplete" in n for n in meaning)
+        fresh = looks_like_new_question(state.raw)
+
+        # Fresh questions must NOT get the stuck "aklımda / format pick" loop
+        if fresh and not wants_continue:
+            about = ""
+
+        if about and wants_continue:
+            about = about
+        elif not wants_continue:
+            about = ""  # only bind topic on explicit continue
+        else:
+            about = about or topic
 
         if plan.language == "en":
             if intent == Intent.OPINION:
+                cmp = answer_comparison(state.raw, language="en")
+                if cmp:
+                    return cmp
                 return (
                     f"{who}I'd weigh trade-offs against your constraints — "
                     f"clarity and maintainability usually beat cleverness. "
@@ -156,27 +209,30 @@ class ResponseGenerator:
                     f"{who}Still on {about} — I can go deeper, show an example, "
                     f"or sketch working code. Which helps more right now?"
                 )
-            if about:
+            if intent in {Intent.QUESTION, Intent.EXPLANATION, Intent.SEARCH}:
                 return (
-                    f"{who}Keeping {about} in mind — deeper explanation, "
-                    f"an example, or working code?"
+                    f"{who}I don't have a crisp answer cached for that yet. "
+                    f"Ask it as 'X nedir' or say `araştır` and I'll dig in."
                 )
-            if project:
+            if intent == Intent.CONVERSATION:
                 return (
-                    f"{who}We're still on '{project}'. "
-                    f"What should we tackle next on it?"
+                    f"{who}I'm with you. Ask me to explain something, design code, "
+                    f"translate, or just talk — I'll keep the thread."
                 )
             return (
-                f"{who}I'm with you. Ask me to explain something, design code, "
-                f"translate, or just talk — I'll keep the thread."
+                f"{who}Got it. Give me one concrete ask "
+                f"(a concept, a comparison, or `todo yaz`) and I'll move."
             )
 
         # Turkish default
         if intent == Intent.OPINION:
+            cmp = answer_comparison(state.raw, language="tr")
+            if cmp:
+                return cmp
             return (
                 f"{who}Ben kısıtlarına bakarak düşünürüm; "
                 f"netlik ve sürdürülebilirlik genelde 'zeki' çözümden daha değerlidir. "
-                f"İki seçeneği somut karşılaştırayım mı?"
+                f"İki seçeneği isimlendirirsen somut karşılaştırırım."
             )
         if intent == Intent.PLANNING:
             return (
@@ -189,15 +245,10 @@ class ResponseGenerator:
                 f"{who}{about} üzerindeyiz — daha derin anlatayım, "
                 f"örnek vereyim, yoksa çalışan kod mu istersin?"
             )
-        if about:
+        if intent in {Intent.QUESTION, Intent.EXPLANATION, Intent.SEARCH}:
             return (
-                f"{who}{about} aklımda — "
-                f"daha derin açıklama, örnek, yoksa çalışan kod?"
-            )
-        if project:
-            return (
-                f"{who}'{project}' üzerindeyiz. "
-                f"Sıradaki parça ne olsun?"
+                f"{who}Bunu net cevaplayamadım. "
+                f"`X nedir` diye sor veya `araştır` dersen bakayım."
             )
         if intent == Intent.CONVERSATION:
             return (
@@ -205,8 +256,8 @@ class ResponseGenerator:
                 f"sıfırdan kod tasarlayayım ya da sadece sohbet edelim."
             )
         return (
-            f"{who}Tamam, yakaladım. Biraz daha somut yazarsan "
-            f"(kavram sorusu veya 'todo yaz' gibi) doğrudan ilerlerim."
+            f"{who}Tamam — somut bir istek yaz "
+            f"(karşılaştırma, kavram veya `todo yaz`) doğrudan ilerlerim."
         )
 
     def _with_voice(self, payload: Dict[str, Any], state: PipelineState) -> Dict[str, Any]:
@@ -214,7 +265,6 @@ class ResponseGenerator:
         reply = str(payload.get("reply") or "")
         reply = anti_robotic(reply)
 
-        # Style preference from memory
         style_pref = ""
         topic = ""
         for h in state.memory_hits:
@@ -250,7 +300,6 @@ class ResponseGenerator:
             reply = reply.rstrip() + follow
 
         if style_pref == "concise" and len(reply) > 400:
-            # Keep first paragraph + last sentence if long
             parts = [p for p in reply.split("\n\n") if p.strip()]
             if len(parts) > 2:
                 reply = parts[0] + "\n\n" + parts[-1]
@@ -260,7 +309,6 @@ class ResponseGenerator:
         return payload
 
 
-# Optional future providers
 class OpenAIProvider(LLMProvider):
     name = "openai"
 
@@ -271,7 +319,6 @@ class OpenAIProvider(LLMProvider):
     def generate(self, prompt: str, *, max_tokens: int = 512) -> str:
         if not self.api_key:
             return LocalTemplateProvider().generate(prompt, max_tokens=max_tokens)
-        # Placeholder — wire requests to OpenAI Chat Completions when key present
         return LocalTemplateProvider().generate(prompt, max_tokens=max_tokens)
 
 

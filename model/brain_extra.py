@@ -1362,4 +1362,12 @@ print(loaded["isim"])''', "l": "python"},
 
     {"k": ["cors nasil duzeltilir", "cors duzelt", "cors hatasi"],
      "a": "**CORS hatası** tarayıcıda origin engelidir — asıl düzeltme **backend**'de.\n\n• `Access-Control-Allow-Origin` (geliştirmede dikkatli kullan `*`)\n• Credentials varsa origin açık yaz + `Allow-Credentials: true`\n• Preflight: `OPTIONS` + Allow-Methods/Headers\n\nFlask örneği: `flask-cors` veya elle header ekle."},
+
+    {"k": [
+        "chatgpt ile gemini", "chatgpt vs gemini", "gemini vs chatgpt",
+        "chatgpt gemini karsilastir", "gemini chatgpt karsilastir",
+        "chatgpt mi gemini mi", "gemini mi chatgpt mi",
+        "openai vs google", "chatgpt gemini fark",
+    ],
+     "a": "**ChatGPT vs Gemini** (pratik):\n\n• **ChatGPT (OpenAI)** — genel sohbet/kod ve araç ekosistemi güçlü; ajan/kod işlerinde sık tercih.\n• **Gemini (Google)** — Google Workspace + uzun bağlam/multimodal; Drive/Docs/Search ile iç içe.\n\n**ChatGPT** → kod ajanı / üçüncü parti araçlar. **Gemini** → Google içinde yaşayan işler.\nİkisi de hızlı değişir; senin kısıtların markadan önemli."},
 ] + list(KB2)
