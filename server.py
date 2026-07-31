@@ -101,7 +101,7 @@ def status():
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "coding-params-v15",
+        "phase": "fast-boot-v16",
         "codegen": "first-principles+40-domains",
         "rag": "kb+topk-hybrid+learned+supabase-cold",
         "tool_policy": "auto",
