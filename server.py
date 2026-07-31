@@ -122,11 +122,14 @@ def chat():
                     # Tanım sorularında kod örnekli eski memory'yi ezme (örn. "HTTP nedir")
                     definitional = any(
                         x in msg_l
-                        for x in ("nedir", "kimdir", "ne demek", "what is", "who is")
+                        for x in (
+                            "nedir", "kimdir", "ne demek", "what is", "who is",
+                            " vs ", " versus ", "fark", "ne ise yarar",
+                        )
                     )
                     looks_codey = any(
                         x in reply_l
-                        for x in ("import ", "def ", "```", "pip install", "console.log")
+                        for x in ("import ", "def ", "```", "pip install", "console.log", "sqlite3")
                     )
                     if definitional and looks_codey:
                         prior = None

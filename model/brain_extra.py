@@ -1144,4 +1144,92 @@ print(loaded["isim"])''', "l": "python"},
 
     {"k": ["ataturk kimdir", "mustafa kemal", "mustafa kemal ataturk"],
      "a": "**Mustafa Kemal Atatürk** (1881–1938), Türkiye Cumhuriyeti'nin kurucusu ve ilk cumhurbaşkanıdır.\n\n• Kurtuluş Savaşı'nın askeri/siyasi lideri\n• Cumhuriyet, laiklik, harf inkılabı gibi reformlar\n• 10 Kasım 1938'de İstanbul'da vefat etti"},
+
+    {"k": ["rust nedir", "rust dili", "rust programming"],
+     "a": "**Rust**, bellek güvenliğini derleme zamanında öne çıkaran modern bir sistem programlama dilidir.\n\n• Ownership / borrowing modeli\n• Null ve data-race hatalarını azaltır\n• Sistem, CLI, WebAssembly, performans kritik servisler"},
+
+    {"k": ["go nedir", "golang nedir", "go dili nedir"],
+     "a": "**Go (Golang)**, Google'ın geliştirdiği sade ve hızlı bir programlama dilidir.\n\n• Goroutine ile kolay eşzamanlılık\n• Statik tip, hızlı derleme\n• Bulut / mikroservis / CLI araçlarında çok yaygın\n\nNot: Japon Go tahta oyunuyla karıştırma."},
+
+    {"k": ["kotlin nedir", "kotlin dili"],
+     "a": "**Kotlin**, JVM üzerinde çalışan, Android'in resmi dili olan modern bir programlama dilidir.\n\n• Java ile uyumlu\n• Null-safety\n• Kısa sözdizimi\n• Backend (Ktor/Spring) ve multiplatform da kullanılır"},
+
+    {"k": ["swift nedir", "swift dili", "swift programming"],
+     "a": "**Swift**, Apple'ın iOS/macOS uygulamaları için geliştirdiği programlama dilidir.\n\n• Safe, hızlı, modern sözdizimi\n• Objective-C'nin yerini alır\n• SwiftUI ile arayüz\n\nNot: Taylor Swift ile karıştırma — yazılımda dil kastedilir."},
+
+    {"k": ["terraform nedir"],
+     "a": "**Terraform**, altyapıyı kod olarak (IaC) tanımlayan bir HashiCorp aracıdır.\n\n• `.tf` dosyalarıyla bulut kaynakları\n• Plan → apply\n• AWS/GCP/Azure sağlayıcıları"},
+
+    {"k": ["ansible nedir"],
+     "a": "**Ansible**, ajan gerektirmeden sunucu yapılandırma / otomasyon aracıdır.\n\n• YAML playbook'lar\n• SSH ile çalışır\n• Kurulum, deploy, yapılandırma otomasyonu"},
+
+    {"k": ["jenkins nedir", "jenkins ci"],
+     "a": "**Jenkins**, açık kaynaklı bir **CI/CD** sunucusudur.\n\n• Pipeline ile otomatik build/test/deploy\n• Plugin ekosistemi geniş\n\nNot: ABD'deki Jenkins County ile karıştırma."},
+
+    {"k": ["s3 nedir", "amazon s3 nedir", "aws s3"],
+     "a": "**Amazon S3**, AWS'nin nesne depolama (object storage) servisidir.\n\n• Dosya/blob saklama, yüksek dayanıklılık\n• Bucket + key modeli\n• Statik site, yedek, medya için sık kullanılır"},
+
+    {"k": ["lambda nedir", "aws lambda nedir", "lambda aws"],
+     "a": "**AWS Lambda**, olay tetiklemeli **serverless** fonksiyon çalıştırma servisidir.\n\n• Sunucu yönetmezsin\n• İstek/olay başına ölçeklenir\n• S3, API Gateway, cron tetikleyicileriyle kullanılır"},
+
+    {"k": ["docker nedir", "docker ne demek"],
+     "a": "**Docker**, uygulamayı bağımlılıklarıyla birlikte **konteyner**de paketleyen teknolojidir.\n\n• Image → container\n• 'Bende çalışıyor' sorununu azaltır\n• Compose ile çok servisli ortam"},
+
+    {"k": ["pointer nedir", "isaretci nedir", "pointer programming"],
+     "a": "**Pointer (işaretçi)**, bellekteki bir adresı tutan değişkendir (C/C++/Rust'ta sık).\n\n• Doğrudan bellek erişimi\n• Hızlı ama dikkat: dangling pointer, buffer overflow\n\nNot: Anita Pointer ile karıştırma."},
+
+    {"k": ["mutex nedir", "lock nedir programlama"],
+     "a": "**Mutex (mutual exclusion)**, paylaşılan kaynağa aynı anda tek thread'in girmesini sağlayan kilit mekanizmasıdır.\n\n• Race condition önler\n• Yanlış kullanım deadlock yaratabilir"},
+
+    {"k": ["deadlock nedir", "kilitlenme nedir"],
+     "a": "**Deadlock (kilitlenme)**, iki veya daha fazla işlemin birbirini beklemesiyle hiçbiri ilerleyememesi durumudur.\n\n• Klasik: A kilidi B'yi, B kilidi A'yı bekler\n• Önlem: kilit sırası, timeout, deadlock detection"},
+
+    {"k": ["solid nedir", "solid prensipleri"],
+     "a": "**SOLID**, nesne yönelimli tasarım için 5 prensiptir:\n\n• **S**ingle Responsibility\n• **O**pen/Closed\n• **L**iskov Substitution\n• **I**nterface Segregation\n• **D**ependency Inversion\n\nDaha bakımı kolay kod için rehber."},
+
+    {"k": ["dry nedir", "dont repeat yourself"],
+     "a": "**DRY (Don't Repeat Yourself)**, bilginin tek bir yerde tanımlanması prensibidir.\n\n• Kopyala-yapıştır yerine fonksiyon/modül\n• Aşırı DRY da zararlı olabilir (yanlış soyutlama)\n\nNot: müzik parçası 'Dry County' ile karıştırma."},
+
+    {"k": ["unit test nedir", "birim test nedir"],
+     "a": "**Unit test (birim test)**, kodun en küçük parçasını (fonksiyon/sınıf) izole test etmektir.\n\n• Hızlı geri bildirim\n• Regresyonları yakalar\n• pytest / Jest / JUnit gibi araçlar"},
+
+    {"k": ["tdd nedir", "test driven development"],
+     "a": "**TDD (Test-Driven Development)**: önce test yaz → kırmızı, sonra kod → yeşil, sonra refactor.\n\n• Tasarımı netleştirir\n• Aşırıya kaçmadan kullanıldığında kalite artar"},
+
+    {"k": ["agile nedir", "cevik nedir yazilim"],
+     "a": "**Agile**, yazılımda kısa döngülerle, geri bildirime göre ilerleyen çevik geliştirme yaklaşımıdır.\n\n• Scrum, Kanban gibi çerçeveler\n• Çalışan yazılım + müşteri işbirliği öncelikli"},
+
+    {"k": ["scrum nedir", "scrum agile"],
+     "a": "**Scrum**, Agile'ın popüler bir çerçevesidir.\n\n• Sprint, Product Owner, Scrum Master, Daily\n• Backlog → Sprint → Review/Retro\n\nYazılım ekiplerinde iş planlama ritmi sağlar."},
+
+    {"k": ["promise nedir", "promise js", "javascript promise"],
+     "a": "**Promise**, JavaScript'te asenkron işlemin ileride tamamlanacağını temsil eden nesnedir.\n\n• pending → fulfilled / rejected\n• `.then` / `.catch` veya `async/await`\n\nNot: şarkı adı 'Promise' ile karıştırma."},
+
+    {"k": ["callback nedir", "callback function"],
+     "a": "**Callback**, başka bir fonksiyona argüman olarak verilen ve sonra çağrılan fonksiyondur.\n\n• Olaylar, async I/O, dizi metodları (`map`)\n• Aşırı iç içe callback → 'callback hell' → Promise/async"},
+
+    {"k": ["mvc nedir", "model view controller"],
+     "a": "**MVC (Model–View–Controller)**, uygulamayı üç kata ayıran mimari kalıptır.\n\n• Model: veri/iş kuralları\n• View: arayüz\n• Controller: istekleri yönlendirir\n\nWeb framework'lerinde klasik."},
+
+    {"k": ["orm nedir", "object relational mapping"],
+     "a": "**ORM (Object-Relational Mapping)**, nesneleri veritabanı tablolarına eşleyen katmandır.\n\n• Örn: Prisma, SQLAlchemy, Hibernate, Eloquent\n• SQL yazmayı azaltır; N+1 gibi tuzaklara dikkat"},
+
+    {"k": ["cookie nedir", "http cookie", "cerez nedir"],
+     "a": "**HTTP cookie**, tarayıcının sakladığı küçük veri parçasıdır.\n\n• Oturum, tercihler, izleme\n• `Set-Cookie` / `Cookie` header\n• HttpOnly, Secure, SameSite bayrakları önemli\n\nNot: film/şarkı isimleriyle karıştırma — web'de HTTP cookie."},
+
+    {"k": ["localstorage nedir", "local storage nedir"],
+     "a": "**localStorage**, tarayıcıda origin bazlı anahtar-değer saklama API'sidir.\n\n• ~5MB, kalıcı (sekme kapanınca silinmez)\n• Sadece string; hassas veri koyma\n• Alternatif: sessionStorage, IndexedDB"},
+
+    {"k": ["blob nedir programlama", "blob nedir", "binary large object"],
+     "a": "**BLOB (Binary Large Object)**, büyük ikili veri (dosya, görüntü, video) saklama kavramıdır.\n\n• DB'de blob sütunu veya object storage (S3)\n• JS'te `Blob` / `File` API\n\nNot: "blob" yaratık görselleriyle karıştırma."},
+
+    {"k": ["list comprehension nedir", "python list comprehension", "liste ureteci nedir"],
+     "a": "**List comprehension**, Python'da listeyi tek satırda üretmenin kısa yoludur.\n\n```python\nkareler = [x*x for x in range(10) if x % 2 == 0]\n```\n\nOkunaklı filtre+map için ideal; aşırı karmaşıksa normal döngü yeğlenir."},
+
+    {"k": ["generator nedir", "generator nedir python", "python generator"],
+     "a": "**Generator**, Python'da `yield` ile tembel (lazy) değer üreten fonksiyondur.\n\n• Tüm listeyi belleğe almaz\n• Iterator protokolü\n• Büyük veri akışlarında bellek dostu"},
+
+    {"k": ["rest api nasil tasarlanir", "rest tasarim", "api tasarimi"],
+     "a": "**REST API tasarım ipuçları:**\n\n• Kaynak adları çoğul isim: `/users`, `/orders/5`\n• HTTP fiilleri doğru kullan (GET/POST/PUT/PATCH/DELETE)\n• Tutarlı JSON şeması + anlamlı status kodları\n• Versiyonlama (`/v1/...`), sayfalama, hata formatı\n• Kimlik: token/OAuth\n\nKod istersen `flask api yaz` de."},
+
 ]

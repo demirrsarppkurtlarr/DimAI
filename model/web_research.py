@@ -97,7 +97,41 @@ def _clean_query(text: str) -> str:
         "websocket": "WebSocket protocol",
         "nextjs": "Next.js React framework",
         "next js": "Next.js React framework",
+        "rust": "Rust programming language",
+        "kotlin": "Kotlin programming language",
+        "terraform": "Terraform infrastructure as code",
+        "ansible": "Ansible automation configuration management",
+        "jenkins": "Jenkins continuous integration software",
+        "mutex": "mutex mutual exclusion lock computer science",
+        "deadlock": "deadlock computer science concurrency",
+        "solid": "SOLID principles object-oriented design",
+        "tdd": "Test-driven development software",
+        "scrum": "Scrum agile software development",
+        "orm": "Object-relational mapping ORM programming",
+        "mvc": "Model View Controller MVC software architecture",
+        "grpc": "gRPC remote procedure call",
+        "elasticsearch": "Elasticsearch search engine",
+        "kafka": "Apache Kafka event streaming",
+        "rabbitmq": "RabbitMQ message broker",
+        "promise": "Promise JavaScript programming",
+        "callback": "callback function programming",
+        "cookie": "HTTP cookie web browser",
+        "localstorage": "Web localStorage browser API",
+        "blob": "Blob binary large object computing",
+        "pointer": "pointer programming computer science",
+        "dry": "DRY Don't Repeat Yourself programming principle",
+        "agile": "Agile software development methodology",
+        "unit test": "unit testing software",
+        "lambda": "AWS Lambda serverless computing",
+        "s3": "Amazon S3 Simple Storage Service",
+        "swift": "Swift programming language Apple",
+        "golang": "Go programming language Golang",
     }
+    # "Go nedir" / bare "go" — board game'e sapmasın
+    if re.search(r"(^|\s)go(\s|$)", n) and any(x in n for x in ("nedir", "dil", "lang", "program")):
+        return "Go programming language Golang"
+    if "swift" in n and any(x in n for x in ("nedir", "dil", "lang", "program", "apple")):
+        return "Swift programming language Apple"
     for key, rewrite in tech_map.items():
         if key in n:
             return rewrite
