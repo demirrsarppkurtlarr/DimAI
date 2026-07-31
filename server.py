@@ -146,7 +146,15 @@ def chat():
             result = None
 
     if result is None:
-        result = brain.reply(message, history=history[-16:])
+        try:
+            result = brain.reply(message, history=history[-16:])
+        except Exception as brain_err:
+            result = {
+                "reply": "Bu soruda beklenmeyen bir hata oldu; farklı bir şekilde sorabilir misin?",
+                "source": "chat",
+                "allow_web": False,
+                "thinking": f"brain-error: {type(brain_err).__name__}",
+            }
 
     # Web yalnızca agent izin verdiyse ve brain fallback döndüyse
     allow_web = bool(result.get("allow_web"))

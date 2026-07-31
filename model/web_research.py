@@ -126,6 +126,22 @@ def _clean_query(text: str) -> str:
         "s3": "Amazon S3 Simple Storage Service",
         "swift": "Swift programming language Apple",
         "golang": "Go programming language Golang",
+        "gil": "Global Interpreter Lock Python GIL",
+        "hoisting": "JavaScript hoisting variable declaration",
+        "idempotent": "idempotent HTTP API programming",
+        "stateless": "stateless protocol web API",
+        "sql injection": "SQL injection security vulnerability",
+        "xss": "Cross-site scripting XSS web security",
+        "csrf": "Cross-site request forgery CSRF",
+        "acid": "ACID database transactions",
+        "cap theorem": "CAP theorem database consistency",
+        "event loop": "JavaScript event loop Node.js",
+        "typescript": "TypeScript programming language Microsoft",
+        "null vs undefined": "null vs undefined JavaScript",
+        "load balancer": "load balancer computer networking",
+        "reverse proxy": "reverse proxy web server",
+        "rate limiting": "rate limiting API throttling",
+        "pagination": "pagination API web",
     }
     # "Go nedir" / bare "go" — board game'e sapmasın
     if re.search(r"(^|\s)go(\s|$)", n) and any(x in n for x in ("nedir", "dil", "lang", "program")):

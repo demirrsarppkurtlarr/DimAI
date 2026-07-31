@@ -1231,7 +1231,6 @@ print(loaded["isim"])''', "l": "python"},
 
     {"k": ["rest api nasil tasarlanir", "rest tasarim", "api tasarimi"],
      "a": "**REST API tasarım ipuçları:**\n\n• Kaynak adları çoğul isim: `/users`, `/orders/5`\n• HTTP fiilleri doğru kullan (GET/POST/PUT/PATCH/DELETE)\n• Tutarlı JSON şeması + anlamlı status kodları\n• Versiyonlama (`/v1/...`), sayfalama, hata formatı\n• Kimlik: token/OAuth\n\nKod istersen `flask api yaz` de."},
-,
 
     {"k": ["sql injection nedir", "sqli nedir", "sql enjeksiyon"],
      "a": "**SQL Injection**, kullanıcı girdisini SQL sorgusuna gömerek veritabanını manipüle eden güvenlik açığıdır.\n\n• Örn: login formuna `' OR 1=1 --`\n• Önlem: parametreli sorgu / prepared statement, ORM, girdi doğrulama\n• Asla string birleştirerek SQL kurma"},
