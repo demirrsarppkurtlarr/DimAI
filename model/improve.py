@@ -615,10 +615,27 @@ class SelfImprove:
             evaluation_for_q["source"] = source
             self.enqueue(question, answer, evaluation_for_q, reflection, url=url)
 
-        # drain a few queue items each turn (continuous improvement)
-        queue_result = self.process_queue(limit=5)
+        # Phase 10: also retain strong invented codegen for this project's domains
+        design = result.get("design") or {}
+        if (
+            evaluation["success"]
+            and source == "codegen"
+            and result.get("code")
+            and bool(design.get("invented"))
+            and float(evaluation.get("overall") or 0) >= 0.72
+            and len(str(result.get("code") or "")) >= 80
+        ):
+            evaluation_for_q = dict(evaluation)
+            evaluation_for_q["source"] = "codegen"
+            self.enqueue(question, answer, evaluation_for_q, reflection, url="dimai://codegen")
 
-        return {
+        # drain queue — drain more when backlog grows (continuous improvement)
+        with self._lock:
+            pending_n = sum(1 for x in self.queue if x.get("status", "pending") == "pending")
+        drain = 8 if pending_n >= 12 else 5
+        queue_result = self.process_queue(limit=drain)
+
+        enrichment = {
             "evaluation": {
                 "accuracy": evaluation["accuracy"],
                 "quality": evaluation["quality"],
@@ -631,8 +648,20 @@ class SelfImprove:
                 "promoted": queue_result["promoted"],
                 "rejected": queue_result["rejected"],
                 "repeated_error": bool(repeated),
+                "queued_codegen": bool(
+                    source == "codegen" and design.get("invented") and evaluation["success"]
+                ),
             },
         }
+        if repeated and not result.get("code"):
+            tip = (
+                "Not: Bu konuda daha önce zayıf kaldım; sorunuzu bir örnekle netleştirirseniz "
+                "daha sağlam cevaplarım."
+                if "ı" in (question or "") or any(ord(c) > 127 for c in (question or ""))
+                else "Note: I've struggled with this topic before — a concrete example helps me answer better."
+            )
+            enrichment["improve_tip"] = tip
+        return enrichment
 
     def status(self) -> dict:
         with self._lock:

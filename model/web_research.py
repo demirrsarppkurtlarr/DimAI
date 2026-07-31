@@ -237,11 +237,23 @@ class LearnedStore:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._items: list[dict] = []
+        self._stem_index: dict[str, set[int]] = {}
         self.configured = bool(SUPABASE_URL and SUPABASE_KEY)
         self.backend = "supabase" if self.configured else "file"
         self._load()
 
     # ---------- persistence backends ----------
+
+    def _rebuild_index(self) -> None:
+        """Inverted stem → item indices for O(candidates) lookup instead of O(n)."""
+        idx: dict[str, set[int]] = {}
+        for i, item in enumerate(self._items):
+            for w in item.get("kw") or []:
+                stem = str(w)[: min(len(str(w)), 5)]
+                if len(stem) < 2:
+                    continue
+                idx.setdefault(stem, set()).add(i)
+        self._stem_index = idx
 
     def _load(self) -> None:
         if self.backend == "supabase":
@@ -254,6 +266,7 @@ class LearnedStore:
                 )
                 r.raise_for_status()
                 self._items = list(reversed(r.json()))
+                self._rebuild_index()
                 return
             except Exception:
                 self.backend = "file"  # graceful fallback
@@ -262,6 +275,7 @@ class LearnedStore:
                 self._items = json.loads(LEARNED_PATH.read_text(encoding="utf-8"))
             except Exception:
                 self._items = []
+        self._rebuild_index()
 
     def _save_file(self) -> None:
         LEARNED_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -322,8 +336,15 @@ class LearnedStore:
             if quality is not None:
                 entry["quality"] = float(quality)
             self._items.append(entry)
+            # keep stem index fresh
+            i = len(self._items) - 1
+            for w in entry.get("kw") or []:
+                stem = str(w)[: min(len(str(w)), 5)]
+                if len(stem) >= 2:
+                    self._stem_index.setdefault(stem, set()).add(i)
             if len(self._items) > 5000:
                 self._items = self._items[-5000:]
+                self._rebuild_index()
             # Self-healing: if Supabase is configured, keep trying it even after
             # an earlier failure (e.g. table created after boot).
             if self.configured:
@@ -373,6 +394,8 @@ class LearnedStore:
                 added += 1
             if len(self._items) > 5000:
                 self._items = self._items[-5000:]
+            if added:
+                self._rebuild_index()
             if added and self.backend == "file":
                 self._save_file()
         return added
@@ -390,7 +413,17 @@ class LearnedStore:
         q_stems = {w[: min(len(w), 5)] for w in kw}
         best, best_score = None, 0.0
         with self._lock:
-            for item in self._items:
+            # Candidate set via inverted index (Phase 9)
+            cand_ids: set[int] = set()
+            for stem in q_stems:
+                cand_ids |= self._stem_index.get(stem, set())
+            if not cand_ids and self._items:
+                # index cold / empty keywords — fall back to full scan
+                cand_ids = set(range(len(self._items)))
+            for i in cand_ids:
+                if i < 0 or i >= len(self._items):
+                    continue
+                item = self._items[i]
                 item_kw = set(item.get("kw", []))
                 if not item_kw:
                     continue
@@ -399,7 +432,6 @@ class LearnedStore:
                 if inter == 0:
                     continue
                 score = inter / max(len(q_stems), len(item_stems))
-                # kaliteli kayıtları hafifçe öne al (self-improvement)
                 qboost = 0.05 * float(item.get("quality") or 0)
                 score = score + qboost
                 if score > best_score:
@@ -755,6 +787,13 @@ def _gather(question: str, deep: bool = False) -> tuple[str, bool, bool, dict]:
 
 def research(question: str) -> Optional[dict]:
     """Query all free sources in parallel; pick the best answer, list extras."""
+    from model.perf import research_cache
+
+    cache_key = "r:" + _norm(question)[:160]
+    cached = research_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     query, code_hint, news_hint, results = _gather(question)
 
     providers = PROVIDERS
@@ -790,7 +829,9 @@ def research(question: str) -> Optional[dict]:
     if extras:
         answer += "\n\n📚 Diğer kaynaklar:\n" + "\n".join(f"• {u}" for u in extras)
 
-    return {"answer": answer, "url": url, "provider": providers[primary_name]}
+    out = {"answer": answer, "url": url, "provider": providers[primary_name]}
+    research_cache.set(cache_key, out)
+    return out
 
 
 def _split_sentences(text: str) -> list[str]:
@@ -819,6 +860,13 @@ def research_deep(question: str) -> Optional[dict]:
     by query keyword coverage and cross-source agreement; the best distinct
     sentences form the answer, with every source listed.
     """
+    from model.perf import research_cache
+
+    cache_key = "rd:" + _norm(question)[:160]
+    cached = research_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     query, code_hint, news_hint, results = _gather(question, deep=True)
 
     found = [(name, r[0], r[1]) for name, r in results.items() if r]
@@ -879,12 +927,14 @@ def research_deep(question: str) -> Optional[dict]:
             seen_urls.append(url)
     # Başlık yok — sadece özet; kaynak linkleri UI'da "Kaynağı aç" ile gelir
     primary_url = text_sources[0][2] or (seen_urls[0] if seen_urls else "")
-    return {
+    out = {
         "answer": summary,
         "url": primary_url,
         "provider": "web",
         "sources": seen_urls[:6],
     }
+    research_cache.set(cache_key, out)
+    return out
 
 
 learned = LearnedStore()
