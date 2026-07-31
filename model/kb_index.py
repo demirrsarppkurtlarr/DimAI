@@ -248,20 +248,33 @@ class KnowledgeIndex:
             pushed = self.push_all_to_supabase(limit=8000)
             self.stats["supabase_pushed"] = pushed
 
-        # Pull a fresh cold slice if remote is configured (doesn't duplicate ids)
-        if self.configured:
-            remote = self._pull_supabase(limit=1500)
-            if remote:
-                with self._lock:
-                    before = len(self.chunks)
-                    for ch in remote:
-                        self._add_chunk(ch)
-                    if len(self.chunks) > before:
-                        self._rebuild_index()
-                        texts = [c.search_text() for c in self.chunks]
-                        self._vectors = embedding_engine.encode_many(texts)
-                    self.stats["local"] = len(self.chunks)
-                    self.stats["remote_pulled"] = len(remote)
+        # Cold pull is OPTIONAL and NEVER re-encodes the full local set
+        # synchronously (that used to hang Render free-tier boots for 15+ min).
+        if self.configured and os.environ.get("DIMAI_KB_PULL", "0").lower() in {"1", "true", "yes"}:
+            try:
+                remote = self._pull_supabase(limit=800)
+                if remote:
+                    with self._lock:
+                        before = len(self.chunks)
+                        for ch in remote:
+                            self._add_chunk(ch)
+                        if len(self.chunks) > before:
+                            self._rebuild_index()
+                            # Invalidate vectors; refill async — stem index answers now.
+                            ids = [c.chunk_id for c in self.chunks]
+                            texts = [c.search_text() for c in self.chunks]
+                            self._vectors = None
+                            self.stats["vectors"] = "pending"
+                            threading.Thread(
+                                target=self._encode_async,
+                                args=(ids, texts),
+                                daemon=True,
+                                name="kb-encode-pull",
+                            ).start()
+                        self.stats["local"] = len(self.chunks)
+                        self.stats["remote_pulled"] = len(remote)
+            except Exception as exc:
+                self.stats["remote_pull_error"] = str(exc)[:80]
 
         self.backend = "supabase+memory" if self.configured else "memory"
         return {"chunks": len(self.chunks), "added": added, **{k: v for k, v in self.stats.items() if k != "local"}}
