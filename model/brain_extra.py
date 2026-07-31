@@ -1,5 +1,10 @@
 """Extra knowledge for DimAI brain — more topics, algorithms, tools, concepts."""
 
+try:
+    from model.brain_knowledge2 import KB2
+except ImportError:
+    from brain_knowledge2 import KB2  # type: ignore
+
 EXTRA_KB: list[dict] = [
     # --- Python ileri seviye ---
     {"k": ["dict comprehension", "sozluk comprehension", "tek satirda sozluk"],
@@ -1357,4 +1362,4 @@ print(loaded["isim"])''', "l": "python"},
 
     {"k": ["cors nasil duzeltilir", "cors duzelt", "cors hatasi"],
      "a": "**CORS hatası** tarayıcıda origin engelidir — asıl düzeltme **backend**'de.\n\n• `Access-Control-Allow-Origin` (geliştirmede dikkatli kullan `*`)\n• Credentials varsa origin açık yaz + `Allow-Credentials: true`\n• Preflight: `OPTIONS` + Allow-Methods/Headers\n\nFlask örneği: `flask-cors` veya elle header ekle."},
-]
+] + list(KB2)
