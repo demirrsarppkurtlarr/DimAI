@@ -54,10 +54,24 @@ class ToolManager:
         if result.name == ToolName.KB:
             reply = str(result.payload.get("reply") or "")
             score = float(result.payload.get("score") or 0)
-            # Strong KB/learned hit → skip WEB. Weak/empty → keep going.
-            if result.payload.get("code") and reply:
+            source = str(result.payload.get("source") or "")
+            meta = result.payload.get("meta") if isinstance(result.payload.get("meta"), dict) else {}
+            # Weak / chatty index hits must NOT block WEB research.
+            if source.startswith("kb_index"):
+                if not meta.get("grounded"):
+                    return False
+                if score < 1.55:
+                    return False
+                # Reject slang / roleplay openings even if long
+                head = reply[:80].casefold()
+                if any(x in head for x in ("haha", "lan ", "ula ", "vallahi", "bir zamanlar")):
+                    return False
+            # Strong hand-KB or learned hit → skip WEB.
+            if result.payload.get("code") and reply and source in {"kb", "learned"}:
                 return True
-            return bool(reply) and (score >= 1.2 or len(reply) >= 40)
+            if source == "kb" and reply and score >= 2.0:
+                return True
+            return bool(reply) and score >= 1.55 and len(reply) >= 40
         return False
 
     def _dispatch(self, tool: ToolName, state: PipelineState) -> ToolResult:

@@ -51,38 +51,57 @@ def retrieve(query: str, *, min_score: float = 2.0, intent: str = "") -> Optiona
     # 1) Structured KB (brain) — high-precision hand entries
     try:
         from model.brain import brain, _norm
+        from model.kb_index import is_settings_howto
 
-        ranked = brain._rank_kb(_norm(q))
-        if ranked and ranked[0][1] >= min_score:
-            entry = ranked[0][0]
-            return RagHit(
-                reply=str(entry.get("a") or ""),
-                score=float(ranked[0][1]),
-                source="kb",
-                meta={"keys": entry.get("k"), "has_code": bool(entry.get("c"))},
-                code=str(entry.get("c") or ""),
-                lang=str(entry.get("l") or "python"),
-            )
+        # "css ayarlarına nasıl girerim" ≠ random CSS snippet / centering tip
+        skip_brain = is_settings_howto(q) and intent_l not in {"coding", "code", "command"}
+        if not skip_brain:
+            ranked = brain._rank_kb(_norm(q))
+            if ranked and ranked[0][1] >= min_score:
+                entry = ranked[0][0]
+                keys = " ".join(str(k) for k in (entry.get("k") or [])).casefold()
+                # Require at least a soft key overlap for short howto asks
+                qn = _norm(q)
+                key_hit = any(len(k) > 2 and k in qn for k in _norm(keys).split())
+                if key_hit or ranked[0][1] >= 6.0:
+                    return RagHit(
+                        reply=str(entry.get("a") or ""),
+                        score=float(ranked[0][1]),
+                        source="kb",
+                        meta={"keys": entry.get("k"), "has_code": bool(entry.get("c"))},
+                        code=str(entry.get("c") or ""),
+                        lang=str(entry.get("l") or "python"),
+                    )
     except Exception:
         pass
 
     # 2) Knowledge index — top-k hybrid over all seeded corpora (+ Supabase cold)
     try:
-        from model.kb_index import knowledge_index, synthesize_hits
+        from model.kb_index import (
+            is_factual_ask,
+            is_settings_howto,
+            knowledge_index,
+            synthesize_hits,
+        )
 
         kind = None
         if intent_l in {"coding", "code", "command"}:
             kind = "code"
         elif intent_l in {"conversation", "chat"}:
             kind = "chat"
-        hits = knowledge_index.search(q, top_k=6, kind=kind, min_score=0.30)
-        # If code-biased search is weak, retry open search
-        if kind and (not hits or hits[0].score < 0.38):
-            open_hits = knowledge_index.search(q, top_k=6, kind=None, min_score=0.30)
+        # Factual asks must not browse chat/roleplay corpora
+        if is_factual_ask(q) and kind is None:
+            kind = "qa"
+        hits = knowledge_index.search(q, top_k=6, kind=kind if kind != "qa" else None, min_score=0.32)
+        if kind == "code" and (not hits or hits[0].score < 0.38):
+            open_hits = knowledge_index.search(q, top_k=6, kind=None, min_score=0.32)
             if open_hits and (not hits or open_hits[0].score > hits[0].score):
                 hits = open_hits
-        payload = synthesize_hits(hits)
-        if payload and float(payload.get("score") or 0) >= 0.34:
+        # Settings howto without explicit coding → abstain (let WEB/CHAT explain UX)
+        if is_settings_howto(q) and intent_l not in {"coding", "code", "command"}:
+            hits = []
+        payload = synthesize_hits(hits, query=q)
+        if payload and float(payload.get("score") or 0) >= 0.38:
             return RagHit(
                 reply=str(payload.get("reply") or ""),
                 score=1.2 + float(payload["score"]),
