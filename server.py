@@ -13,7 +13,6 @@ if str(ROOT) not in sys.path:
 from flask import Flask, jsonify, request, send_from_directory
 
 from model import web_research
-from model.brain import brain
 from model.improve import init_improve
 from model.trainer import trainer
 from model.web_research import learned
@@ -49,6 +48,7 @@ def status():
     payload["learned_count"] = learned.count()
     payload["learned_backend"] = learned.backend
     payload["train_job"] = trainer.job_status()
+    payload["nlu"] = {"pipeline": "stages-1-10", "provider": "local-template"}
     try:
         payload["improve"] = improve.status()
     except Exception:
@@ -97,86 +97,27 @@ def chat():
     if not isinstance(history, list):
         history = []
 
-    # Agent decision — web yalnızca allow_web ise
+    # ---- Modern NLU reasoning pipeline (stages 1→10) ----
+    result = None
+    try:
+        from model.nlu import nlu_pipeline
+
+        result = nlu_pipeline.run(message, history[-24:])
+    except Exception as nlu_err:
+        result = {
+            "reply": "Anlamlandırma sırasında bir sorun oldu; farklı şekilde dener misin?",
+            "source": "chat",
+            "allow_web": False,
+            "thinking": f"nlu-error: {type(nlu_err).__name__}",
+        }
+
+    # Legacy agent only for web-policy fallback compatibility
+    decision = None
     try:
         from model.agent import agent as _agent
         decision = _agent.decide(message, history[-16:])
     except Exception:
         decision = None
-
-    result = None
-
-    # Memory retrieval: bilgi/takip için; kodda KB structured `code` alanı tercih
-    can_memory = True
-    if decision and decision.intent in ("chat", "refuse", "personal", "math", "help", "code"):
-        can_memory = False
-    if decision and not decision.allow_memory:
-        can_memory = False
-
-    if can_memory:
-        try:
-            prior = improve.retrieve(message)
-            if prior and float(prior.get("overall") or 0) >= 0.72 and prior.get("from") == "episode":
-                if float(prior.get("match") or 0) >= 0.78:
-                    msg_l = message.lower()
-                    reply_l = (prior.get("reply") or "").lower()
-                    # Tanım sorularında kod örnekli eski memory'yi ezme (örn. "HTTP nedir")
-                    definitional = any(
-                        x in msg_l
-                        for x in (
-                            "nedir", "kimdir", "ne demek", "what is", "who is",
-                            " vs ", " versus ", "fark", "ne ise yarar",
-                        )
-                    )
-                    looks_codey = any(
-                        x in reply_l
-                        for x in ("import ", "def ", "```", "pip install", "console.log", "sqlite3")
-                    )
-                    if definitional and looks_codey:
-                        prior = None
-                    # Fibonacci tuzağı: soruda yoksa fibo memory kullanma
-                    if prior and "fibonacc" in (prior.get("reply") or "").lower():
-                        if "fibonacc" not in msg_l and "fibo" not in msg_l:
-                            prior = None
-                    # Kod isteğinde hazır fibo/episode memory yerine taze üretim
-                    if prior and decision and decision.intent == "code":
-                        prior = None
-                    if prior and definitional:
-                        stop = {
-                            "nedir", "ne", "kimdir", "demek", "what", "who", "is", "are",
-                            "bir", "ve", "ile", "icin", "hakkinda", "nasil", "fark",
-                        }
-                        topics = [
-                            w for w in re.findall(r"[a-z0-9çğıöşü]+", msg_l)
-                            if w not in stop and len(w) >= 3
-                        ]
-                        # Çok kelimeli soruda (python dict) hepsi cevaptaysa kabul;
-                        # sadece "python" geçmesi "dict" cevabı sayılmaz.
-                        key_topics = [w for w in topics if len(w) >= 4] or topics
-                        if key_topics and not all(t in reply_l for t in key_topics):
-                            prior = None
-                    if prior:
-                        result = {
-                            "reply": prior["reply"],
-                            "source": "memory",
-                            "url": prior.get("url", ""),
-                            "thinking": "geçmiş başarılı çözümden",
-                            "intent": getattr(decision, "intent", "memory"),
-                            "allow_web": False,
-                        }
-        except Exception:
-            result = None
-
-    if result is None:
-        try:
-            result = brain.reply(message, history=history[-16:])
-        except Exception as brain_err:
-            result = {
-                "reply": "Bu soruda beklenmeyen bir hata oldu; farklı bir şekilde sorabilir misin?",
-                "source": "chat",
-                "allow_web": False,
-                "thinking": f"brain-error: {type(brain_err).__name__}",
-            }
 
     # Markdown ``` kodunu ayrı alana çıkar — UI kod bloğu göstersin
     if result and not result.get("code"):
@@ -190,10 +131,12 @@ def chat():
             result["code"] = code
             result["lang"] = result.get("lang") or lang
 
-    # Web yalnızca agent izin verdiyse ve brain fallback döndüyse
+    # Web: NLU planledi veya legacy fallback
     allow_web = bool(result.get("allow_web"))
-    if decision is not None:
-        allow_web = bool(decision.allow_web) and result.get("source") == "fallback"
+    if result.get("source") == "fallback":
+        allow_web = True
+    if decision is not None and result.get("source") == "fallback":
+        allow_web = bool(decision.allow_web) or allow_web
 
     if result.get("source") == "fallback" and allow_web:
         query = result.pop("research_query", message)
@@ -214,6 +157,7 @@ def chat():
                     "url": prior.get("url", ""),
                     "thinking": result.get("thinking", "") or "geçmiş çözüm",
                     "intent": result.get("intent"),
+                    "nlu": result.get("nlu"),
                 }
                 break
 
@@ -225,6 +169,7 @@ def chat():
                     "url": hit.get("url", ""),
                     "thinking": result.get("thinking", ""),
                     "intent": result.get("intent"),
+                    "nlu": result.get("nlu"),
                 }
                 break
 
@@ -237,16 +182,15 @@ def chat():
                     "provider": found.get("provider", ""),
                     "thinking": result.get("thinking", ""),
                     "intent": result.get("intent"),
+                    "nlu": result.get("nlu"),
                 }
                 break
         else:
-            if (result.get("thinking") or "").startswith("önceki konuya"):
-                tip = (result.get("thinking") or "")
-                konu = tip.split("«")[-1].split("»")[0] if "«" in tip else "bu konu"
-                result["source"] = "chat"
+            result["source"] = "chat"
+            if not result.get("reply") or "araştırayım" in (result.get("reply") or "").lower():
                 result["reply"] = (
-                    f"**{konu}** hakkında sorduğunu anladım ama net sonuç bulamadım. "
-                    f"Soruyu biraz açar mısın?"
+                    "Bunu netleştiremedim. Soruyu bir cümleyle açar mısın, "
+                    "ya da doğrudan `todo yaz` / `React nedir` gibi dene."
                 )
     elif result.get("source") == "fallback" and not allow_web:
         result["source"] = "chat"
