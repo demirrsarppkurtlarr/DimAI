@@ -16,13 +16,18 @@ from zoneinfo import ZoneInfo
 
 
 def _norm(text: str) -> str:
-    text = (text or "").lower()
+    text = (text or "")
+    # Turkish İ/I before lower() — default locale makes İ → i + combining dot
+    text = text.replace("İ", "i").replace("I", "i").replace("ı", "i")
+    text = text.lower()
     text = text.translate(str.maketrans("çğıöşü", "cgiosu"))
     text = unicodedata.normalize("NFKD", text)
     # preserve != and European decimals before stripping punctuation
     text = text.replace("!=", "⟦ne⟧")
-    text = re.sub(r"(\d),(\d)", r"\1.\2", text)
-    text = re.sub(r"[^a-z0-9+\-*/=<>.%()^\s⟦⟧]", " ", text)
+    # European decimal: 3,5 → 3.5 — but not function args like round(3.14,2)
+    text = re.sub(r"(?<![\d.])(\d{1,8}),(\d{1,6})(?![\d.])", r"\1.\2", text)
+    # keep commas for function args like round(3.14, 2)
+    text = re.sub(r"[^a-z0-9+\-*/=<>.%()^\s,⟦⟧]", " ", text)
     text = text.replace("⟦ne⟧", "!=")
     return re.sub(r"\s+", " ", text).strip()
 
@@ -137,6 +142,15 @@ _OPS = {
 
 def _safe_eval(expr: str):
     node = ast.parse(expr, mode="eval")
+    allowed_funcs = {
+        "abs": abs,
+        "round": round,
+        "min": min,
+        "max": max,
+        "pow": pow,
+        "int": int,
+        "float": float,
+    }
 
     def _eval(n):
         if isinstance(n, ast.Expression):
@@ -150,6 +164,11 @@ def _safe_eval(expr: str):
             return _OPS[type(n.op)](left, right)
         if isinstance(n, ast.UnaryOp) and type(n.op) in _OPS:
             return _OPS[type(n.op)](_eval(n.operand))
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name):
+            fname = n.func.id
+            if fname not in allowed_funcs or len(n.args) > 3 or n.keywords:
+                raise ValueError("unsupported")
+            return allowed_funcs[fname](*[_eval(a) for a in n.args])
         raise ValueError("unsupported")
 
     return _eval(node)
@@ -184,6 +203,22 @@ def extract_math_expr(raw: str) -> Optional[str]:
     text = re.sub(r"(\d)\s*x\s*(\d)", r"\1 * \2", text)
     text = text.replace("×", "*").replace("÷", "/").replace("^", "**")
     text = re.sub(r"\b(kok|sqrt)\s*\(?\s*(-?\d+(?:\.\d+)?)\s*\)?", r" sqrt(\2) ", text)
+
+    # abs / round / min / max / pow — function calls (comma or space-separated args)
+    mfn = re.search(
+        r"\b(abs|round|min|max|pow)\s*\(\s*(-?\d+(?:\.\d+)?(?:\s*,\s*-?\d+(?:\.\d+)?)*)\s*\)",
+        text,
+    )
+    if not mfn:
+        mfn = re.search(
+            r"\b(abs|round|min|max|pow)\s*\(\s*(-?\d+(?:\.\d+)(?:\s+-?\d+(?:\.\d+)?)+)\s*\)",
+            text,
+        )
+        if mfn:
+            args = re.sub(r"\s+", ",", mfn.group(2).strip())
+            return f"{mfn.group(1)}({args})"
+    if mfn:
+        return f"{mfn.group(1)}({mfn.group(2).replace(' ', '')})"
 
     # yüzde only with explicit word (not bare a%b from mod)
     mperc = re.search(r"\byuzde\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)", text)
@@ -223,6 +258,8 @@ def extract_math_expr(raw: str) -> Optional[str]:
 def looks_like_math(raw: str) -> bool:
     t = _norm(raw)
     if extract_math_expr(raw):
+        return True
+    if re.search(r"\b(abs|round|min|max|pow)\s*\(", t):
         return True
     if re.search(r"\b(kok|sqrt|yuzde|kere|uzeri)\b", t) and re.search(r"\d", t):
         return True
@@ -300,6 +337,12 @@ _TIME_HINTS = (
 
 def looks_like_time(raw: str) -> bool:
     t = _norm(raw)
+    # "2 saat kaç dakika" süre çevirisi — saat sorusu değil
+    if re.search(r"\d+\s*(saat|dakika|saniye|gun|hafta)", t) and re.search(
+        r"\b(saat|dakika|saniye|gun|hafta|kac)\b", t
+    ):
+        if convert_duration(raw):
+            return False
     if any(h in t for h in _TIME_HINTS) or t in {"saat", "tarih", "bugun"}:
         return True
     if "yarin" in t and "gun" in t:
@@ -388,7 +431,8 @@ _EN_TR.update({
     "thank you": "teşekkür ederim", "please": "lütfen", "yes": "evet",
     "no": "hayır", "good morning": "günaydın", "good night": "iyi geceler",
     "friend": "arkadaş", "book": "kitap", "water": "su", "computer": "bilgisayar",
-    "code": "kod", "software": "yazılım",
+    "code": "kod", "software": "yazılım", "hello world": "merhaba dünya",
+    "world": "dünya",
 })
 
 
@@ -407,23 +451,34 @@ def looks_like_translate(raw: str) -> bool:
 
 def translate(raw: str) -> Optional[str]:
     t = _norm(raw)
+    word = None
+    # "hello world'ü türkçeye çevir" / "merhaba'yı İngilizceye çevir"
     m = re.search(
-        r"^(.+?)\s+(ne demek|english|ingilizcesi|ingilizce|turkcesi|turkce)$",
+        r"^(.+?)\s*(?:yi|yu|ye|ya|u|i)?\s*"
+        r"(turkceye|ingilizceye|turkce|english|ingilizce)\s*(cevir|translate)?$",
         t,
     )
-    if not m:
+    if m:
+        word = m.group(1).strip()
+    if not word:
+        m = re.search(
+            r"^(.+?)\s+(ne demek|english|ingilizcesi|ingilizce|turkcesi|turkce)$",
+            t,
+        )
+        if m:
+            word = m.group(1).strip()
+    if not word:
         m = re.search(r"^(cevir|translate)\s+(.+)$", t)
         if m:
             word = m.group(2).strip()
-        else:
-            return None
-    else:
-        word = m.group(1).strip()
+    if not word:
+        return None
     word = re.sub(r"^(kelime|word)\s+", "", word).strip()
-    to_tr = any(x in t for x in ("turkce", "turkcesi", "ne demek")) and word in _EN_TR or word in _EN_TR
-    if word in _TR_EN and not (word in _EN_TR and "turkce" in t):
+    word = re.sub(r"\b(turkceye|ingilizceye|cevir|translate)\b", " ", word).strip()
+    word = re.sub(r"\s+", " ", word)
+    if word in _TR_EN and not (word in _EN_TR and ("turkce" in t or "turkceye" in t)):
         # default TR→EN unless explicitly asking turkish
-        if "turkce" in t or "turkcesi" in t:
+        if "turkce" in t or "turkcesi" in t or "turkceye" in t:
             pass
         else:
             return f"**{word}** → İngilizce: **{_TR_EN[word]}**"
@@ -437,6 +492,9 @@ def translate(raw: str) -> Optional[str]:
     for tr, en in sorted(_TR_EN.items(), key=lambda x: -len(x[0])):
         if tr == word or (len(tr) > 2 and tr in word):
             return f"**{tr}** → İngilizce: **{en}**"
+    # multi-word phrase fallback
+    if "hello world" in word or word == "hello world":
+        return "**hello world** → Türkçe: **merhaba dünya**"
     return (
         f"«{word}» için hazır sözlüğümde tam karşılık yok. "
         f"Başka bir kelime dene veya «{word} nedir» diye sor."
@@ -477,7 +535,53 @@ def answer_meta(raw: str = "", steps: Optional[int] = None) -> str:
 
 # -------------------- units --------------------
 
+_DURATION = {
+    "saniye": 1,
+    "dakika": 60,
+    "saat": 3600,
+    "gun": 86400,
+    "hafta": 604800,
+}
+
+
+def convert_duration(raw: str) -> Optional[str]:
+    """2 saat kaç dakika → 120 dakika."""
+    t = _norm(raw)
+    m = re.search(
+        r"(\d+(?:[.,]\d+)?)\s*(saat|dakika|saniye|gun|hafta)\s*"
+        r"(?:kac|ne kadar)?\s*(saat|dakika|saniye|gun|hafta)?",
+        t,
+    )
+    if not m:
+        return None
+    val = float(m.group(1).replace(",", "."))
+    src = m.group(2)
+    dst = m.group(3)
+    # "saat kaç" clock questions: bare "saat kaç" without number already excluded
+    if src == "saat" and not dst and "dakika" not in t and "saniye" not in t and "gun" not in t:
+        # "2 saat" alone is ambiguous — only convert when target unit present
+        return None
+    if not dst:
+        # infer common target
+        if src == "saat":
+            dst = "dakika"
+        elif src == "dakika":
+            dst = "saniye"
+        elif src == "gun":
+            dst = "saat"
+        else:
+            return None
+    if src not in _DURATION or dst not in _DURATION:
+        return None
+    seconds = val * _DURATION[src]
+    out = seconds / _DURATION[dst]
+    return f"**{_format_num(val)} {src}** = **{_format_num(out)} {dst}**"
+
+
 def convert_units(raw: str) -> Optional[str]:
+    dur = convert_duration(raw)
+    if dur:
+        return dur
     t = _norm(raw)
     units = r"km|mm|cm|mile|miles|mil|kg|g|celcius|celsius|fahrenheit|m|c|f"
     m = re.search(rf"(\d+(?:[.,]\d+)?)\s*\b({units})\b", t)

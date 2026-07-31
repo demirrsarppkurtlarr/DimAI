@@ -956,4 +956,101 @@ with open("data.json", "w", encoding="utf-8") as f:
 with open("data.json", "r", encoding="utf-8") as f:
     loaded = json.load(f)
 print(loaded["isim"])''', "l": "python"},
+
+    # --- Tanımlar: "X nedir" → açıklama (kod değil) ---
+    {"k": ["dimai nedir", "dim ai nedir", "dimai ne"],
+     "a": "**DimAI**, dış ücretli AI API'si kullanmayan, kendi kendini eğiten bir kod asistanıdır.\n\n• **Bilgi tabanı (KB)** — hazır kod ve kavram açıklamaları\n• **Öğrenilmiş hafıza** — web'den bulup kaydettiği bilgiler\n• **Beceriler** — matematik, birim, saat, çeviri\n• **Küçük nöral model** — karakter seviyesinde deneysel üretim\n\nKod, hesap veya bilgi sor — hepsine bakabilirim."},
+
+    {"k": ["react nedir", "react ne demek", "react js nedir"],
+     "a": "**React**, Meta (Facebook) tarafından geliştirilen, kullanıcı arayüzü yazmak için kullanılan bir **JavaScript kütüphanesidir**.\n\n• **Bileşen (component)** tabanlı: UI parçalara bölünür\n• **State / props** ile veri yönetimi\n• **Virtual DOM** ile verimli güncelleme\n• Genelde **JSX** sözdizimi kullanılır\n\nTek sayfa uygulamaları (SPA), dashboard ve mobil (React Native) için yaygındır. Örnek için `react component yaz` de."},
+
+    {"k": ["react hook nedir", "hooks nedir", "react hooks nedir", "hook nedir react"],
+     "a": "**React Hook**, fonksiyon bileşenlerinde state ve yan etki kullanmanı sağlayan özel fonksiyonlardır.\n\nSık kullanılanlar:\n• `useState` — durum tutar\n• `useEffect` — yan etki (fetch, abonelik)\n• `useRef` — DOM / mutable ref\n• `useMemo` / `useCallback` — hesap / fonksiyon önbelleği\n\nClass bileşenlerindeki lifecycle'ın modern karşılığıdır. Kod için `react component yaz` de."},
+
+    {"k": ["useeffect nedir", "useeffect ne ise yarar", "use effect nedir"],
+     "a": "**useEffect**, React'te bileşen çizildikten sonra yan etki çalıştırmak için kullanılan hook'tur.\n\nTipik işler: API çağrısı, event listener, timer, dış sistem senkronu.\n\n```js\nuseEffect(() => {\n  // mount / bağımlılık değişince\n  return () => { /* cleanup */ };\n}, [deps]);\n```\n\nBağımlılık dizisi `[]` ise yalnızca ilk mount'ta çalışır."},
+
+    {"k": ["async await nedir", "async nedir", "await nedir", "asenkron nedir"],
+     "a": "**async/await**, asenkron (beklemeden devam eden) kodu senkron gibi yazmanı sağlayan sözdizimidir.\n\n• `async function` her zaman bir **Promise** döner\n• `await` Promise sonucunu bekler, UI/thread'i kilitlemeden\n• JS, Python (`asyncio`), C# ve benzeri dillerde vardır\n\nPython örneği için `asyncio yaz` de."},
+
+    {"k": ["pandas nedir", "pandas ne demek", "pandas kutuphanesi"],
+     "a": "**pandas**, Python'da tablo verisi (CSV, Excel, SQL sonuçları) işlemek için kullanılan kütüphanedir.\n\n• Ana yapı: **DataFrame** (satır × sütun)\n• Filtreleme, gruplama, birleştirme, eksik veri temizliği\n• Veri bilimi ve analiz işlerinin standardı\n\nKurulum: `pip install pandas`. Kod için `pandas` diye sor."},
+
+    {"k": ["tailwind nedir", "tailwind css nedir", "tailwindcss nedir"],
+     "a": "**Tailwind CSS**, hazır utility class'larla arayüz stillendirmeni sağlayan bir CSS framework'üdür.\n\nÖrnek: `class=\"flex items-center gap-2 p-4 bg-slate-900 text-white\"`\n\n• Ayrı CSS dosyası yazmayı azaltır\n• Tasarım sistemi (renk, spacing) tutarlı kalır\n• JIT derleyici ile kullanılan class'lar üretilir\n\nKlasik CSS örneği için `css ortala` de."},
+
+    {"k": ["jwt nedir", "json web token nedir", "jwt ne demek"],
+     "a": "**JWT (JSON Web Token)**, kimlik doğrulama bilgisini imzalı bir string olarak taşıyan formattır.\n\nYapı: `header.payload.signature` (Base64).\n\n• Sunucu login sonrası token verir\n• İstemci her istekte `Authorization: Bearer …` gönderir\n• Sunucu imzayı doğrular — oturum için sık kullanılır\n\nGizli anahtarı asla frontend'e koyma."},
+
+    {"k": ["graphql nedir", "graph ql nedir"],
+     "a": "**GraphQL**, API'lerden tam olarak ihtiyaç duyduğun alanları sorgulamanı sağlayan bir sorgu dilidir (Facebook kökenli).\n\n• Tek endpoint (genelde `/graphql`)\n• Over-fetching / under-fetching azalır\n• REST'e alternatif; şema + tipler zorunlu\n\nÖrnek: `{ user(id: 1) { name email } }`"},
+
+    {"k": ["redis nedir", "redis ne demek"],
+     "a": "**Redis**, bellekte çalışan hızlı bir **anahtar-değer** veri deposudur (çoğunlukla cache / kuyruk / oturum).\n\n• Çok düşük gecikme\n• String, hash, list, set, sorted set yapıları\n• TTL ile otomatik silme\n\nTipik kullanım: API cache, rate limit, session store."},
+
+    {"k": ["kubernetes nedir", "k8s nedir", "kubernetes ne demek"],
+     "a": "**Kubernetes (K8s)**, konteynerleri (Docker vb.) otomatik dağıtıp ölçekleyen bir orkestrasyon sistemidir.\n\n• Pod / Deployment / Service kavramları\n• Sağlık kontrolü, yeniden başlatma, yatay ölçekleme\n• Bulut ve on-prem ortamların standardı\n\nDocker tek makine; Kubernetes filo yönetimidir."},
+
+    {"k": ["nginx nedir", "nginx ne demek"],
+     "a": "**Nginx**, yüksek performanslı web sunucusu ve reverse proxy'dir.\n\n• Statik dosya sunma\n• Load balancing\n• TLS sonlandırma (HTTPS)\n• API gateway / rate limit önü\n\nÇoğu production kurulumunda uygulama sunucusunun önünde durur."},
+
+    {"k": ["ci cd nedir", "cicd nedir", "ci/cd nedir", "continuous integration"],
+     "a": "**CI/CD** = Continuous Integration / Continuous Delivery (veya Deployment).\n\n• **CI:** her commit'te otomatik test / build\n• **CD:** onaylı sürümü otomatik staging/production'a alma\n\nAraçlar: GitHub Actions, GitLab CI, Jenkins, CircleCI.\nAmaç: elle deploy hatalarını ve \"bende çalışıyor\" sorununu azaltmak."},
+
+    {"k": ["prometheus nedir", "prometheus monitoring"],
+     "a": "**Prometheus** (yazılım), sistem ve uygulama metriklerini toplayan açık kaynaklı bir **izleme (monitoring)** sistemidir.\n\n• Zaman serisi veritabanı\n• Pull modeli ile hedef scrapeleri\n• PromQL sorgu dili\n• Sıkça Grafana ile görselleştirilir\n\nNot: Yunan mitolojisindeki Prometheus ile karıştırma — DevOps'ta monitoring kastedilir."},
+
+    {"k": ["prisma nedir", "prisma orm nedir"],
+     "a": "**Prisma**, TypeScript/Node ekosisteminde popüler bir **ORM**'dir.\n\n• `schema.prisma` ile veri modeli\n• Tip güvenli client üretir\n• PostgreSQL, MySQL, SQLite, MongoDB desteği\n\nSQL yazmadan güvenli sorgular için kullanılır."},
+
+    {"k": ["zod nedir", "zod validation"],
+     "a": "**Zod**, TypeScript için runtime şema doğrulama kütüphanesidir.\n\n• API body / form verisini doğrular\n• Şemadan TypeScript tipi çıkarır (`z.infer`)\n• `safeParse` ile hata mesajı üretir\n\nÖrnek: `z.object({ email: z.string().email() })`"},
+
+    {"k": ["nextjs nedir", "next.js nedir", "next js nedir"],
+     "a": "**Next.js**, React üzerine kurulu bir full-stack framework'tür (Vercel).\n\n• App Router / sayfa yönlendirme\n• SSR, SSG, ISR, Server Components\n• API route'ları\n• Production'a hazır React uygulamaları için yaygın seçim"},
+
+    {"k": ["closure nedir", "closures nedir", "kapama nedir programlama"],
+     "a": "**Closure (kapama)**, bir fonksiyonun tanımlandığı kapsamın değişkenlerini sonradan da hatırlamasıdır.\n\n```js\nfunction sayac() {\n  let n = 0;\n  return () => ++n;\n}\nconst artir = sayac();\nartir(); // 1\n```\n\nJS, Python ve birçok dilde callback / factory kalıplarının temelidir."},
+
+    {"k": ["python decorator nedir", "decorator nedir", "dekorator nedir"],
+     "a": "**Decorator (dekoratör)**, mevcut bir fonksiyonu sarmalayıp davranış ekleyen Python kalıbıdır (`@decorator`).\n\n```python\ndef logla(fn):\n    def sari(*a, **k):\n        print(\"çağrıldı\", fn.__name__)\n        return fn(*a, **k)\n    return sari\n\n@logla\ndef topla(x, y): return x + y\n```\n\nLogging, yetki kontrolü, cache için sık kullanılır. Kod için `decorator yaz` de."},
+
+    {"k": ["sql join nedir", "join nedir sql", "inner join nedir"],
+     "a": "**SQL JOIN**, iki (veya daha fazla) tabloyu ortak sütuna göre birleştirir.\n\n• **INNER JOIN** — her iki tarafta eşleşenler\n• **LEFT JOIN** — soldakilerin hepsi + sağda eşleşenler\n• **RIGHT / FULL** — benzer mantık diğer yönlerde\n\nÖrnek: siparişleri kullanıcı adlarıyla listelemek."},
+
+    {"k": ["nosql nedir", "no sql nedir", "nosql ne demek"],
+     "a": "**NoSQL**, klasik ilişkisel (tablo + SQL) modele sıkı bağlı olmayan veritabanı ailesidir.\n\nTürler:\n• Belge: MongoDB\n• Anahtar-değer: Redis\n• Sütun: Cassandra\n• Graf: Neo4j\n\nEsnek şema ve yatay ölçek için tercih edilir; karmaşık join'ler zayıftır."},
+
+    {"k": ["mongodb nedir", "mongo db nedir"],
+     "a": "**MongoDB**, JSON benzeri **BSON belgeler** saklayan popüler bir NoSQL veritabanıdır.\n\n• Koleksiyon = tablo benzeri\n• Belge = satır (esnek alanlar)\n• Yatay ölçek (sharding) güçlü\n• Node/Python ekosisteminde çok kullanılır"},
+
+    {"k": ["git rebase nedir", "rebase nedir", "git rebase ne"],
+     "a": "**git rebase**, commit geçmişini başka bir taban üzerine yeniden uygular; geçmişi doğrusal tutmak için kullanılır.\n\n• `merge` → birleştirme commit'i ekler\n• `rebase` → commit'leri kaydırır (geçmişi yeniden yazar)\n\nPaylaşılan branch'te force-push riskli olabilir; feature branch'lerde sıkça tercih edilir."},
+
+    {"k": ["docker compose nedir", "docker-compose nedir", "compose nedir docker"],
+     "a": "**Docker Compose**, birden fazla konteyneri tek `docker-compose.yml` ile tanımlayıp birlikte çalıştırma aracıdır.\n\nÖrn: web + postgres + redis aynı anda `docker compose up`.\n\nTek konteyner için Dockerfile; çok servisli geliştirme ortamı için Compose."},
+
+    {"k": ["websocket nedir", "web socket nedir", "websockets nedir"],
+     "a": "**WebSocket**, tek TCP bağlantısı üzerinden **çift yönlü** (sunucu↔istemci) gerçek zamanlı iletişim protokolüdür.\n\n• Chat, canlı skor, işbirliği editörleri\n• HTTP'den upgrade ile başlar\n• REST'e göre sürekli açık kanal\n\nAlternatif: SSE (sunucu→istemci tek yön)."},
+
+    {"k": ["oauth nedir", "oauth2 nedir", "o auth nedir"],
+     "a": "**OAuth 2.0**, \"Google/GitHub ile giriş\" gibi **yetkilendirme** protokolüdür.\n\n• Kullanıcı şifresini 3. parti uygulamaya vermez\n• Access token ile sınırlı izin verir\n• OpenID Connect kimlik katmanı ekler\n\nSık akış: Authorization Code (+ PKCE)."},
+
+    {"k": ["cors nedir", "cors ne demek", "cross origin"],
+     "a": "**CORS (Cross-Origin Resource Sharing)**, tarayıcının farklı origin'lerden (domain/port) API çağrısını kontrol eden güvenlik mekanizmasıdır.\n\n• `Access-Control-Allow-Origin` header'ı kritik\n• Preflight (`OPTIONS`) karmaşık isteklerde gelir\n• Backend'de doğru CORS ayarı yoksa frontend \"blocked by CORS\" görür\n\nNot: GNSS/CORS ağlarıyla karıştırma — web'de bu kastedilir."},
+
+    {"k": ["dns nedir", "dns ne demek", "domain name system"],
+     "a": "**DNS (Domain Name System)**, alan adlarını IP adreslerine çeviren internet \"rehberidir\".\n\n`example.com` → `93.184.216.34`\n\nKayıt türleri: A, AAAA, CNAME, MX, TXT.\nTarayıcı her sitede önce DNS sorar."},
+
+    {"k": ["tcp vs udp", "tcp udp fark", "tcp nedir", "udp nedir"],
+     "a": "**TCP** vs **UDP**:\n\n• **TCP:** güvenilir, sıralı, bağlantılı (web, email, SSH)\n• **UDP:** hızlı, bağlantısız, paket kaybı olabilir (oyun, video, DNS)\n\nTCP \"teslimat garantisi\" ister; UDP \"hız\" ister."},
+
+    {"k": ["rest api nedir", "rest nedir api", "restful nedir"],
+     "a": "**REST API**, kaynakları URL + HTTP metodlarıyla yöneten yaygın API tarzıdır.\n\n• `GET` oku · `POST` oluştur · `PUT/PATCH` güncelle · `DELETE` sil\n• Genelde JSON döner\n• Stateles: her istekte kimlik/token gerekir\n\n\"API nedir\" daha genel; REST onun en popüler uygulamasıdır."},
+
+    {"k": ["typescript interface vs type", "interface vs type", "type vs interface"],
+     "a": "**TypeScript `interface` vs `type`:**\n\n• İkisi de şekil/tip tanımlar\n• `interface` birleştirilebilir (declaration merging)\n• `type` birleşim (`A | B`), tuple, mapped type için daha esnek\n• Nesne şekilleri için çoğu ekip `interface` tercih eder\n\nPratikte ikisi de çalışır; tutarlı ol."},
+
+    {"k": ["turkiye baskenti", "turkiyenin baskenti", "ankara baskent"],
+     "a": "**Türkiye'nin başkenti Ankara'dır.** 13 Ekim 1923'te başkent ilan edildi. En kalabalık şehir ise İstanbul'dur."},
 ]

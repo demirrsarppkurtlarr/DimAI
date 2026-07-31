@@ -13,6 +13,8 @@ from typing import Optional
 
 
 def _norm(text: str) -> str:
+    text = text or ""
+    text = text.replace("İ", "i").replace("I", "i").replace("ı", "i")
     text = text.lower()
     table = str.maketrans("çğıöşü", "cgiosu")
     text = text.translate(table)
@@ -1167,7 +1169,7 @@ CHITCHAT: list[tuple[list[str], list[str]]] = [
      ["Konuştuğumuz kadarını hatırlıyorum. Adını söylersen kalıcı tutarım — \"Benim adım ...\""]),
     (["seni kim yapti", "kim gelistirdi", "yaraticin"],
      ["Beni Demir geliştirdi. Bilgi tabanım ve nöral modelim tamamen yerel çalışıyor."]),
-    (["tesekkur", "sagol", "sag ol", "thanks", "eyvallah", "tskler"],
+    (["tesekkur", "tesekkurler", "tesekkur ederim", "sagol", "sag ol", "thanks", "thank you", "eyvallah", "tskler"],
      ["Rica ederim! Başka bir şey lazım olursa yazman yeterli.", "Ne demek — devam edelim mi?"]),
     (["gorusuruz", "bay bay", "hosca kal", "bye", "gule gule"],
      ["Görüşürüz! İyi çalışmalar."]),
@@ -1250,6 +1252,14 @@ class Brain:
                     close = difflib.get_close_matches(kw, words, n=1, cutoff=0.85)
                     if close:
                         score += 0.8
+        # Tanım sorularında kod örnekli KB'yi cezalandır; "X nedir" anahtarını ödüllendir
+        definitional = any(x in text for x in ("nedir", "kimdir", "ne demek", "ne ise", "hakkinda"))
+        if definitional:
+            keys_blob = " ".join(entry.get("nk") or [])
+            if "nedir" in keys_blob or "kimdir" in keys_blob or "ne demek" in keys_blob:
+                score += 4.0
+            if entry.get("c") and "nedir" not in keys_blob:
+                score -= 3.0
         return score
 
     def _match_kb(self, text: str, exclude: Optional[dict] = None) -> Optional[dict]:

@@ -52,6 +52,8 @@ STOPWORDS = {
 
 
 def _norm(text: str) -> str:
+    text = text or ""
+    text = text.replace("İ", "i").replace("I", "i").replace("ı", "i")
     text = text.lower()
     text = text.translate(str.maketrans("çğıöşü", "cgiosu"))
     text = unicodedata.normalize("NFKD", text)
@@ -74,6 +76,31 @@ def _clean_query(text: str) -> str:
                 city = c
                 break
         return f"{city} weather temperature Celsius" if city else "Turkey weather today temperature"
+    # Tech disambiguation — mitoloji / yanlış Wikipedia sayfalarını engelle
+    tech_map = {
+        "zod": "Zod TypeScript validation library",
+        "prisma": "Prisma ORM Node.js",
+        "prometheus": "Prometheus monitoring software",
+        "cors": "CORS Cross-Origin Resource Sharing web",
+        "closure": "closure programming JavaScript",
+        "useeffect": "React useEffect hook",
+        "ci cd": "CI CD continuous integration continuous delivery",
+        "cicd": "CI CD continuous integration",
+        "tailwind": "Tailwind CSS framework",
+        "graphql": "GraphQL API query language",
+        "jwt": "JWT JSON Web Token authentication",
+        "redis": "Redis in-memory database",
+        "kubernetes": "Kubernetes container orchestration",
+        "nginx": "Nginx web server",
+        "mongodb": "MongoDB NoSQL database",
+        "oauth": "OAuth 2.0 authorization",
+        "websocket": "WebSocket protocol",
+        "nextjs": "Next.js React framework",
+        "next js": "Next.js React framework",
+    }
+    for key, rewrite in tech_map.items():
+        if key in n:
+            return rewrite
     # "X kim buldu/yarattı"
     if "kim buldu" in n or "kim yaratti" in n or "who invented" in n or "who created" in n:
         topic = re.sub(r"\b(kim buldu|kim yaratti|who invented|who created)\b", " ", n)
@@ -83,6 +110,10 @@ def _clean_query(text: str) -> str:
     if "baskent" in n or "capital" in n:
         if "turkiye" in n or "turkey" in n:
             return "Türkiye başkenti Ankara"
+    # nüfus
+    if "nufus" in n or "population" in n:
+        if "istanbul" in n:
+            return "İstanbul nüfusu"
     words = [w for w in text.strip().rstrip("?!.").split() if _norm(w) not in STOPWORDS]
     return " ".join(words) or text
 

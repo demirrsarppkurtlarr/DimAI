@@ -13,7 +13,9 @@ from typing import Optional
 
 
 def _norm(text: str) -> str:
-    text = (text or "").lower()
+    text = (text or "")
+    text = text.replace("İ", "i").replace("I", "i").replace("ı", "i")
+    text = text.lower()
     text = text.translate(str.maketrans("çğıöşü", "cgiosu"))
     text = unicodedata.normalize("NFKD", text)
     text = re.sub(r"[^a-z0-9+\-*/=<>.,!?'\"\s]", " ", text)
@@ -202,6 +204,16 @@ class Agent:
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
 
+        # --- research BEFORE code: "React nedir" ≠ kod örneği ---
+        if self._looks_research(text, words) and not self._explicit_code_request(text, words):
+            return Decision(
+                intent="research", allow_web=True, allow_memory=True, allow_kb=True,
+                tools=["memory", "kb", "web"],
+                reason="bilgi / olgu sorusu",
+                research_query=raw,
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
+
         # --- code ---
         if self._looks_code(text, words):
             plan = self._code_plan(text)
@@ -228,7 +240,7 @@ class Agent:
             if words <= {"daha", "anlat", "devam", "acikla", "detay"} or text in {
                 "daha anlat", "devam", "devam et", "anlat", "detay",
             }:
-                rq = f"{main} nedir açıklama".strip()
+                rq = f"{main} programming software library explained".strip()
             else:
                 rq = f"{main} {raw}".strip()
             return Decision(
@@ -239,7 +251,7 @@ class Agent:
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
 
-        # --- research (olgu / soru kalıpları) ---
+        # --- research (kalan olgu kalıpları) ---
         if self._looks_research(text, words):
             return Decision(
                 intent="research", allow_web=True, allow_memory=True, allow_kb=True,
@@ -318,7 +330,21 @@ class Agent:
         return False
 
     @staticmethod
+    def _explicit_code_request(text: str, words: set[str]) -> bool:
+        """True only when user clearly wants code, not a definition."""
+        if words & CODE_WRITE or words & CODE_EXAMPLE or words & CODE_STRONG:
+            return True
+        if any(p in text for p in ("kod yaz", "write code", "python kod", "js kod", "ornek ver", "örnek ver")):
+            return True
+        return False
+
+    @staticmethod
     def _looks_code(text: str, words: set[str]) -> bool:
+        # Tanım / bilgi sorusu → kod yolu değil
+        if any(h in text for h in RESEARCH_EXPLICIT) and not (
+            words & (CODE_WRITE | CODE_EXAMPLE | CODE_STRONG)
+        ):
+            return False
         if words & CODE_STRONG:
             return True
         if (words & CODE_WRITE) and (words & (CODE_EXAMPLE | CODE_LANGS | CODE_STRONG)):
@@ -335,7 +361,10 @@ class Agent:
         # "X nasıl yazılır/yapılır" programming how-to — still code-ish if lang present
         if (words & CODE_LANGS) and any(x in text for x in ("nasil", "yazilir", "yapilir", "kullanilir")):
             return True
-        if "react" in words or "component" in words:
+        # React/component yalnızca yazma/örnek isteğinde kod
+        if ("react" in words or "component" in words) and (
+            words & (CODE_WRITE | CODE_EXAMPLE | CODE_STRONG) or "ornek" in text
+        ):
             return True
         return False
 
