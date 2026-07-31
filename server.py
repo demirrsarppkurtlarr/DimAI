@@ -23,71 +23,55 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 improve = init_improve(learned)
 
 # Knowledge index: hybrid top-k over all curated seeds (+ Supabase cold tier)
+# IMPORTANT: do NOT bootstrap at import time. Parsing ~60MB of seed JSON and
+# building 17k embeddings used to block gunicorn from binding $PORT, so Render
+# free-tier health checks timed out ("No open ports detected").
 from model.kb_index import knowledge_index
 
-try:
-    _kb_stats = knowledge_index.bootstrap(
-        push_supabase=os.environ.get("DIMAI_KB_PUSH", "").lower() in {"1", "true", "yes"},
-    )
-    print(
-        f"[DimAI] kb_index ready: {_kb_stats.get('chunks', 0)} chunks "
-        f"backend={knowledge_index.backend} boot={_kb_stats.get('boot_sec')}s",
-        flush=True,
-    )
-except Exception as _exc:
-    print(f"[DimAI] kb_index bootstrap skipped: {_exc}", flush=True)
-
-# Legacy learned store seeds (smaller caps — primary retrieval is kb_index)
 _TULU_SEED = ROOT / "data" / "tulu_learned_seed.json"
-try:
-    _seeded = learned.seed_from_file(_TULU_SEED, limit=800)
-    if _seeded:
-        print(f"[DimAI] seeded {_seeded} Tulu Q&A into learned store", flush=True)
-except Exception as _exc:
-    print(f"[DimAI] tulu seed skipped: {_exc}", flush=True)
-
-# Hugging Face coding instruction seed (data/ingest_code_instruct.py)
 _CODE_SEED = ROOT / "data" / "code_learned_seed.json"
-try:
-    _code_seeded = learned.seed_from_file(_CODE_SEED, limit=1200)
-    if _code_seeded:
-        print(f"[DimAI] seeded {_code_seeded} HF code-instruct pairs into learned store", flush=True)
-except Exception as _exc:
-    print(f"[DimAI] code seed skipped: {_exc}", flush=True)
-
-# Turkish-heavy chat + code seeds — backup path for learned.lookup
 _TR_CHAT_SEED = ROOT / "data" / "tr_chat_learned_seed.json"
 _TR_CODE_SEED = ROOT / "data" / "tr_code_learned_seed.json"
-try:
-    _tr_chat = learned.seed_from_file(_TR_CHAT_SEED, limit=2000)
-    if _tr_chat:
-        print(f"[DimAI] seeded {_tr_chat} Turkish chat/instruct pairs into learned store", flush=True)
-except Exception as _exc:
-    print(f"[DimAI] TR chat seed skipped: {_exc}", flush=True)
-try:
-    _tr_code = learned.seed_from_file(_TR_CODE_SEED, limit=1200)
-    if _tr_code:
-        print(f"[DimAI] seeded {_tr_code} Turkish code-instruct pairs into learned store", flush=True)
-except Exception as _exc:
-    print(f"[DimAI] TR code seed skipped: {_exc}", flush=True)
-
-# Mega code seed (data/ingest_mega_code.py) — 7 fresh HF coding datasets
 _MEGA_SEED = ROOT / "data" / "mega_code_seed.json"
-try:
-    _mega = learned.seed_from_file(_MEGA_SEED, limit=1500)
-    if _mega:
-        print(f"[DimAI] seeded {_mega} mega-code pairs into learned store", flush=True)
-except Exception as _exc:
-    print(f"[DimAI] mega code seed skipped: {_exc}", flush=True)
-
-# Huge-scale HF slices — backup only; full set lives in kb_index
 _HUGE_SEED = ROOT / "data" / "huge_learned_seed.json"
-try:
-    _huge = learned.seed_from_file(_HUGE_SEED, limit=2000)
-    if _huge:
-        print(f"[DimAI] seeded {_huge} huge-HF pairs into learned store", flush=True)
-except Exception as _exc:
-    print(f"[DimAI] huge seed skipped: {_exc}", flush=True)
+
+_heavy_boot_started = False
+_heavy_boot_done = False
+
+
+def _heavy_boot() -> None:
+    """Load kb_index + learned seeds AFTER the HTTP port is open."""
+    global _heavy_boot_done
+    print("[DimAI] heavy boot starting (kb_index + seeds)…", flush=True)
+    try:
+        _kb_stats = knowledge_index.bootstrap(
+            push_supabase=os.environ.get("DIMAI_KB_PUSH", "").lower() in {"1", "true", "yes"},
+        )
+        print(
+            f"[DimAI] kb_index ready: {_kb_stats.get('chunks', 0)} chunks "
+            f"backend={knowledge_index.backend} boot={_kb_stats.get('boot_sec')}s",
+            flush=True,
+        )
+    except Exception as _exc:
+        print(f"[DimAI] kb_index bootstrap skipped: {_exc}", flush=True)
+
+    for path, limit, label in (
+        (_TULU_SEED, 800, "Tulu"),
+        (_CODE_SEED, 1200, "HF code-instruct"),
+        (_TR_CHAT_SEED, 2000, "Turkish chat/instruct"),
+        (_TR_CODE_SEED, 1200, "Turkish code-instruct"),
+        (_MEGA_SEED, 1500, "mega-code"),
+        (_HUGE_SEED, 2000, "huge-HF"),
+    ):
+        try:
+            n = learned.seed_from_file(path, limit=limit)
+            if n:
+                print(f"[DimAI] seeded {n} {label} pairs into learned store", flush=True)
+        except Exception as _exc:
+            print(f"[DimAI] {label} seed skipped: {_exc}", flush=True)
+
+    _heavy_boot_done = True
+    print("[DimAI] heavy boot done", flush=True)
 
 
 @app.get("/")
@@ -97,7 +81,12 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return jsonify({"ok": True, "app": "DimAI"})
+    return jsonify({
+        "ok": True,
+        "app": "DimAI",
+        "kb_ready": bool(getattr(knowledge_index, "booted", False)),
+        "heavy_boot_done": _heavy_boot_done,
+    })
 
 
 @app.get("/api/status")
@@ -112,7 +101,7 @@ def status():
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "coding-params-v15",
+        "phase": "fast-boot-v16",
         "codegen": "first-principles+40-domains",
         "rag": "kb+topk-hybrid+learned+supabase-cold",
         "tool_policy": "auto",
@@ -451,13 +440,21 @@ _worker_ready = False
 
 @app.before_request
 def _ensure_worker_threads() -> None:
-    """İlk istekte (worker sürecinde) kilidi tazele ve autolearn'ü başlat."""
-    global _worker_ready
+    """İlk istekte (worker sürecinde) kilidi tazele, ağır boot + autolearn başlat."""
+    global _worker_ready, _heavy_boot_started
     if _worker_ready:
         return
     _worker_ready = True
     trainer.reset_lock()
-    print("[worker] fresh lock; starting autolearn in worker process", flush=True)
+    print("[worker] fresh lock; starting background boot + autolearn", flush=True)
+
+    # Heavy kb/seed load in a daemon thread — never block the first HTTP response.
+    if not _heavy_boot_started:
+        _heavy_boot_started = True
+        import threading
+
+        threading.Thread(target=_heavy_boot, daemon=True, name="heavy-boot").start()
+
     if os.environ.get("DIMAI_AUTOLEARN", "1") == "1":
         interval = float(os.environ.get("DIMAI_AUTOLEARN_INTERVAL", "3"))
         if interval > 0:
