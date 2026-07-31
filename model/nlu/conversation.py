@@ -235,6 +235,14 @@ PERSONA_EN = {
 
 def detect_chitchat_key(text: str) -> Optional[str]:
     f = _fold(text)
+    # Never treat easter eggs as chitchat / coding
+    try:
+        from model import skills as _skills
+
+        if _skills.looks_like_special_code(text):
+            return None
+    except Exception:
+        pass
     # Exact-ish short social acts (avoid matching inside longer tech asks)
     if len(f.split()) > 12:
         return None
