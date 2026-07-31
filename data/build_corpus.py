@@ -559,13 +559,67 @@ SNIPPETS = [
 ]
 
 
+SEED_FILES = [
+    # (filename, max entries) — committed HF seeds carrying real python code
+    ("mega_code_seed.json", 6000),
+    ("code_learned_seed.json", 3500),
+    ("tr_code_learned_seed.json", 2700),
+    ("huge_learned_seed.json", 2000),
+]
+CORPUS_CHAR_CAP = 4_500_000  # ~4.5 MB of validated python for the char-RNN
+
+
+def _seed_code(char_budget: int) -> str:
+    """Pull syntactically valid python code from committed seed JSONs."""
+    import ast
+    import json
+    import warnings
+
+    here = Path(__file__).parent
+    parts: list[str] = []
+    used = 0
+    seen: set[int] = set()
+    for name, cap in SEED_FILES:
+        path = here / name
+        if not path.exists():
+            continue
+        try:
+            rows = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        taken = 0
+        for row in rows:
+            if taken >= cap or used >= char_budget:
+                break
+            code = str(row.get("c") or "").strip()
+            if not code or len(code) < 40 or len(code) > 3500:
+                continue
+            h = hash(code[:200])
+            if h in seen:
+                continue
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", SyntaxWarning)
+                try:
+                    ast.parse(code)
+                except Exception:
+                    continue
+            seen.add(h)
+            parts.append(code + "\n\n")
+            used += len(code) + 2
+            taken += 1
+        if used >= char_budget:
+            break
+    return "".join(parts)
+
+
 def build_corpus() -> str:
     parts = []
     for snippet in SNIPPETS:
         parts.append(snippet.strip() + "\n\n")
-    # Repeat with light variation markers to thicken signal for the tiny model
     base = "".join(parts)
-    return (base + "\n").strip() + "\n"
+    # Thicken with real, validated python from HF seeds (mega/code/tr/huge).
+    seed_code = _seed_code(CORPUS_CHAR_CAP - len(base))
+    return (base + seed_code + "\n").strip() + "\n"
 
 
 def main() -> None:

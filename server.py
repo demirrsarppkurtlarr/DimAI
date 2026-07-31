@@ -71,6 +71,15 @@ try:
 except Exception as _exc:
     print(f"[DimAI] TR code seed skipped: {_exc}", flush=True)
 
+# Mega code seed (data/ingest_mega_code.py) — 7 fresh HF coding datasets
+_MEGA_SEED = ROOT / "data" / "mega_code_seed.json"
+try:
+    _mega = learned.seed_from_file(_MEGA_SEED, limit=1500)
+    if _mega:
+        print(f"[DimAI] seeded {_mega} mega-code pairs into learned store", flush=True)
+except Exception as _exc:
+    print(f"[DimAI] mega code seed skipped: {_exc}", flush=True)
+
 # Huge-scale HF slices — backup only; full set lives in kb_index
 _HUGE_SEED = ROOT / "data" / "huge_learned_seed.json"
 try:
@@ -103,11 +112,12 @@ def status():
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "coding-params-v14",
+        "phase": "coding-params-v15",
         "codegen": "first-principles+40-domains",
         "rag": "kb+topk-hybrid+learned+supabase-cold",
         "tool_policy": "auto",
         "hf_code_seed": True,
+        "mega_code_seed": True,
         "tr_chat_seed": True,
         "tr_code_seed": True,
         "huge_seed": True,
@@ -449,7 +459,7 @@ def _ensure_worker_threads() -> None:
     # Deep training: automatically continue toward a step target in the
     # background (keepalive pings prevent Render free-tier sleep).
     try:
-        auto_target = int(os.environ.get("DIMAI_AUTO_TRAIN_TARGET", "25000"))
+        auto_target = int(os.environ.get("DIMAI_AUTO_TRAIN_TARGET", "60000"))
         if auto_target > 0 and trainer.state.steps < auto_target and not trainer.job.get("active"):
             remaining = auto_target - trainer.state.steps
             job = trainer.start_training_job(remaining)

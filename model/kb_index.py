@@ -208,6 +208,7 @@ class KnowledgeIndex:
                 added += self._ingest_file(HOT_PATH, limit=20000, source_label="hot")
             # Coding-first caps: ALL curated code seeds + quality-ranked rest.
             plan = [
+                (DATA / "mega_code_seed.json", 5500, "mega_code", "code"),
                 (DATA / "tr_code_learned_seed.json", 2700, "tr_code", "code"),
                 (DATA / "code_learned_seed.json", 3500, "hf_code", "code"),
                 (DATA / "huge_learned_seed.json", 3600, "huge", "qa"),
