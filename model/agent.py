@@ -137,6 +137,12 @@ class Agent:
                 tools=["chat"], reason="gürültü / boş mesaj",
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
+        if _skills.looks_like_special_code(raw):
+            return Decision(
+                intent="chat", allow_web=False, allow_memory=False, allow_kb=False,
+                tools=["chat"], reason="özel kod",
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
         if _skills.looks_like_math(raw) or _skills.convert_units(raw):
             return Decision(
                 intent="math", allow_web=False, allow_memory=False, allow_kb=False,

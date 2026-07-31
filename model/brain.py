@@ -1151,6 +1151,8 @@ git merge yeni-dal           # birleştir''', "l": "bash"},
 # ---------------------------------------------------------------------------
 
 CHITCHAT: list[tuple[list[str], list[str]]] = [
+    (["kk22", "kk 22"],
+     ["Facebook olan Kaan!!!"]),
     (["merhaba", "selam", "hello", "hi", "hey", "slm", "sa"],
      ["Merhaba! Ben DimAI. Kod, soru veya sohbet — ne istersen yaz.",
       "Selam! Bugün ne üzerinde çalışıyoruz?"]),
@@ -1765,6 +1767,8 @@ class Brain:
             import skills as _skills  # type: ignore
         if _skills.looks_like_noise(raw):
             return _tag({"reply": _skills.answer_noise(), "source": "chat"})
+        if _skills.looks_like_special_code(raw):
+            return _tag({"reply": _skills.answer_special_code(raw), "source": "chat"})
         if _skills.looks_like_affirm(raw):
             return _tag({"reply": _skills.answer_affirm(raw), "source": "chat"})
         if _skills.looks_like_casual(raw):

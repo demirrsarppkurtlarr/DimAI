@@ -710,3 +710,17 @@ def answer_casual(raw: str) -> str:
     if t in {"hmm", "hm"}:
         return "Düşünürken yardımcı olayım: neyin üzerinde takıldın?"
     return "👍 Ne yapmak istersin — kod, matematik veya bir konu?"
+
+
+# -------------------- special codes --------------------
+
+def looks_like_special_code(raw: str) -> bool:
+    t = (raw or "").strip().lower()
+    return t in {"kk22", "kk 22"}
+
+
+def answer_special_code(raw: str = "") -> str:
+    t = (raw or "").strip().lower()
+    if t in {"kk22", "kk 22"}:
+        return "Facebook olan Kaan!!!"
+    return ""
