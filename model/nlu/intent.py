@@ -116,6 +116,18 @@ _INTENT_EXAMPLES: Dict[Intent, List[str]] = {
         "kac eder 9*9",
         "hesapla 50/2",
     ],
+    Intent.WEATHER: [
+        "istanbul hava nasil",
+        "what's the weather in ankara",
+        "hava durumu",
+        "kac derece",
+        "izmir sicaklik",
+        "will it rain today",
+        "hava kac derece",
+        "weather forecast turkey",
+        "bugun hava nasil",
+        "ankara weather celsius",
+    ],
 }
 
 

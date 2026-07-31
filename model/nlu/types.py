@@ -18,6 +18,7 @@ class Intent(str, Enum):
     PLANNING = "planning"
     SEARCH = "search"
     MATH = "math"
+    WEATHER = "weather"
     CLARIFY = "clarify"
     UNKNOWN = "unknown"
 

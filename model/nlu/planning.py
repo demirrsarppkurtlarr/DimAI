@@ -34,6 +34,23 @@ class PlanningEngine:
 
         plan = ResponsePlan(language=lang, tone="helpful", style="natural")
 
+        g = (reasoning.user_goal + " " + message).lower().replace("ı", "i")
+        g = g.translate(str.maketrans("çğıöşü", "cgiosu"))
+        weather_cue = any(
+            w in g
+            for w in ("hava", "weather", "sicaklik", "derece", "forecast", "yagmur")
+        )
+        if weather_cue or intent.intent == Intent.WEATHER:
+            plan.tools = [ToolName.WEATHER]
+            plan.answer_points = [
+                "Report current temperature in Celsius",
+                "Mention city and conditions",
+            ]
+            return plan
+        if any(w in g for w in ("saat kac", "what time", "tarih bugun")) or "saat" in words and "kac" in words:
+            plan.tools = [ToolName.TIME]
+            return plan
+
         if reasoning.open_questions and intent.intent in {Intent.CLARIFY, Intent.UNKNOWN}:
             plan.needs_clarification = True
             plan.clarification_question = (
@@ -48,6 +65,7 @@ class PlanningEngine:
         intent_map = {
             Intent.CODING: [ToolName.CODEGEN],
             Intent.MATH: [ToolName.MATH],
+            Intent.WEATHER: [ToolName.WEATHER],
             Intent.TRANSLATION: [ToolName.TRANSLATE],
             Intent.SEARCH: [ToolName.WEB, ToolName.KB],
             Intent.QUESTION: [ToolName.KB, ToolName.WEB],
@@ -59,13 +77,6 @@ class PlanningEngine:
             Intent.COMMAND: [ToolName.CHAT],
         }
         plan.tools = list(intent_map.get(intent.intent, [ToolName.CHAT]))
-
-        # Weather / time soft routing via secondary cues in goal text
-        g = (reasoning.user_goal + " " + message).lower()
-        if any(w in g for w in ("hava", "weather", "sıcak", "sicak")):
-            plan.tools = [ToolName.WEATHER]
-        if any(w in g for w in ("saat kaç", "what time", "tarih")):
-            plan.tools = [ToolName.TIME]
 
         if intent.intent == Intent.EXPLANATION:
             plan.style = "step_by_step"

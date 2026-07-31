@@ -95,6 +95,15 @@ class NLUPipeline:
         if _re.fullmatch(r"[\d\s\+\-\*/\(\)\.,]+", state.normalized or ""):
             state.intent.intent = Intent.MATH
             state.intent.confidence = max(state.intent.confidence, 0.8)
+        # Weather cues → weather intent (don't let clarify steal it)
+        try:
+            from model import skills as _skills
+
+            if _skills.looks_like_weather(state.raw) or _skills.looks_like_weather(state.normalized):
+                state.intent.intent = Intent.WEATHER
+                state.intent.confidence = max(state.intent.confidence, 0.85)
+        except Exception:
+            pass
         state.add_trace(
             f"intent:{state.intent.intent.value}@{state.intent.confidence:.2f}"
         )

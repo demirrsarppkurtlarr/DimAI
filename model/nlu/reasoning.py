@@ -63,6 +63,7 @@ class ReasoningEngine:
             Intent.SEARCH: "Gather external or learned knowledge, then summarize.",
             Intent.TRANSLATION: "Translate faithfully; keep register.",
             Intent.MATH: "Compute exactly; show brief reasoning.",
+            Intent.WEATHER: "Fetch live weather and report temperature in Celsius only.",
             Intent.CONVERSATION: "Reply warmly, offer useful next step without being pushy.",
             Intent.OPINION: "Give a balanced, practical opinion with reasons.",
             Intent.CREATIVE: "Generate original creative text.",

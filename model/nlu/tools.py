@@ -80,7 +80,7 @@ class ToolManager:
     def _weather(self, msg: str) -> ToolResult:
         from model import skills
 
-        ans = skills.answer_weather(msg) if skills.looks_like_weather(msg) else None
+        ans = skills.answer_weather(msg)
         if not ans:
             return ToolResult(name=ToolName.WEATHER, ok=False, error="no weather")
         return ToolResult(name=ToolName.WEATHER, ok=True, payload={"reply": ans})

@@ -418,8 +418,15 @@ def answer_time(raw: str = "") -> str:
 # -------------------- weather --------------------
 
 _WEATHER_HINTS = (
-    "hava durumu", "hava nasil", "hava rapor", "weather", "forecast", "yagmur",
-    "sicaklik",
+    "hava durumu", "hava nasil", "hava rapor", "hava kac", "kac derece",
+    "weather", "forecast", "yagmur", "sicaklik", "derece", "sicak mi",
+    "soguk mu", "yagmur yag", "hava bugun",
+)
+
+_WEATHER_CITIES = (
+    "istanbul", "ankara", "izmir", "bursa", "antalya", "adana",
+    "gaziantep", "konya", "trabzon", "eskisehir", "diyarbakir",
+    "samsun", "kayseri", "mersin", "mugla", "aydin", "denizli",
 )
 
 
@@ -428,46 +435,139 @@ def looks_like_weather(raw: str) -> bool:
     if any(h in t for h in _WEATHER_HINTS):
         return True
     words = set(t.split())
-    return "hava" in words and bool(words & {"bugun", "yarin", "nasil", "durumu", "istanbul", "ankara", "izmir"})
+    if "hava" in words or "weather" in words or "forecast" in words:
+        return True
+    if ("derece" in words or "sicaklik" in t) and (
+        words & set(_WEATHER_CITIES) or "kac" in words or "ne" in words
+    ):
+        return True
+    if words & set(_WEATHER_CITIES) and words & {"sicak", "soguk", "yagmur", "gunesli", "derece"}:
+        return True
+    return False
+
+
+def _weather_city(raw: str) -> str:
+    t = _norm(raw)
+    for c in _WEATHER_CITIES:
+        if c in t:
+            return c
+    return "istanbul"
 
 
 def weather_query(raw: str) -> str:
-    t = _norm(raw)
-    city = None
-    for c in ("istanbul", "ankara", "izmir", "bursa", "antalya", "adana", "gaziantep", "konya"):
-        if c in t:
-            city = c.capitalize()
-            break
-    if city:
-        return f"{city} current weather temperature Celsius"
-    return "Istanbul Turkey current weather temperature today Celsius"
+    city = _weather_city(raw).capitalize()
+    return f"{city} Turkey current weather temperature Celsius"
 
 
 def answer_weather(raw: str = "") -> Optional[str]:
-    """wttr.in — kısa, okunur hava (web dump yerine)."""
-    t = _norm(raw)
-    city = "Istanbul"
-    for c in ("istanbul", "ankara", "izmir", "bursa", "antalya", "adana", "gaziantep", "konya"):
-        if c in t:
-            city = c.capitalize()
-            break
+    """wttr.in JSON — sıcaklığı her zaman °C olarak formatla."""
+    city_key = _weather_city(raw)
+    city_label = {
+        "istanbul": "İstanbul",
+        "ankara": "Ankara",
+        "izmir": "İzmir",
+        "bursa": "Bursa",
+        "antalya": "Antalya",
+        "adana": "Adana",
+        "gaziantep": "Gaziantep",
+        "konya": "Konya",
+        "trabzon": "Trabzon",
+        "eskisehir": "Eskişehir",
+        "diyarbakir": "Diyarbakır",
+        "samsun": "Samsun",
+        "kayseri": "Kayseri",
+        "mersin": "Mersin",
+        "mugla": "Muğla",
+        "aydin": "Aydın",
+        "denizli": "Denizli",
+    }.get(city_key, city_key.capitalize())
+
+    _DESC_TR = {
+        "sunny": "Güneşli",
+        "clear": "Açık",
+        "partly cloudy": "Parçalı bulutlu",
+        "cloudy": "Bulutlu",
+        "overcast": "Kapalı",
+        "mist": "Sisli",
+        "fog": "Sis",
+        "light rain": "Hafif yağmur",
+        "moderate rain": "Yağmurlu",
+        "heavy rain": "Şiddetli yağmur",
+        "patchy rain possible": "Yer yer yağmur olasılığı",
+        "thundery outbreaks possible": "Gök gürültülü sağanak riski",
+        "light snow": "Hafif kar",
+        "snow": "Karlı",
+    }
+
     try:
         import requests
+
+        # Do NOT pass lang=tr — wttr sometimes returns inconsistent obs with it.
+        # Always read temp_C / FeelsLikeC explicitly (never °F).
         r = requests.get(
-            f"https://wttr.in/{city}",
-            params={"format": "%l: %c %t (hissedilen %f), nem %h, rüzgar %w", "m": ""},
-            headers={"User-Agent": "DimAI/1.0"},
-            timeout=4,
+            f"https://wttr.in/{city_key.capitalize()},Turkey",
+            params={"format": "j1"},
+            headers={"User-Agent": "DimAI/1.0 (weather; Celsius)"},
+            timeout=6,
         )
-        if r.status_code == 200 and r.text.strip() and "Unknown" not in r.text:
-            line = r.text.strip()
-            return (
-                f"**Hava — {city}**\n\n{line}\n\n"
-                f"_Kaynak: wttr.in · güncel özet_"
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        cur = (data.get("current_condition") or [None])[0]
+        if not cur:
+            return None
+
+        temp_c = cur.get("temp_C")
+        feels_c = cur.get("FeelsLikeC")
+        humidity = cur.get("humidity")
+        wind_km = cur.get("windspeedKmph")
+        wind_dir = cur.get("winddir16Point") or ""
+        desc_en = ""
+        block = cur.get("weatherDesc") or []
+        if block and isinstance(block, list):
+            desc_en = str(block[0].get("value") or "").strip()
+        desc = _DESC_TR.get(desc_en.lower(), desc_en) or "—"
+
+        if temp_c is None:
+            return None
+
+        try:
+            temp_i = int(round(float(str(temp_c).replace(",", "."))))
+            feels_i = (
+                int(round(float(str(feels_c).replace(",", "."))))
+                if feels_c is not None
+                else temp_i
             )
+        except (TypeError, ValueError):
+            return None
+
+        # Sanity: reject absurd readings / accidental Fahrenheit
+        if temp_i < -60 or temp_i > 70:
+            return None
+        # Classic °F misread for Turkish cities (e.g. 79°F shown as 79)
+        if temp_i > 55 and feels_i > 55:
+            temp_i = int(round((temp_i - 32) * 5 / 9))
+            feels_i = int(round((feels_i - 32) * 5 / 9))
+
+        lines = [
+            f"**Hava — {city_label}**",
+            "",
+            f"• Durum: {desc}",
+            f"• Sıcaklık: **{temp_i}°C**",
+            f"• Hissedilen: **{feels_i}°C**",
+        ]
+        if humidity is not None:
+            lines.append(f"• Nem: %{humidity}")
+        if wind_km is not None:
+            try:
+                wind_i = int(round(float(wind_km)))
+            except (TypeError, ValueError):
+                wind_i = wind_km
+            lines.append(f"• Rüzgar: {wind_dir} {wind_i} km/s".strip())
+        lines += ["", "_Kaynak: wttr.in · Celsius (°C)_"]
+        return "\n".join(lines)
     except Exception:
-        pass
-    return None
+        return None
 
 
 # -------------------- translation --------------------
