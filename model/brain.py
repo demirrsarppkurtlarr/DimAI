@@ -1199,9 +1199,15 @@ CHITCHAT: list[tuple[list[str], list[str]]] = [
       "Peki — sıradaki adım ne olsun?"]),
     (["hayir", "yok"],
      ["Tamam, başka bir şey deneyelim. Kod mu yazayım, yoksa bir şey mi soracağız?"]),
+    (["ne yazayim", "ne yazmaliyim", "ne kodlayayim", "ne yazsak", "ne yazalim", "hangi kod"],
+     ["İstediğin konuyu söyle, sıfırdan yazarım. Örn:\n"
+      "• `todo yaz` / `chatbot yaz` / `flask api yaz`\n"
+      "• `sayı tahmin oyunu yaz` / `xox yaz`\n"
+      "• `şifre üretici yaz` / `e-ticaret sepet yaz`\n"
+      "Konuyu kendi cümlenle de yazabilirsin."]),
     (["anlamadim", "anlamadım", "ne demek istedin"],
      ["Kısaca: kod yazabilirim, matematik çözebilirim, bilgi sorularına bakabilirim. "
-      "Örnek ver: `2+2 kaç` veya `todo app yaz`."]),
+      "Örnek ver: `2+2 kaç` veya `todo yaz`."]),
 ]
 
 

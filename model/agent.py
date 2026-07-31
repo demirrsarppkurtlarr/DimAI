@@ -347,6 +347,12 @@ class Agent:
         # "ne düşünüyorsun / ne haber" gibi sohbet — filme sapmasın
         if any(p in text for p in ("ne dusunuyorsun", "ne dusunuyon", "aklindan ne", "ne yapiyorsun")):
             return True
+        # "ne yazayım?" → araştırma değil, kod menüsü
+        if any(p in text for p in (
+            "ne yazayim", "ne yazmaliyim", "ne kodlayayim", "ne yazsak",
+            "ne yazalim", "ne yapayim kod", "hangi kod",
+        )):
+            return True
         return False
 
     @staticmethod
