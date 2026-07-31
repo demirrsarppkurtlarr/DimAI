@@ -74,7 +74,10 @@ def level_label(level: int, *, language: str = "tr") -> str:
 
 
 def evolve(prior: str, *, request: str = "", lang: str = "python") -> dict:
-    """Return {code, level, label} — code is guaranteed different from prior."""
+    """Return {code, level, label} — code is guaranteed different from prior.
+
+    Never shrinks the user's source: each pass appends a capability layer.
+    """
     prior = (prior or "").strip()
     if "```" in prior:
         m = re.search(r"```(?:\w+)?\n(.*?)```", prior, re.S)
@@ -87,6 +90,11 @@ def evolve(prior: str, *, request: str = "", lang: str = "python") -> dict:
         code = _evolve_python(prior, level, request=request)
     if code.strip() == prior.strip():
         code = _force_delta(prior, level, request=request, lang=lang)
+    # Hard guard: improving must not discard the body (truncation bug safety net)
+    if len(code) + 40 < len(prior):
+        code = _force_delta(prior, level, request=request, lang=lang)
+    if len(code) < len(prior):
+        code = prior.rstrip() + "\n\n# --- dimai evolve safety: preserve prior ---\n" + code
     code = stamp_level(code, level)
     return {
         "code": code.strip() + "\n",

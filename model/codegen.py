@@ -202,21 +202,28 @@ def improve(
     lang_out = lang or _detect_lang(_norm(request)) or "python"
     evolved = evolve(prior, request=request or "gelistir", lang=lang_out)
     next_level = int(evolved["level"])
+    # Never return a body shorter than the source we were asked to improve.
+    if len(str(evolved.get("code") or "")) + 40 < len(prior):
+        from model.code_improve import _force_delta, stamp_level as _stamp
+
+        fixed = _force_delta(prior, next_level, request=request or "gelistir", lang=lang_out)
+        evolved["code"] = _stamp(fixed, next_level)
     spec = design(
         request or "gelistir",
         project_context=project_context,
         prior_code=prior,
         improve=True,
     )
+    grew = len(str(evolved.get("code") or "")) - len(prior)
     if user_language == "en":
         reply = (
-            f"Improved again (v{next_level}): kept your logic, added "
-            f"{evolved['label']}. Say improve once more for another layer."
+            f"Improved again (v{next_level}): kept your full source (+{max(grew, 0)} chars), "
+            f"added {evolved['label']}. Say improve once more for another layer."
         )
     else:
         reply = (
-            f"Tekrar geliştirdim (v{next_level}): önceki mantığı korudum, "
-            f"üzerine {evolved['label']} ekledim. "
+            f"Tekrar geliştirdim (v{next_level}): önceki kodun tamamını korudum "
+            f"(+{max(grew, 0)} karakter), üzerine {evolved['label']} ekledim. "
             f"Bir daha `geliştir` dersen yeni bir katman daha gelir."
         )
     payload = {

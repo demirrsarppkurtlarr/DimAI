@@ -203,10 +203,16 @@ class MemoryEngine:
             hits.append(
                 MemoryHit(
                     role="system",
+                    # Preview in content for ranking/context; full source in meta
+                    # so improve/codegen never evolves a truncated stub.
                     content=self.store.last_code[:500],
                     score=0.85,
                     kind="code",
-                    meta={"lang": self.store.last_lang},
+                    meta={
+                        "lang": self.store.last_lang,
+                        "code": self.store.last_code,
+                        "truncated": len(self.store.last_code) > 500,
+                    },
                 )
             )
         if self.store.preferences:
