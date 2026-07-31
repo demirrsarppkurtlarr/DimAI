@@ -57,7 +57,7 @@ class ReasoningEngine:
                 open_q.append("Coding request is vague; may invent a concrete starter app.")
 
         strategy = {
-            Intent.CODING: "Produce working code tailored to entities/goal; explain briefly.",
+            Intent.CODING: "Design architecture first (modules, data, invariants), then implement original code; never paste tutorials.",
             Intent.QUESTION: "Answer factually using KB/memory/web; stay on topic.",
             Intent.EXPLANATION: "Explain step by step with examples.",
             Intent.SEARCH: "Gather external or learned knowledge, then summarize.",

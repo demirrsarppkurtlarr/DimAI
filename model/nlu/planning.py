@@ -84,11 +84,17 @@ class PlanningEngine:
             plan.style = "step_by_step"
         if intent.intent == Intent.CODING:
             plan.answer_points = [
-                "Acknowledge the coding goal",
-                "Provide complete runnable code",
+                "State the architecture briefly (modules + decisions)",
+                "Provide complete original runnable code for this project",
+                "Avoid tutorial clones and unnecessary dependencies",
                 "Add a short usage note",
             ]
-            plan.ignore = ["generic fibonacci unless requested"]
+            plan.ignore = [
+                "generic fibonacci unless requested",
+                "copying GitHub/tutorial structures",
+                "searching the web for full source implementations first",
+            ]
+            plan.style = "step_by_step"
         elif intent.intent in {Intent.QUESTION, Intent.SEARCH}:
             plan.answer_points = [
                 "Answer the core question directly",
