@@ -1786,6 +1786,7 @@ class Brain:
         skill_answer = (
             _skills.solve_math(raw)
             or _skills.convert_units(raw)
+            or (_skills.answer_weather(raw) if _skills.looks_like_weather(raw) else None)
             or (_skills.answer_time(raw) if _skills.looks_like_time(raw) else None)
         )
         if skill_answer:

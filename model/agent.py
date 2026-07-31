@@ -182,8 +182,8 @@ class Agent:
             )
         if _skills.looks_like_weather(raw) or any(h in text for h in WEATHER_HINTS):
             return Decision(
-                intent="research", allow_web=True, allow_memory=True, allow_kb=True,
-                tools=["web", "memory"], reason="hava durumu",
+                intent="research", allow_web=True, allow_memory=False, allow_kb=False,
+                tools=["web"], reason="hava durumu",
                 research_query=_skills.weather_query(raw),
                 context_summary=ctx.get("summary", ""), topic=topic,
             )

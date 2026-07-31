@@ -134,6 +134,19 @@ def chat():
                     )
                     if definitional and looks_codey:
                         prior = None
+                    # Tanım sorusunda memory cevabı konu kelimesini taşımıyorsa ez (yanlış SQL→DB)
+                    if prior and definitional:
+                        stop = {
+                            "nedir", "ne", "kimdir", "demek", "what", "who", "is", "are",
+                            "bir", "ve", "ile", "icin", "hakkinda", "nasil", "fark",
+                        }
+                        topics = [
+                            w for w in re.findall(r"[a-z0-9çğıöşü]+", msg_l)
+                            if w not in stop and len(w) >= 3
+                        ]
+                        key_topics = [w for w in topics if len(w) >= 5] or topics
+                        if key_topics and not any(t in reply_l for t in key_topics):
+                            prior = None
                     if prior:
                         result = {
                             "reply": prior["reply"],

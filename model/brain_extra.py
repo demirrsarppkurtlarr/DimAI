@@ -1289,4 +1289,24 @@ print(loaded["isim"])''', "l": "python"},
     {"k": ["pagination nedir", "sayfalama nedir api"],
      "a": "**Pagination (sayfalama)**, büyük listeleri sayfa/cursor ile bölerek döndürmektir.\n\n• offset/limit veya cursor-based\n• API performans ve UX için şart"},
 
+    {"k": ["git stash nedir", "stash nedir", "git stash ne"],
+     "a": "**git stash**, henüz commit etmek istemediğin değişiklikleri geçici rafa kaldırmaktır.\n\n• `git stash` — kaydet ve working tree'yi temizle\n• `git stash list` — raftakileri gör\n• `git stash pop` — geri al ve raftan sil\n• `git stash apply` — geri al, rafta kalsın\n\nBranch değiştirmeden önce yarım işi saklamak için ideal."},
+
+    {"k": ["bcrypt nedir", "sifre hash", "password hash", "sifre nasil hashlenir", "parola hash", "sifre hashlensir"],
+     "a": "**Şifre hashleme** için düz SHA256 yetmez — **bcrypt** veya **argon2** kullan.\n\n• Otomatik salt\n• Kasıtlı yavaş (brute-force zor)\n• `pip install bcrypt`\n\nKod için `bcrypt yaz` de."},
+
+    {"k": ["bcrypt yaz", "password hash yaz", "sifre hash yaz"],
+     "a": "bcrypt ile şifre hash / doğrulama:",
+     "c": "import bcrypt\n\nsifre = b\"gizli123\"\nhashed = bcrypt.hashpw(sifre, bcrypt.gensalt(rounds=12))\nprint(hashed)\n\nok = bcrypt.checkpw(b\"gizli123\", hashed)\nprint(\"doğru\" if ok else \"yanlış\")",
+     "l": "python"},
+
+    {"k": ["websocket yaz", "websocket ornegi", "ws yaz", "websocket kodu"],
+     "a": "Basit WebSocket sunucu (pip install websockets):",
+     "c": "import asyncio\nimport websockets\n\nasync def handler(websocket):\n    async for message in websocket:\n        await websocket.send(f\"echo: {message}\")\n\nasync def main():\n    async with websockets.serve(handler, \"localhost\", 8765):\n        print(\"ws://localhost:8765\")\n        await asyncio.Future()\n\nasyncio.run(main())",
+     "l": "python"},
+
+    {"k": ["mermaid yaz", "mermaid diyagram", "diyagram yaz", "flowchart yaz"],
+     "a": "Mermaid akış diyagramı (Markdown'da render edilir):",
+     "c": "flowchart TD\n  A[İstek] --> B{Auth?}\n  B -->|Evet| C[API]\n  B -->|Hayır| D[401]\n  C --> E[Yanıt]",
+     "l": "markdown"},
 ]

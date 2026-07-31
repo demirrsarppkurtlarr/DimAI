@@ -439,8 +439,35 @@ def weather_query(raw: str) -> str:
             city = c.capitalize()
             break
     if city:
-        return f"{city} current weather temperature Celsius site:wttr.in OR forecast"
+        return f"{city} current weather temperature Celsius"
     return "Istanbul Turkey current weather temperature today Celsius"
+
+
+def answer_weather(raw: str = "") -> Optional[str]:
+    """wttr.in — kısa, okunur hava (web dump yerine)."""
+    t = _norm(raw)
+    city = "Istanbul"
+    for c in ("istanbul", "ankara", "izmir", "bursa", "antalya", "adana", "gaziantep", "konya"):
+        if c in t:
+            city = c.capitalize()
+            break
+    try:
+        import requests
+        r = requests.get(
+            f"https://wttr.in/{city}",
+            params={"format": "%l: %c %t (hissedilen %f), nem %h, rüzgar %w", "m": ""},
+            headers={"User-Agent": "DimAI/1.0"},
+            timeout=4,
+        )
+        if r.status_code == 200 and r.text.strip() and "Unknown" not in r.text:
+            line = r.text.strip()
+            return (
+                f"**Hava — {city}**\n\n{line}\n\n"
+                f"_Kaynak: wttr.in · güncel özet_"
+            )
+    except Exception:
+        pass
+    return None
 
 
 # -------------------- translation --------------------
