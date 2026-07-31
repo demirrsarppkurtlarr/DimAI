@@ -1309,4 +1309,52 @@ print(loaded["isim"])''', "l": "python"},
      "a": "Mermaid akış diyagramı (Markdown'da render edilir):",
      "c": "flowchart TD\n  A[İstek] --> B{Auth?}\n  B -->|Evet| C[API]\n  B -->|Hayır| D[401]\n  C --> E[Yanıt]",
      "l": "markdown"},
+
+    {"k": ["python dict nedir", "dict nedir", "dictionary nedir python", "sozluk nedir python", "python sozluk"],
+     "a": "**dict (sözlük)**, Python'da anahtar→değer eşlemeleridir.\n\n```python\nkisi = {\"ad\": \"Demir\", \"yas\": 16}\nprint(kisi[\"ad\"])\nkisi[\"sehir\"] = \"İstanbul\"\n```\n\n• Anahtarlar genelde immutable (str, int, tuple)\n• Hızlı arama ortalama O(1)\n• `list` sıra, `dict` eşleme içindir"},
+
+    {"k": ["git cherry-pick nedir", "cherry pick nedir", "cherry-pick"],
+     "a": "**git cherry-pick**, başka bir branch'teki **tek bir commit**'i bulunduğun branch'e uygular.\n\n• `git cherry-pick <commit-hash>`\n• Tüm branch merge etmek istemediğinde işe yarar\n• Çakışma olursa çözüp `git cherry-pick --continue`"},
+
+    {"k": ["git merge vs rebase", "merge vs rebase", "rebase vs merge"],
+     "a": "**merge vs rebase:**\n\n• **merge** — birleştirme commit'i ekler, geçmiş dallı kalır\n• **rebase** — commit'leri yeni tabana yeniden dizer, doğrusal geçmiş\n\nPaylaşılan branch'te rebase dikkatli; feature branch'te sık tercih edilir."},
+
+    {"k": ["middleware nedir", "middleware ne demek", "ara katman nedir"],
+     "a": "**Middleware**, istek/yanıt zincirinde araya giren ara katmandır (web framework'lerde).\n\n• Auth, logging, CORS, rate limit\n• Express/FastAPI/Django'da yaygın\n• İstek → middleware(ler) → handler → yanıt\n\nNot: IBM MQ ürün adlarıyla karıştırma — web'de ara katman kastedilir."},
+
+    {"k": ["env nedir", ".env nedir", "environment variable", "ortam degiskeni"],
+     "a": "**Environment variable (ortam değişkeni)**, süreçlere verilen yapılandırma değerleridir.\n\n• `.env` dosyası ile yerelde tutulur (git'e koyma)\n• API key, DB URL, `DEBUG=true`\n• Kodda: `os.environ[\"API_KEY\"]`\n\nUnix'teki `env` komutu da ortamı listeler; geliştirmede çoğunlukla `.env` kastedilir."},
+
+    {"k": ["npm install ne yapar", "npm install nedir", "npm i nedir"],
+     "a": "**`npm install`**, `package.json` / `package-lock.json` içindeki bağımlılıkları `node_modules`'a indirir.\n\n• `npm i lodash` — tek paket (+ kayda ekler)\n• `npm ci` — lock'a birebir, CI için\n• Scriptler: `npm run build`"},
+
+    {"k": ["pip freeze nedir", "pip freeze ne yapar"],
+     "a": "**`pip freeze`**, kurulu paketleri `paket==sürüm` formatında listeler.\n\n• `pip freeze > requirements.txt` — ortamı kilitle\n• Deploy/CI'da aynı sürümleri kurmak için\n• Tercihen sanal ortam (`venv`) içinde çalıştır"},
+
+    {"k": ["redis cache nedir", "redis cache nasil", "redis cache", "redis onbellek", "cache redis"],
+     "a": "**Redis cache**, sık okunan veriyi bellekte tutup DB yükünü azaltır.\n\n• Key → value (TTL ile expire)\n• Session, rate limit, sayfa/API cache\n• Pattern: oku → yoksa DB'den al → Redis'e yaz\n\nKod örneği istersen `redis yaz` de."},
+
+    {"k": ["postgres index nedir", "postgresql index", "index nedir sql", "veritabani index"],
+     "a": "**Index (dizin)**, sorguları hızlandırmak için tabloda oluşturulan yapıdır (B-tree vb.).\n\n• `CREATE INDEX ON users(email);`\n• WHERE/JOIN alanlarında yararlı\n• Yazmayı biraz yavaşlatır, okumayı hızlandırır\n• Aşırı index = gereksiz maliyet"},
+
+    {"k": ["401 vs 403", "403 vs 401", "401 403 fark", "unauthorized vs forbidden"],
+     "a": "**401 vs 403:**\n\n• **401 Unauthorized** — kimlik yok/geçersiz (login ol / token yenile)\n• **403 Forbidden** — kimlik var ama bu işlem yasak (yetki yok)\n\nKısaca: 401 = \"kimsin?\", 403 = \"seni tanıyorum ama olmaz\"."},
+
+    {"k": ["usestate ornegi", "usestate yaz", "use state ornegi", "react usestate"],
+     "a": "React `useState` örneği:",
+     "c": "import { useState } from \"react\";\n\nexport default function Counter() {\n  const [n, setN] = useState(0);\n  return (\n    <div>\n      <p>Sayaç: {n}</p>\n      <button onClick={() => setN(n + 1)}>+1</button>\n    </div>\n  );\n}",
+     "l": "javascript"},
+
+    {"k": ["nginx config yaz", "nginx yaz", "nginx conf", "nginx ornegi"],
+     "a": "Basit Nginx reverse proxy config:",
+     "c": "server {\n  listen 80;\n  server_name example.com;\n\n  location / {\n    proxy_pass http://127.0.0.1:5055;\n    proxy_set_header Host $host;\n    proxy_set_header X-Real-IP $remote_addr;\n  }\n}",
+     "l": "nginx"},
+
+    {"k": ["promise yaz", "promise ornegi", "js promise yaz"],
+     "a": "JavaScript Promise örneği:",
+     "c": "function bekle(ms) {\n  return new Promise((resolve) => setTimeout(resolve, ms));\n}\n\nasync function main() {\n  console.log(\"başla\");\n  await bekle(500);\n  console.log(\"bitti\");\n}\n\nmain();",
+     "l": "javascript"},
+
+    {"k": ["cors nasil duzeltilir", "cors duzelt", "cors hatasi"],
+     "a": "**CORS hatası** tarayıcıda origin engelidir — asıl düzeltme **backend**'de.\n\n• `Access-Control-Allow-Origin` (geliştirmede dikkatli kullan `*`)\n• Credentials varsa origin açık yaz + `Allow-Credentials: true`\n• Preflight: `OPTIONS` + Allow-Methods/Headers\n\nFlask örneği: `flask-cors` veya elle header ekle."},
 ]

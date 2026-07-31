@@ -261,6 +261,18 @@ els.composer.addEventListener("submit", (e) => {
   sendMessage(els.input.value);
 });
 
+els.input.addEventListener("focus", () => {
+  syncAppHeight();
+  // iOS: focus sonrası kaymayı toparla
+  setTimeout(() => {
+    syncAppHeight();
+    window.scrollTo(0, 0);
+    scrollBottom();
+  }, 50);
+  setTimeout(syncAppHeight, 300);
+});
+els.input.addEventListener("blur", () => setTimeout(syncAppHeight, 100));
+
 els.btnNew.addEventListener("click", () => {
   chatHistory = [];
   els.messages.innerHTML = "";

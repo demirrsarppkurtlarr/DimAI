@@ -38,11 +38,12 @@ CODE_STRONG = {
     "class", "algoritma", "snippet",
 }
 CODE_WRITE = {"yaz", "write", "olustur", "uret", "generate"}
-CODE_EXAMPLE = {"ornek", "ornegi", "example", "goster", "show", "sample"}
+CODE_EXAMPLE = {"ornek", "ornegi", "ornekleri", "example", "goster", "show", "sample", "config", "konfig"}
 CODE_LANGS = {
     "python", "js", "javascript", "sql", "sqlite", "html", "css", "java",
     "cpp", "typescript", "ts", "flask", "django", "react", "node", "docker",
-    "yaml", "pandas", "numpy",
+    "yaml", "pandas", "numpy", "nginx", "usestate", "useeffect", "hook", "hooks",
+    "promise", "fastapi", "redis", "postgres", "postgresql",
 }
 
 RESEARCH_EXPLICIT = (
@@ -79,6 +80,7 @@ FOLLOWUP_HINTS = {
     "peki", "onu", "bunu", "sunu", "devam", "baska", "daha", "tekrar",
     "detay", "acikla", "anlatsana", "onun", "bunun", "ya", "ama",
     "sonra", "bahsettigin", "dedigin",
+    "ornek", "ornegi", "ornekler", "ornekleri", "example", "goster", "sample",
 }
 
 
@@ -215,7 +217,10 @@ class Agent:
         # --- followup BEFORE generic research ("daha anlat" ≠ film ara) ---
         if history and self._looks_followup(text, words, topic):
             main = " ".join(topic[:2])
-            if words <= {"daha", "anlat", "devam", "acikla", "detay", "neden", "niye"} or text in {
+            wants_ex = any(w in text for w in ("ornek", "ornegi", "goster", "example", "sample", "yaz"))
+            if wants_ex and len(words) <= 5:
+                rq = f"{main} yaz ornek".strip()
+            elif words <= {"daha", "anlat", "devam", "acikla", "detay", "neden", "niye"} or text in {
                 "daha anlat", "devam", "devam et", "anlat", "detay", "neden", "neden kullanilir",
             }:
                 rq = f"{main} nedir ne ise yarar programming".strip()
@@ -339,6 +344,9 @@ class Agent:
             return True
         if any(p in text for p in ("konusalim", "konusuruz", "sohbet edelim", "muhabbet")):
             return True
+        # "ne düşünüyorsun / ne haber" gibi sohbet — filme sapmasın
+        if any(p in text for p in ("ne dusunuyorsun", "ne dusunuyon", "aklindan ne", "ne yapiyorsun")):
+            return True
         return False
 
     @staticmethod
@@ -363,7 +371,7 @@ class Agent:
             return True
         if any(p in text for p in ("kod yaz", "write code", "python kod", "js kod", "hello world")):
             return True
-        if (words & CODE_EXAMPLE) and (words & (CODE_LANGS | CODE_STRONG | {"liste", "dosya", "class", "component"})):
+        if (words & CODE_EXAMPLE) and (words & (CODE_LANGS | CODE_STRONG | {"liste", "dosya", "class", "component", "nginx", "dockerfile"})):
             return True
         # "X yaz" / "write X" — kısa uygulama istekleri
         if (words & CODE_WRITE) and len(words) <= 8:
@@ -371,12 +379,14 @@ class Agent:
         if text.startswith("write ") and len(words) <= 10:
             return True
         # "X nasıl yazılır/yapılır" programming how-to — still code-ish if lang present
-        if (words & CODE_LANGS) and any(x in text for x in ("nasil", "yazilir", "yapilir", "kullanilir")):
+        if (words & CODE_LANGS) and any(x in text for x in ("nasil", "yazilir", "yapilir", "kullanilir", "ornegi", "ornek")):
             return True
-        # React/component yalnızca yazma/örnek isteğinde kod
-        if ("react" in words or "component" in words) and (
-            words & (CODE_WRITE | CODE_EXAMPLE | CODE_STRONG) or "ornek" in text
+        # React/component/hooks yalnızca yazma/örnek isteğinde kod
+        if ("react" in words or "component" in words or "usestate" in words or "useeffect" in words or "hook" in words or "hooks" in words) and (
+            words & (CODE_WRITE | CODE_EXAMPLE | CODE_STRONG) or "ornek" in text or "ornegi" in text
         ):
+            return True
+        if "nginx" in words and (words & (CODE_WRITE | CODE_EXAMPLE | {"config", "konfig", "conf"})):
             return True
         return False
 
@@ -398,6 +408,7 @@ class Agent:
 
         stop = FOLLOWUP_HINTS | {
             "nedir", "kimdir", "ne", "bir", "ve", "demek", "who", "what", "is", "are",
+            "ver", "yaz", "kod", "code", "lutfen", "please",
         }
         nouns = [w for w in words if len(w) >= 4 and w not in stop]
 

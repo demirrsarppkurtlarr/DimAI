@@ -142,13 +142,30 @@ def _clean_query(text: str) -> str:
         "reverse proxy": "reverse proxy web server",
         "rate limiting": "rate limiting API throttling",
         "pagination": "pagination API web",
+        "middleware": "middleware web application programming",
+        "401": "HTTP 401 Unauthorized vs 403 Forbidden",
+        "403": "HTTP 403 Forbidden vs 401 Unauthorized",
+        "python dict": "Python dictionary mapping type",
+        "python dictionary": "Python dictionary mapping type",
+        "npm install": "npm package manager install dependencies",
+        "pip freeze": "pip freeze Python requirements",
+        "pip install": "pip install Python packages",
+        "redis cache": "Redis cache in-memory database",
+        "postgres index": "database index PostgreSQL",
+        "postgresql index": "database index PostgreSQL",
+        "git cherry-pick": "git cherry-pick commit",
+        "merge vs rebase": "git merge vs rebase",
+        "rebase vs merge": "git merge vs rebase",
+        "environment variable": "environment variable computing",
+        "usestate": "React useState hook",
+        "use state": "React useState hook",
     }
     # "Go nedir" / bare "go" — board game'e sapmasın
     if re.search(r"(^|\s)go(\s|$)", n) and any(x in n for x in ("nedir", "dil", "lang", "program")):
         return "Go programming language Golang"
     if "swift" in n and any(x in n for x in ("nedir", "dil", "lang", "program", "apple")):
         return "Swift programming language Apple"
-    for key, rewrite in tech_map.items():
+    for key, rewrite in sorted(tech_map.items(), key=lambda kv: -len(kv[0])):
         if key in n:
             return rewrite
     # "X kim buldu/yarattı"

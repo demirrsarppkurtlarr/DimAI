@@ -1157,8 +1157,9 @@ CHITCHAT: list[tuple[list[str], list[str]]] = [
     (["nasilsin", "naber", "ne haber", "iyi misin", "how are you"],
      ["İyiyim, teşekkürler! Sen nasılsın? Bir şey yazmak, sormak veya sadece sohbet de olur.",
       "Gayet iyiyim 😊 Sen nasılsın? Kod, soru veya muhabbet — ne dilersen."]),
-    (["ne yapiyorsun", "ne yapıyorsun", "napıyorsun", "napıyorsun", "napıyosun"],
-     ["Buradayım, sorularını bekliyorum. İstersen birlikte kod yazalım veya bir konuyu konuşalım."]),
+    (["ne dusunuyorsun", "ne düşünüyorsun", "aklindan ne geciyor", "ne yapiyorsun", "ne yapıyorsun", "napıyorsun", "napıyosun"],
+     ["Şu an seninle konuşuyorum 🙂 Kod, soru veya muhabbet — ne istersen.",
+      "Buradayım. İstersen bir şey kodlarız, istersen sadece sohbet ederiz."]),
     (["sikildim", "sıkıldım", "bosum", "boşum", "konusalim", "konuşalım", "sohbet"],
      ["Tamam, sohbet edelim 😊 Bugün ne yaptın veya aklında ne var?",
       "Olur — istersen kısa bir muhabbet, istersen birlikte bir şey kodlarız. Sen seç."]),
@@ -1843,6 +1844,16 @@ class Brain:
             if any(p in text for p in self.MORE_PATTERNS):
                 prev = self._last_topic_entry(history)
                 if prev:
+                    # Tanım yerine mümkünse kodlu örnek
+                    topic_words = [
+                        w for k in prev.get("nk", []) for w in k.split()
+                        if w not in self.GENERIC_WORDS and len(w) > 2
+                    ][:2]
+                    for entry, score in self._rank_kb(_norm(" ".join(topic_words) + " yaz")):
+                        if entry.get("c") and score >= 1.5:
+                            result = self._kb_result(entry)
+                            result["reply"] = "İşte örnek:\n\n" + result["reply"]
+                            return _tag(result)
                     result = self._kb_result(prev)
                     result["reply"] = "İlgili örnek:\n\n" + result["reply"]
                     return _tag(result)
@@ -1863,10 +1874,19 @@ class Brain:
                 return _tag(self._kb_result(ranked[0][0]))
             return _tag(self._soft_reply(text, history))
 
-        # başka örnek
-        if is_short and any(p in text for p in self.MORE_PATTERNS):
+        # başka örnek — followup kendi konu+kod yolunu kullanır
+        if decision.intent != "followup" and is_short and any(p in text for p in self.MORE_PATTERNS):
             prev = self._last_topic_entry(history)
             if prev:
+                topic_words = [
+                    w for k in prev.get("nk", []) for w in k.split()
+                    if w not in self.GENERIC_WORDS and len(w) > 2
+                ][:2]
+                for entry, score in self._rank_kb(_norm(" ".join(topic_words) + " yaz")):
+                    if entry.get("c") and score >= 1.5:
+                        result = self._kb_result(entry)
+                        result["reply"] = "İşte örnek:\n\n" + result["reply"]
+                        return _tag(result)
                 word_counts: dict = {}
                 for key in prev["nk"]:
                     for w in key.split():
@@ -1898,6 +1918,19 @@ class Brain:
             comb = self._rank_kb(text + " " + topic_str)
             bare = self._rank_kb(text)
             if topic_hits and topic_hits[0][1] >= 2.0:
+                # «örnek ver» → mümkünse kodlu KB girdisi tercih et
+                wants_example = any(w in text for w in ("ornek", "ornegi", "ornekler", "goster", "yaz"))
+                if wants_example:
+                    for entry, score in self._rank_kb(_norm(f"{topic_str} yaz")):
+                        if entry.get("c") and score >= 1.5:
+                            result = self._kb_result(entry)
+                            result["reply"] = "İşte örnek:\n\n" + result["reply"]
+                            return _tag(result)
+                    for entry, score in topic_hits:
+                        if entry.get("c"):
+                            result = self._kb_result(entry)
+                            result["reply"] = "İşte örnek:\n\n" + result["reply"]
+                            return _tag(result)
                 base = self._kb_result(topic_hits[0][0])
                 # kısa follow-up'ta aynı cevabı biraz genişlet
                 if any(w in text for w in ("daha", "anlat", "detay", "acikla", "neden")):
