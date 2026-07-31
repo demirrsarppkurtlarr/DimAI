@@ -26,7 +26,7 @@ _REF_RE = re.compile(
 
 @dataclass
 class MemoryStore:
-    """Session + durable conversation memory."""
+    """Session + durable conversation memory (Phase 5 layers)."""
 
     turns: list[dict[str, Any]] = field(default_factory=list)
     embeddings: list[np.ndarray] = field(default_factory=list)
@@ -39,6 +39,10 @@ class MemoryStore:
     project: str = ""
     recent_actions: list[str] = field(default_factory=list)
     personality_notes: list[str] = field(default_factory=list)
+    # Phase 5
+    long_term_facts: list[str] = field(default_factory=list)
+    improve_level: int = 0
+    short_term: list[str] = field(default_factory=list)  # last few user goals
 
 
 class MemoryEngine:
@@ -52,6 +56,9 @@ class MemoryEngine:
         project = self.store.project
         actions = list(self.store.recent_actions[-8:])
         persona = list(self.store.personality_notes[-6:])
+        long_term = list(self.store.long_term_facts[-20:])
+        improve_level = self.store.improve_level
+        short_term = list(self.store.short_term[-8:])
 
         self.store.turns = []
         self.store.embeddings = []
@@ -63,6 +70,9 @@ class MemoryEngine:
         self.store.project = project
         self.store.recent_actions = actions
         self.store.personality_notes = persona
+        self.store.long_term_facts = long_term
+        self.store.improve_level = improve_level
+        self.store.short_term = short_term
 
         for h in history[-24:]:
             role = str(h.get("role") or "")
@@ -126,6 +136,11 @@ class MemoryEngine:
             self.store.last_code = code
             self.store.last_lang = lang
             self.store.recent_actions.append(f"code:{lang or 'python'}")
+            # Track iterative improve level stamped in source
+            m_lvl = re.search(r"DIMAI_IMPROVE_LEVEL\s*=\s*(\d+)", code)
+            if m_lvl:
+                self.store.improve_level = int(m_lvl.group(1))
+                self.store.recent_actions.append(f"improve:v{self.store.improve_level}")
         if action:
             self.store.recent_actions.append(action[:80])
             self.store.recent_actions = self.store.recent_actions[-12:]
@@ -139,12 +154,20 @@ class MemoryEngine:
             re.I,
         )
         if m:
-            self.store.preferences["name"] = (m.group(1) or m.group(2)).capitalize()
+            name = (m.group(1) or m.group(2)).capitalize()
+            self.store.preferences["name"] = name
+            fact = f"user_name={name}"
+            if fact not in self.store.long_term_facts:
+                self.store.long_term_facts.append(fact)
         # Tone preference
         if re.search(r"\bkisa\s+yaz\b|\bbe concise\b|\bkisa tut\b", content, re.I):
             self.store.preferences["style"] = "concise"
         if re.search(r"\bdetayli\b|\bmore detail\b|\buzun anlat\b", content, re.I):
             self.store.preferences["style"] = "detailed"
+        # Short-term goals from user turns
+        if role == "user" and len(content.split()) >= 2:
+            self.store.short_term.append(content[:120])
+            self.store.short_term = self.store.short_term[-8:]
 
     def retrieve(self, query: str, query_vec: np.ndarray | None = None, top_k: int = 6) -> List[MemoryHit]:
         hits: list[MemoryHit] = []
@@ -193,6 +216,19 @@ class MemoryEngine:
             hits.append(MemoryHit(role="system", content=task, score=0.7, kind="task"))
         for act in self.store.recent_actions[-3:]:
             hits.append(MemoryHit(role="system", content=act, score=0.65, kind="action"))
+        for fact in self.store.long_term_facts[-5:]:
+            hits.append(MemoryHit(role="system", content=fact, score=0.86, kind="long_term"))
+        for goal in self.store.short_term[-3:]:
+            hits.append(MemoryHit(role="system", content=goal, score=0.72, kind="short_term"))
+        if self.store.improve_level:
+            hits.append(
+                MemoryHit(
+                    role="system",
+                    content=f"improve_level={self.store.improve_level}",
+                    score=0.7,
+                    kind="action",
+                )
+            )
         return hits
 
     def resolve_references(

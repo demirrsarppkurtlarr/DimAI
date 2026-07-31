@@ -894,9 +894,11 @@ _SPECIAL_CODES = {
 def looks_like_special_code(raw: str) -> bool:
     """Only the whole message — not when the word appears inside a sentence."""
     t = (raw or "").strip().lower()
+    t = re.sub(r"[.!?,;:]+$", "", t).strip()
     return t in _SPECIAL_CODES
 
 
 def answer_special_code(raw: str = "") -> str:
     t = (raw or "").strip().lower()
+    t = re.sub(r"[.!?,;:]+$", "", t).strip()
     return _SPECIAL_CODES.get(t, "")

@@ -51,8 +51,8 @@ def status():
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "reasoning-v4",
-        "codegen": "design-implement-review",
+        "phase": "memory-v5",
+        "codegen": "iterative-improve",
     }
     try:
         payload["improve"] = improve.status()
@@ -101,6 +101,24 @@ def chat():
     history = data.get("history") or []
     if not isinstance(history, list):
         history = []
+
+    # Easter eggs before any NLU/agent path
+    try:
+        from model import skills as _skills
+
+        if _skills.looks_like_special_code(message):
+            ans = _skills.answer_special_code(message)
+            if ans:
+                return jsonify({
+                    "ok": True,
+                    "reply": ans,
+                    "source": "chat",
+                    "intent": "conversation",
+                    "thinking": "easter-egg",
+                    "learned_count": learned.count(),
+                })
+    except Exception:
+        pass
 
     # ---- Modern NLU reasoning pipeline (stages 1→10) ----
     result = None

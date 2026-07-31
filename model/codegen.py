@@ -190,129 +190,62 @@ def improve(
     project_context: str = "",
     user_language: str = "tr",
 ) -> Optional[dict]:
-    """Önceki kodu mimariyle geliştir — tutorial yapıştırma yok."""
+    """Iteratively upgrade prior code — each call advances a new layer."""
     prior = (prior_code or "").strip()
     if not prior:
         return None
-    n = _norm(request)
-    low = prior.lower()
 
-    from model.code_design import compare_alternatives, design
-    from model.code_engineer import implement
+    from model.code_design import design
+    from model.code_improve import evolve, level_label
     from model.code_review import apply_fixes, review
 
-    # Known family → redesigned richer variant under DesignSpec
-    domain_hint = ""
-    if ("tas" in low and "makas" in low) or ("rock" in low and "paper" in low):
-        domain_hint = "skor tablolu tas kagit makas oyunu gelistir"
-    elif "randint" in low and ("tahmin" in low or "guess" in low or "hedef" in low):
-        domain_hint = "zorluk seviyeli sayi tahmin oyunu gelistir"
-    elif "todo" in low or "yapilacak" in low or "maddeler" in low:
-        domain_hint = "todo list uygulamasini gelistir ara tamamla kaydet"
-
-    if domain_hint:
-        spec = design(
-            f"{domain_hint} {request}".strip(),
-            project_context=project_context,
-            prior_code=prior,
-            improve=True,
-        )
-        for line in compare_alternatives(spec):
-            spec.architecture_notes.append(line)
-        payload = implement(spec, user_language=user_language)
-        payload["reply"] = (
-            ("Önceki kodun amacını koruyup mimariyi yükselttim:\n\n" if user_language != "en" else "Kept prior intent, raised the architecture:\n\n")
-            + payload["reply"]
-        )
-        report = review(str(payload.get("code") or ""), spec, lang=str(payload.get("lang") or lang))
-        payload = apply_fixes(payload, report)
-        payload["review"] = {
-            "score": report.score,
-            "originality": report.originality,
-            "issues": report.issues,
-            "suggestions": report.suggestions,
-        }
-        return payload
-
-    # Generic: wrap prior into a modular shell designed for this project
-    slug = _slug(request) if request else "gelistirilmis"
-    req_note = request or "daha iyi / daha uzun"
-    req_safe = req_note.replace('"""', "'")
+    lang_out = lang or _detect_lang(_norm(request)) or "python"
+    evolved = evolve(prior, request=request or "gelistir", lang=lang_out)
+    next_level = int(evolved["level"])
     spec = design(
-        req_note,
+        request or "gelistir",
         project_context=project_context,
         prior_code=prior,
         improve=True,
     )
-    improved = (
-        '"""Geliştirilmiş sürüm — DimAI design-first improvement.\n\n'
-        f"İstek: {req_safe}\n"
-        "Kararlar: domain logic korunur; I/O ve hata yönetimi sınırda toplanır.\n"
-        '"""\n'
-        "from __future__ import annotations\n\n"
-        "import traceback\n"
-        "from dataclasses import dataclass, field\n"
-        "from pathlib import Path\n"
-        "from typing import Any\n\n\n"
-        "# --- prior logic (preserved, then orchestrated) ---\n"
-        + prior
-        + "\n\n\n"
-        "@dataclass\n"
-        "class AppState:\n"
-        '    """Runtime façade — logging + settings (SRP)."""\n'
-        "    logs: list[str] = field(default_factory=list)\n"
-        '    ayarlar: dict[str, Any] = field(default_factory=lambda: {"debug": True})\n\n'
-        "    def log(self, msg: str) -> None:\n"
-        "        self.logs.append(msg)\n"
-        "        print(msg)\n\n\n"
-        "def guvenli_calistir(fn, *args, **kwargs):\n"
-        "    try:\n"
-        "        return fn(*args, **kwargs)\n"
-        "    except Exception as exc:\n"
-        '        print("Hata:", exc)\n'
-        "        traceback.print_exc()\n"
-        "        return None\n\n\n"
-        f'def kaydet_log(path: str = "{slug}_log.txt") -> None:\n'
-        "    p = Path(path)\n"
-        '    p.write_text("calistirildi\\n", encoding="utf-8")\n'
-        '    print("Log yazildi:", p.resolve())\n\n\n'
-        "def main() -> None:\n"
-        "    state = AppState()\n"
-        '    state.log("Gelistirilmis uygulama basladi.")\n'
-        "    for name, obj in list(globals().items()):\n"
-        '        if name.startswith("_") or name in {"main", "guvenli_calistir", "kaydet_log", "AppState"}:\n'
-        "            continue\n"
-        '        if callable(obj) and getattr(obj, "__module__", "") == "__main__":\n'
-        '            state.log(f"fonksiyon hazir: {name}()")\n'
-        "    kaydet_log()\n"
-        '    state.log("Bitti. Istersen fonksiyonlari dogrudan cagir.")\n\n\n'
-        'if __name__ == "__main__":\n'
-        "    main()\n"
-    )
+    if user_language == "en":
+        reply = (
+            f"Improved again (v{next_level}): kept your logic, added "
+            f"{evolved['label']}. Say improve once more for another layer."
+        )
+    else:
+        reply = (
+            f"Tekrar geliştirdim (v{next_level}): önceki mantığı korudum, "
+            f"üzerine {evolved['label']} ekledim. "
+            f"Bir daha `geliştir` dersen yeni bir katman daha gelir."
+        )
     payload = {
-        "reply": (
-            "Önceki kodunu bozmadan mimari kabuk ekledim: durum nesnesi, hata sınırı, "
-            "log ve `main` orkestrasyonu — tutorial kopyası değil, senin koda göre uyarlandı.\n\n"
-            + "\n".join(spec.summary_lines(language=user_language))
-        ),
-        "code": improved.strip() + "\n",
-        "lang": lang or "python",
+        "reply": reply,
+        "code": evolved["code"],
+        "lang": lang_out,
         "source": "codegen",
         "design": {
             "goal": spec.goal,
             "problem_type": spec.problem_type,
             "confidence": spec.confidence,
+            "improve_level": next_level,
         },
     }
     report = review(payload["code"], spec, lang=payload["lang"])
     payload = apply_fixes(payload, report)
+    from model.code_improve import stamp_level
+    payload["code"] = stamp_level(str(payload.get("code") or ""), next_level)
+    if not payload["code"].endswith("\n"):
+        payload["code"] = payload["code"].rstrip() + "\n"
     payload["review"] = {
         "score": report.score,
         "originality": report.originality,
         "issues": report.issues,
         "suggestions": report.suggestions,
+        "improve_level": next_level,
     }
     return payload
+
 
 
 def _gen_guess_game_rich(_: str) -> tuple[str, str, str]:

@@ -53,6 +53,26 @@ class NLUPipeline:
     def run(self, message: str, history: Optional[List[dict]] = None) -> Dict[str, Any]:
         state = PipelineState(raw=message or "", history=list(history or [])[-24:])
 
+        # Easter eggs — exact whole message only; short-circuit before NLU
+        try:
+            from model import skills as _skills
+
+            if _skills.looks_like_special_code(state.raw):
+                ans = _skills.answer_special_code(state.raw)
+                if ans:
+                    return {
+                        "reply": ans,
+                        "source": "chat",
+                        "intent": "conversation",
+                        "intent_confidence": 1.0,
+                        "thinking": "easter-egg",
+                        "nlu": {"egg": True},
+                        "allow_web": False,
+                    }
+        except Exception as exc:  # noqa: BLE001
+            # Never silently skip eggs due to import glitches
+            state.add_trace(f"egg-error:{type(exc).__name__}")
+
         # 1 Normalize
         state.normalized = normalize(state.raw)
         state.add_trace("normalize")
