@@ -846,11 +846,11 @@ _RULES: list[tuple[tuple[str, ...], Callable]] = [
     (("binary search", "ikili ara"), _gen_binary_search),
     (("fibonacci", "fibonacchi", "fibo"), _gen_fibonacci),
     (("sort", "sirala", "siralama", "bubble", "quick sort"), _gen_sort),
-    (("geri say", "countdown", "sayac"), _gen_countdown),
+    (("geri say", "countdown", "geri sayim"), _gen_countdown),
     (("birim", "donustur", "convert"), _gen_unit_convert),
     (("scrape", "kazı", "kazi", "html parse", "baslik cek"), _gen_web_scraper_stub),
     (("dosya", "file stat", "satir say"), _gen_file_stats),
-    (("react", "usestate", "component"), _gen_react_counter),
+    (("react", "usestate", "component", "sayac yaz", "counter"), _gen_react_counter),
     (("html", "landing", "web sayfa"), _gen_html_page),
     (("sql", "schema", "tablo olustur"), _gen_sql_schema),
 ]
