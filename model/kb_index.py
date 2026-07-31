@@ -116,16 +116,20 @@ def hit_supports_query(query: str, ch: "Chunk") -> bool:
     q_stems = _content_stems(query)
     if not q_stems:
         return False
+    title_stems = _content_stems(f"{ch.title} {' '.join(ch.tags)}")
     blob = f"{ch.title} {ch.body[:500]} {ch.code[:200]} {' '.join(ch.tags)}"
     c_stems = _content_stems(blob)
     if not c_stems:
         return False
     inter = q_stems & c_stems
-    # At least one content stem from the question must appear in the chunk.
     if not inter:
         return False
+    # Anti-hallucination: at least one content stem must appear in TITLE/tags,
+    # not only buried in a long body.
+    if not (q_stems & title_stems):
+        return len(inter) >= 3
     cover = len(inter) / max(len(q_stems), 1)
-    return cover >= 0.34 or (len(inter) >= 2)
+    return cover >= 0.4 or len(inter) >= 2
 
 
 def looks_like_junk_reply(text: str) -> bool:
@@ -199,13 +203,13 @@ class KnowledgeIndex:
         with self._lock:
             if HOT_PATH.exists():
                 added += self._ingest_file(HOT_PATH, limit=20000, source_label="hot")
-            # Balanced caps from curated seeds (cold archive can live in Supabase)
+            # Coding-first caps: ALL curated code seeds + quality-ranked rest.
             plan = [
-                (DATA / "tr_chat_learned_seed.json", 2800, "tr_chat", "chat"),
-                (DATA / "tr_code_learned_seed.json", 1600, "tr_code", "code"),
-                (DATA / "code_learned_seed.json", 1600, "hf_code", "code"),
-                (DATA / "huge_learned_seed.json", 2200, "huge", "qa"),
-                (DATA / "tulu_learned_seed.json", 800, "tulu", "chat"),
+                (DATA / "tr_code_learned_seed.json", 2700, "tr_code", "code"),
+                (DATA / "code_learned_seed.json", 3500, "hf_code", "code"),
+                (DATA / "huge_learned_seed.json", 3600, "huge", "qa"),
+                (DATA / "tr_chat_learned_seed.json", 2400, "tr_chat", "chat"),
+                (DATA / "tulu_learned_seed.json", 700, "tulu", "chat"),
                 (DATA / "learned.json", 900, "learned", "qa"),
             ]
             for path, limit, label, default_kind in plan:
@@ -322,10 +326,13 @@ class KnowledgeIndex:
             return 0
         if not isinstance(raw, list):
             return 0
-        # Prefer higher quality when present
+        # Prefer code-bearing rows, then higher quality (coding-first knowledge)
         rows = sorted(
             raw,
-            key=lambda r: float((r or {}).get("quality") or 0.5),
+            key=lambda r: (
+                1 if (r or {}).get("c") or (r or {}).get("code") else 0,
+                float((r or {}).get("quality") or 0.5),
+            ),
             reverse=True,
         )
         n = 0
@@ -732,7 +739,7 @@ def synthesize_hits(hits: Sequence[ChunkHit], *, language: str = "tr", query: st
         return None
     best = hits[0]
     ch = best.chunk
-    min_ok = 0.40 if chunk_is_chatty(ch) else 0.34
+    min_ok = 0.45 if chunk_is_chatty(ch) else 0.38
     if best.score < min_ok:
         return None
     if looks_like_junk_reply(ch.body) and not ch.code:
