@@ -119,9 +119,23 @@ class ResponseGenerator:
                     state,
                 )
             if tr.name == ToolName.KB and tr.payload.get("reply"):
+                from .quality import present_code_answer
+
+                intent_v = state.intent.intent if state.intent else None
+                if tr.payload.get("code") and intent_v in {
+                    Intent.QUESTION, Intent.EXPLANATION, Intent.CODING, Intent.COMMAND,
+                }:
+                    shaped = present_code_answer(
+                        question=state.raw,
+                        answer=str(tr.payload.get("reply") or ""),
+                        code=str(tr.payload.get("code") or ""),
+                        lang=str(tr.payload.get("lang") or "python"),
+                        language=lang,
+                    )
+                    return self._with_voice(shaped, state)
                 out = {
                     "reply": tr.payload["reply"],
-                    "source": "kb",
+                    "source": tr.payload.get("source") or "kb",
                 }
                 if tr.payload.get("code"):
                     out["code"] = tr.payload["code"]
@@ -256,9 +270,12 @@ class ResponseGenerator:
         )
 
     def _with_voice(self, payload: Dict[str, Any], state: PipelineState) -> Dict[str, Any]:
+        from .quality import lead_with_answer, polish
+
         plan = state.plan or ResponsePlan()
         reply = str(payload.get("reply") or "")
         reply = anti_robotic(reply)
+        reply = polish(reply, language=plan.language)
 
         style_pref = ""
         topic = ""
@@ -270,7 +287,7 @@ class ResponseGenerator:
 
         meaning = getattr(state, "meaning_notes", None) or []
         wants_continue = any("continue" in n or "incomplete" in n for n in meaning)
-        if wants_continue and payload.get("source") in {"kb", "chat", "web"}:
+        if wants_continue and payload.get("source") in {"kb", "chat", "web", "learned"}:
             reply = weave_context_prefix(
                 reply,
                 topic=topic,
@@ -281,7 +298,8 @@ class ResponseGenerator:
         intent = state.intent.intent if state.intent else None
         if (
             intent in {Intent.QUESTION, Intent.EXPLANATION}
-            and payload.get("source") == "kb"
+            and payload.get("source") in {"kb", "learned"}
+            and not payload.get("code")
             and "ister" not in reply.lower()
             and "want" not in reply.lower()
             and len(reply) < 600
@@ -299,6 +317,7 @@ class ResponseGenerator:
             if len(parts) > 2:
                 reply = parts[0] + "\n\n" + parts[-1]
 
+        reply = lead_with_answer(reply, language=plan.language)
         payload = dict(payload)
         payload["reply"] = self.llm.generate(reply)
         return payload
