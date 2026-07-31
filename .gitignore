@@ -26,5 +26,8 @@ data/tr_code_corpus.txt
 data/tr_chat_corpus.tmp
 data/tr_code_corpus.tmp
 # tr_*_learned_seed.json ARE committed for runtime RAG
+data/huge_shards/
+data/huge_manifest.json
+# huge_learned_seed.json + huge_manifest_summary.json ARE committed
 .pytest_cache/
 .mypy_cache/

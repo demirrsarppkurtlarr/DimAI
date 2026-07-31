@@ -342,8 +342,8 @@ class LearnedStore:
                 stem = str(w)[: min(len(str(w)), 5)]
                 if len(stem) >= 2:
                     self._stem_index.setdefault(stem, set()).add(i)
-            if len(self._items) > 12000:
-                self._items = self._items[-12000:]
+            if len(self._items) > 18000:
+                self._items = self._items[-18000:]
                 self._rebuild_index()
             # Self-healing: if Supabase is configured, keep trying it even after
             # an earlier failure (e.g. table created after boot).
@@ -392,8 +392,8 @@ class LearnedStore:
                 self._items.append(entry)
                 existing_q.add(key)
                 added += 1
-            if len(self._items) > 12000:
-                self._items = self._items[-12000:]
+            if len(self._items) > 18000:
+                self._items = self._items[-18000:]
             if added:
                 self._rebuild_index()
             if added and self.backend == "file":

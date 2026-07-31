@@ -56,6 +56,15 @@ try:
 except Exception as _exc:
     print(f"[DimAI] TR code seed skipped: {_exc}", flush=True)
 
+# Huge-scale HF slices (500M+ token-class sources, streamed one-by-one)
+_HUGE_SEED = ROOT / "data" / "huge_learned_seed.json"
+try:
+    _huge = learned.seed_from_file(_HUGE_SEED, limit=8000)
+    if _huge:
+        print(f"[DimAI] seeded {_huge} huge-HF pairs into learned store", flush=True)
+except Exception as _exc:
+    print(f"[DimAI] huge seed skipped: {_exc}", flush=True)
+
 
 @app.get("/")
 def index():
@@ -76,13 +85,14 @@ def status():
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "tr-data-v11",
+        "phase": "huge-data-v12",
         "codegen": "first-principles",
-        "rag": "kb+learned+hf-code+tr-chat",
+        "rag": "kb+learned+hf-code+tr-chat+huge",
         "tool_policy": "auto",
         "hf_code_seed": True,
         "tr_chat_seed": True,
         "tr_code_seed": True,
+        "huge_seed": True,
         "response_quality": True,
         "perf": "tool-shortcircuit+cache+index",
         "self_improve": "codegen-promote+backlog-drain",
@@ -91,6 +101,23 @@ def status():
         payload["improve"] = improve.status()
     except Exception:
         payload["improve"] = {}
+    # Huge HF integration summary (if present)
+    try:
+        import json as _json
+        man = ROOT / "data" / "huge_manifest.json"
+        if man.exists():
+            m = _json.loads(man.read_text(encoding="utf-8"))
+            payload["huge_datasets"] = {
+                "integrated": m.get("datasets_integrated"),
+                "registered": m.get("datasets_registered"),
+                "estimated_source_tokens_sum": m.get("estimated_source_tokens_sum"),
+                "slice_chars_sum": m.get("slice_chars_sum"),
+                "combined_seed": m.get("combined_seed"),
+            }
+        elif (ROOT / "data" / "huge_learned_seed.json").exists():
+            payload["huge_datasets"] = {"combined_seed_file": True}
+    except Exception:
+        pass
     return jsonify(payload)
 
 

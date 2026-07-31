@@ -36,6 +36,10 @@ SOURCES = [
     ("alztrk/turkish-code-instructions", "default", "train", "response"),
     ("TFLai/Turkish-Alpaca", "default", "train", "output"),
     ("malhajar/alpaca-evol-instruct-turkish", "default", "train", "response"),
+    ("zahide/turkish-instructions-220k", "default", "train", "output"),
+    ("Open-Orca/OpenOrca", "default", "train", "response"),
+    ("TokenBender/code_instructions_122k_alpaca_style", "default", "train", "output"),
+    ("jon-tow/starcoderdata-python-edu", "default", "train", "content"),
 ]
 
 FENCE = re.compile(r"```(?:python|py)?\s*(.*?)```", re.S | re.I)
