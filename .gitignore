@@ -21,5 +21,10 @@ data/tulu_chat_corpus.tmp
 data/code_instruct_corpus.txt
 data/code_instruct_corpus.tmp
 # code_learned_seed.json IS committed (compact RAG seed for Render)
+data/tr_chat_corpus.txt
+data/tr_code_corpus.txt
+data/tr_chat_corpus.tmp
+data/tr_code_corpus.tmp
+# tr_*_learned_seed.json ARE committed for runtime RAG
 .pytest_cache/
 .mypy_cache/

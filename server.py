@@ -40,6 +40,22 @@ try:
 except Exception as _exc:
     print(f"[DimAI] code seed skipped: {_exc}", flush=True)
 
+# Turkish-heavy chat + code seeds (data/ingest_tr_datasets.py) — ChatGPT-style TR coverage
+_TR_CHAT_SEED = ROOT / "data" / "tr_chat_learned_seed.json"
+_TR_CODE_SEED = ROOT / "data" / "tr_code_learned_seed.json"
+try:
+    _tr_chat = learned.seed_from_file(_TR_CHAT_SEED, limit=7000)
+    if _tr_chat:
+        print(f"[DimAI] seeded {_tr_chat} Turkish chat/instruct pairs into learned store", flush=True)
+except Exception as _exc:
+    print(f"[DimAI] TR chat seed skipped: {_exc}", flush=True)
+try:
+    _tr_code = learned.seed_from_file(_TR_CODE_SEED, limit=3500)
+    if _tr_code:
+        print(f"[DimAI] seeded {_tr_code} Turkish code-instruct pairs into learned store", flush=True)
+except Exception as _exc:
+    print(f"[DimAI] TR code seed skipped: {_exc}", flush=True)
+
 
 @app.get("/")
 def index():
@@ -60,11 +76,13 @@ def status():
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "improve-v10",
+        "phase": "tr-data-v11",
         "codegen": "first-principles",
-        "rag": "kb+learned+hf-code",
+        "rag": "kb+learned+hf-code+tr-chat",
         "tool_policy": "auto",
         "hf_code_seed": True,
+        "tr_chat_seed": True,
+        "tr_code_seed": True,
         "response_quality": True,
         "perf": "tool-shortcircuit+cache+index",
         "self_improve": "codegen-promote+backlog-drain",
