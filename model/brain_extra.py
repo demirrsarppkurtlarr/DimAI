@@ -1033,7 +1033,7 @@ print(loaded["isim"])''', "l": "python"},
     {"k": ["websocket nedir", "web socket nedir", "websockets nedir"],
      "a": "**WebSocket**, tek TCP bağlantısı üzerinden **çift yönlü** (sunucu↔istemci) gerçek zamanlı iletişim protokolüdür.\n\n• Chat, canlı skor, işbirliği editörleri\n• HTTP'den upgrade ile başlar\n• REST'e göre sürekli açık kanal\n\nAlternatif: SSE (sunucu→istemci tek yön)."},
 
-    {"k": ["oauth nedir", "oauth2 nedir", "o auth nedir"],
+    {"k": ["oauth nedir", "oauth2 nedir"],
      "a": "**OAuth 2.0**, \"Google/GitHub ile giriş\" gibi **yetkilendirme** protokolüdür.\n\n• Kullanıcı şifresini 3. parti uygulamaya vermez\n• Access token ile sınırlı izin verir\n• OpenID Connect kimlik katmanı ekler\n\nSık akış: Authorization Code (+ PKCE)."},
 
     {"k": ["cors nedir", "cors ne demek", "cross origin"],
@@ -1053,4 +1053,95 @@ print(loaded["isim"])''', "l": "python"},
 
     {"k": ["turkiye baskenti", "turkiyenin baskenti", "ankara baskent"],
      "a": "**Türkiye'nin başkenti Ankara'dır.** 13 Ekim 1923'te başkent ilan edildi. En kalabalık şehir ise İstanbul'dur."},
+
+    # --- Round 2 tanımlar / karşılaştırmalar ---
+    {"k": ["vue nedir", "vuejs nedir", "vue.js nedir"],
+     "a": "**Vue.js**, kullanıcı arayüzü için progressive bir JavaScript framework'üdür.\n\n• Öğrenmesi React/Angular'a göre daha yumuşak\n• Tek dosya bileşenleri (`.vue`)\n• Reactivity sistemi + Composition API\n\nKüçük widget'tan büyük SPA'ya kadar ölçeklenir."},
+
+    {"k": ["svelte nedir", "sveltejs nedir"],
+     "a": "**Svelte**, derleme zamanında JavaScript'e dönüşen bir UI framework'üdür.\n\n• Runtime'da Virtual DOM taşımaz\n• Daha az boilerplate\n• `.svelte` dosyalarında HTML/CSS/JS bir arada\n\nPerformans ve sadelik odaklı alternatif."},
+
+    {"k": ["angular nedir", "angularjs nedir"],
+     "a": "**Angular**, Google destekli, TypeScript tabanlı full-featured bir frontend framework'tür.\n\n• CLI, routing, forms, DI hazır gelir\n• Büyük kurumsal uygulamalar için tercih edilir\n• React/Vue'ye göre daha \"batteries included\""},
+
+    {"k": ["flutter nedir", "flutter dart"],
+     "a": "**Flutter**, Google'ın **Dart** diliyle mobil/web/masaüstü UI yazdıran toolkit'idir.\n\n• Tek kod tabanı → iOS + Android (+ web/desktop)\n• Widget ağacı\n• Hot reload ile hızlı geliştirme"},
+
+    {"k": ["postgresql nedir", "postgres nedir"],
+     "a": "**PostgreSQL (Postgres)**, gelişmiş açık kaynaklı ilişkisel veritabanıdır.\n\n• Güçlü SQL desteği, JSONB, full-text search\n• ACID, güvenilirlik\n• Web backend'lerin en sık tercih ettiği DB'lerden"},
+
+    {"k": ["mysql nedir", "my sql nedir"],
+     "a": "**MySQL**, yaygın kullanılan açık kaynaklı ilişkisel veritabanıdır.\n\n• LAMP yığınının klasik parçası\n• Okuma ağırlıklı web uygulamalarında sık\n• MariaDB onun topluluk çatallaması"},
+
+    {"k": ["elasticsearch nedir", "elastic search nedir"],
+     "a": "**Elasticsearch**, JSON belgeleri üzerinde hızlı **full-text arama** yapan dağıtık arama motorudur.\n\n• ELK/Elastic Stack'in kalbi\n• Log, ürün arama, analitik\n• REST API ile konuşur"},
+
+    {"k": ["kafka nedir", "apache kafka nedir"],
+     "a": "**Apache Kafka**, yüksek hacimli olay/mesaj akışı için dağıtık bir **event streaming** platformudur.\n\n• Producer → topic → consumer\n• Log tabanlı, ölçeklenebilir\n• Mikroservisler arası event bus olarak sık kullanılır"},
+
+    {"k": ["rabbitmq nedir", "rabbit mq nedir"],
+     "a": "**RabbitMQ**, AMQP tabanlı bir **mesaj kuyruğu**dır.\n\n• İşleri asenkron dağıtır\n• Exchange + queue modeli\n• Kafka'dan daha klasik queue; daha düşük gecikmeli iş kuyrukları için uygun"},
+
+    {"k": ["grpc nedir", "g rpc nedir"],
+     "a": "**gRPC**, Google'ın HTTP/2 + Protocol Buffers kullanan RPC framework'üdür.\n\n• Hızlı, tip güvenli servis çağrıları\n• Mikroservisler arası iletişimde yaygın\n• REST/JSON'a göre daha kompakt"},
+
+    {"k": ["microservices nedir", "mikroservis nedir", "microservice nedir"],
+     "a": "**Mikroservis**, büyük uygulamayı bağımsız deploy edilebilen küçük servislere bölme mimarisidir.\n\n• Her servis kendi DB/API'sine sahip olabilir\n• Ölçekleme ve ekip özerkliği artar\n• Bedeli: ağ karmaşıklığı, gözlemlenebilirlik ihtiyacı"},
+
+    {"k": ["serverless nedir", "server less nedir"],
+     "a": "**Serverless**, sunucu yönetmeden olay tetiklemeli fonksiyon çalıştırma modelidir (AWS Lambda, Cloud Functions).\n\n• Kullandığın kadar öde\n• Otomatik ölçek\n• Soğuk başlangıç ve vendor lock-in dikkat"},
+
+    {"k": ["cdn nedir", "content delivery network"],
+     "a": "**CDN (Content Delivery Network)**, statik içeriği kullanıcıya yakın sunuculardan dağıtan ağdır.\n\n• Daha hızlı yükleme, daha az origin yükü\n• Cloudflare, Fastly, CloudFront örnekleri\n• JS/CSS/görseller için standart"},
+
+    {"k": ["jwt vs session", "session vs jwt", "jwt session fark"],
+     "a": "**JWT vs Session:**\n\n• **Session:** sunucu state tutar (cookie + server store)\n• **JWT:** istemci token taşır, sunucu genelde stateless doğrular\n\nJWT ölçeklemede kolay; iptal/refresh ve sızıntı riski yönetilmeli. Session kontrolü sunucuda daha kolay."},
+
+    {"k": ["rest vs graphql", "graphql vs rest", "rest graphql fark"],
+     "a": "**REST vs GraphQL:**\n\n• **REST:** kaynak URL'leri + HTTP metodları, birden fazla endpoint\n• **GraphQL:** tek endpoint, istemci alan seçer\n\nGraphQL over-fetch azaltır; cache ve karmaşıklık maliyeti vardır. Basit CRUD için REST hâlâ çok uygun."},
+
+    {"k": ["sql vs nosql", "nosql vs sql", "sql nosql fark"],
+     "a": "**SQL vs NoSQL:**\n\n• **SQL:** tablolar, şema, join, güçlü tutarlılık (Postgres/MySQL)\n• **NoSQL:** esnek belge/key-value, yatay ölçek (Mongo/Redis)\n\nİlişkili veri + rapor → SQL. Esnek belge + yüksek yazma → NoSQL. Çoğu sistem ikisini birden kullanır."},
+
+    {"k": ["big o nedir", "big-o nedir", "buyuk o nedir", "time complexity nedir"],
+     "a": "**Big-O**, algoritmanın girdi büyüdükçe nasıl yavaşladığını (asimptotik karmaşıklık) anlatır.\n\n• O(1) sabit · O(log n) iyi · O(n) doğrusal\n• O(n log n) iyi sıralama · O(n²) Nested döngü · O(2ⁿ) patlama\n\n\"Algoritma nedir\" ile birlikte düşün; örnek için `binary search yaz`."},
+
+    {"k": ["heap nedir programlama", "heap nedir", "stack nedir programlama", "stack nedir bellek"],
+     "a": "**Stack vs Heap (bellek):**\n\n• **Stack:** fonksiyon çağrıları, lokal değişkenler — hızlı, otomatik temizlenir\n• **Heap:** dinamik tahsis (`new`/objeler) — esnek, GC/manuel yönetim\n\nAyrıca **heap** veri yapısı (öncelik kuyruğu) ayrı bir kavramdır."},
+
+    {"k": ["garbage collector nedir", "gc nedir", "cop toplayici nedir"],
+     "a": "**Garbage Collector (GC)**, artık referansı kalmayan nesneleri otomatik temizleyen bellek yöneticisidir.\n\n• Java, Go, C#, JS, Python'da var\n• C/C++'ta genelde manuel (`free`)\n• Pause / throughput trade-off'ları vardır"},
+
+    {"k": ["npm nedir", "node package manager"],
+     "a": "**npm**, Node.js paket yöneticisidir.\n\n• `package.json` bağımlılıkları\n• `npm install` / `npx`\n• npm registry'den kütüphane indirir\n\nAlternatifler: yarn, pnpm."},
+
+    {"k": ["pip nedir", "pip python"],
+     "a": "**pip**, Python paket yükleyicisidir.\n\n• `pip install requests`\n• PyPI deposundan paket çeker\n• Sanal ortam (`venv`) ile birlikte kullan"},
+
+    {"k": ["virtualenv nedir", "venv nedir", "python venv"],
+     "a": "**venv / virtualenv**, projeye özel izole Python ortamıdır.\n\n• Bağımlılıklar sistem Pyhton'unu kirletmez\n• `python -m venv .venv` → aktive et → `pip install`"},
+
+    {"k": ["linux nedir"],
+     "a": "**Linux**, açık kaynaklı bir işletim sistemi çekirdeğidir; Ubuntu/Debian/Fedora gibi dağıtımların temelidir.\n\n• Sunucuların ve Android'in omurgası\n• Çok kullanıcılı, güçlü terminal/araç ekosistemi"},
+
+    {"k": ["bash nedir", "bash shell"],
+     "a": "**Bash**, Linux/macOS'ta yaygın bir komut satırı kabuğudur (shell).\n\n• Komut çalıştırma + script (`.sh`)\n• Pipe, yönlendirme, değişkenler\n• Otomasyonun temel aracı"},
+
+    {"k": ["cron nedir", "crontab nedir"],
+     "a": "**cron**, Unix/Linux'ta zamanlanmış görev çalıştırıcıdır.\n\n• `crontab -e` ile planlanır\n• Örn: her gece yedek al, her 5 dk health-check\n• Format: `dakika saat gün ay haftanın_günü komut`"},
+
+    {"k": ["ssl nedir", "tls nedir", "ssl tls nedir"],
+     "a": "**TLS** (eski adıyla sıkça **SSL** denir), ağ trafiğini şifreleyen protokoldür.\n\n• HTTPS = HTTP + TLS\n• Sertifika (CA) ile kimlik doğrulama\n• Bugün SSL 3.0 ölü; pratikte TLS 1.2/1.3 kullanılır"},
+
+    {"k": ["regex nedir", "regular expression nedir", "duzenli ifade"],
+     "a": "**Regex (regular expression)**, metinde kalıp aramak için mini bir dildir.\n\n• `\\d+` rakamlar · `^` baş · `$` son · `.*` herhangi\n• Validasyon, parse, arama-değiştirmede kullanılır\n\nÖrnek için `regex örneği` de."},
+
+    {"k": ["hash nedir", "hashing nedir", "hash fonksiyonu"],
+     "a": "**Hash**, veriyi sabit uzunlukta özet değere çeviren fonksiyondur.\n\n• Aynı girdi → aynı özet\n• Küçük değişiklik → tamamen farklı özet\n• Şifre saklama (salt + bcrypt/argon2), bütünlük, dict/key\n\nŞifreleri düz hash'leme (MD5) yeterli değildir."},
+
+    {"k": ["karadelik nedir", "kara delik nedir", "black hole nedir"],
+     "a": "**Karadelik**, kütleçekimi ışığın bile kaçamayacağı kadar güçlü olan uzay-zaman bölgesidir.\n\n• Olay ufku: dönüşü olmayan sınır\n• Yıldız çökmesi veya galaksi merkezlerinde oluşur\n• Einstein göreliliği + modern astronomi ile incelenir"},
+
+    {"k": ["ataturk kimdir", "mustafa kemal", "mustafa kemal ataturk"],
+     "a": "**Mustafa Kemal Atatürk** (1881–1938), Türkiye Cumhuriyeti'nin kurucusu ve ilk cumhurbaşkanıdır.\n\n• Kurtuluş Savaşı'nın askeri/siyasi lideri\n• Cumhuriyet, laiklik, harf inkılabı gibi reformlar\n• 10 Kasım 1938'de İstanbul'da vefat etti"},
 ]

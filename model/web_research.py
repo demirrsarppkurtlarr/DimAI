@@ -75,7 +75,7 @@ def _clean_query(text: str) -> str:
             if c in n:
                 city = c
                 break
-        return f"{city} weather temperature Celsius" if city else "Turkey weather today temperature"
+        return f"{city} weather temperature Celsius" if city else "Istanbul Turkey current weather temperature Celsius"
     # Tech disambiguation — mitoloji / yanlış Wikipedia sayfalarını engelle
     tech_map = {
         "zod": "Zod TypeScript validation library",

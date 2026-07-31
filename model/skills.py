@@ -24,8 +24,9 @@ def _norm(text: str) -> str:
     text = unicodedata.normalize("NFKD", text)
     # preserve != and European decimals before stripping punctuation
     text = text.replace("!=", "⟦ne⟧")
-    # European decimal: 3,5 → 3.5 — but not function args like round(3.14,2)
-    text = re.sub(r"(?<![\d.])(\d{1,8}),(\d{1,6})(?![\d.])", r"\1.\2", text)
+    # European decimal: 3,5 → 3.5 — never inside abs/round/min/max/pow(...)
+    if not re.search(r"\b(abs|round|min|max|pow)\s*\(", text):
+        text = re.sub(r"(?<![\d.])(\d{1,8}),(\d{1,6})(?![\d.])", r"\1.\2", text)
     # keep commas for function args like round(3.14, 2)
     text = re.sub(r"[^a-z0-9+\-*/=<>.%()^\s,⟦⟧]", " ", text)
     text = text.replace("⟦ne⟧", "!=")
@@ -184,11 +185,21 @@ def _format_num(result) -> str:
 
 
 def extract_math_expr(raw: str) -> Optional[str]:
+    # Function calls on raw first — commas must stay as arg separators
+    raw_l = (raw or "").replace("İ", "i").replace("I", "i").replace("ı", "i").lower()
+    mfn0 = re.search(
+        r"\b(abs|round|min|max|pow)\s*\(\s*(-?\d+(?:\.\d+)?(?:\s*,\s*-?\d+(?:\.\d+)?)*)\s*\)",
+        raw_l,
+    )
+    if mfn0:
+        return f"{mfn0.group(1)}({re.sub(r'\s+', '', mfn0.group(2))})"
+
     text = _norm(raw)
     if not text:
         return None
-    # European decimals: 3,5 → 3.5 (only digit,digit)
-    text = re.sub(r"(\d),(\d)", r"\1.\2", text)
+    # European decimals outside function calls
+    if not re.search(r"\b(abs|round|min|max|pow)\s*\(", text):
+        text = re.sub(r"(?<![\d.])(\d{1,8}),(\d{1,6})(?![\d.])", r"\1.\2", text)
     text = _replace_tr_numbers(text)
     text = re.sub(r"[?]+", " ", text)
     for phrase in _STRIP_PHRASES:
@@ -411,8 +422,8 @@ def weather_query(raw: str) -> str:
             city = c.capitalize()
             break
     if city:
-        return f"{city} weather temperature"
-    return "Turkey weather today temperature"
+        return f"{city} current weather temperature Celsius site:wttr.in OR forecast"
+    return "Istanbul Turkey current weather temperature today Celsius"
 
 
 # -------------------- translation --------------------

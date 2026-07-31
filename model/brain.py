@@ -1252,14 +1252,25 @@ class Brain:
                     close = difflib.get_close_matches(kw, words, n=1, cutoff=0.85)
                     if close:
                         score += 0.8
-        # Tanım sorularında kod örnekli KB'yi cezalandır; "X nedir" anahtarını ödüllendir
+        # Tanım sorularında: yalnızca konu kelimesi de tutuyorsa "nedir" anahtarını ödüllendir
         definitional = any(x in text for x in ("nedir", "kimdir", "ne demek", "ne ise", "hakkinda"))
         if definitional:
-            keys_blob = " ".join(entry.get("nk") or [])
-            if "nedir" in keys_blob or "kimdir" in keys_blob or "ne demek" in keys_blob:
-                score += 4.0
-            if entry.get("c") and "nedir" not in keys_blob:
-                score -= 3.0
+            keys = entry.get("nk") or []
+            topic_hit = False
+            for key in keys:
+                if not any(t in key for t in ("nedir", "kimdir", "ne demek", "ne ise")):
+                    continue
+                specific = [kw for kw in key.split() if kw not in self.GENERIC_WORDS and len(kw) >= 3]
+                if specific and all(s in words or s in text for s in specific):
+                    score += 5.0
+                    topic_hit = True
+                    break
+            # Kod örnekli girdiler tanım sorusunda cezalı (konu tutsa bile açıklama tercihi)
+            if entry.get("c") and not topic_hit:
+                score -= 4.0
+            # Konu tutmayan "… nedir" girdilerinin zayıf nedir-eşleşmesini ez
+            if not topic_hit and score < 3.0:
+                score *= 0.25
         return score
 
     def _match_kb(self, text: str, exclude: Optional[dict] = None) -> Optional[dict]:
@@ -1865,13 +1876,26 @@ class Brain:
                 "source": "chat",
             })
 
-        # followup — önce KB, gerekirse web'e izin bayrağı
+        # followup — önce KB (konu + nedir), gerekirse web
         if decision.intent == "followup" and decision.topic:
             topic_str = " ".join(decision.topic)
             if chit and len(words) <= 2:
                 return _tag({"reply": chit, "source": "chat"})
+            topic_q = _norm(f"{topic_str} nedir")
+            topic_hits = self._rank_kb(topic_q)
             comb = self._rank_kb(text + " " + topic_str)
             bare = self._rank_kb(text)
+            if topic_hits and topic_hits[0][1] >= 2.0:
+                base = self._kb_result(topic_hits[0][0])
+                # kısa follow-up'ta aynı cevabı biraz genişlet
+                if any(w in text for w in ("daha", "anlat", "detay", "acikla", "neden")):
+                    base["reply"] = (
+                        base["reply"]
+                        + "\n\n**Neden / nerede kullanılır?** Günlük projelerde bu kavramı "
+                        "doğrudan kullanırsın; örnek kod istersen «örnek ver» veya "
+                        f"«{topic_str} yaz» de."
+                    )
+                return _tag(base)
             comb_s = comb[0][1] if comb else 0.0
             bare_s = bare[0][1] if bare else 0.0
             if comb and comb_s >= 3.0 and comb_s >= bare_s:

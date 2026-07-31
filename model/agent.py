@@ -52,6 +52,7 @@ RESEARCH_EXPLICIT = (
     "arastir", "araştir", "googlela", "internetten bak", "kaynak bul",
     "anlat", "kisaca", "ozetle", "bilgi ver", "aciklar misin",
     "nufus", "nufusu", "population", "kac kisi", "kac milyon",
+    " vs ", " versus ", "farki", "farkı", "arasindaki fark", "arasındaki fark",
 )
 
 WEATHER_HINTS = (
@@ -204,6 +205,23 @@ class Agent:
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
 
+        # --- followup BEFORE generic research ("daha anlat" ≠ film ara) ---
+        if history and self._looks_followup(text, words, topic):
+            main = " ".join(topic[:2])
+            if words <= {"daha", "anlat", "devam", "acikla", "detay", "neden", "niye"} or text in {
+                "daha anlat", "devam", "devam et", "anlat", "detay", "neden", "neden kullanilir",
+            }:
+                rq = f"{main} nedir ne ise yarar programming".strip()
+            else:
+                rq = f"{main} {raw}".strip()
+            return Decision(
+                intent="followup", allow_web=True, allow_memory=True, allow_kb=True,
+                tools=["memory", "kb", "web"],
+                reason=f"önceki konuya bağlı: «{main}»",
+                research_query=rq,
+                context_summary=ctx.get("summary", ""), topic=topic,
+            )
+
         # --- research BEFORE code: "React nedir" ≠ kod örneği ---
         if self._looks_research(text, words) and not self._explicit_code_request(text, words):
             return Decision(
@@ -230,24 +248,6 @@ class Agent:
                 intent="analyze", allow_web=False, allow_memory=True, allow_kb=True,
                 tools=["kb", "chat"], plan=["kodu oku", "sorunu bul", "düzeltme öner"],
                 reason="analiz / debug",
-                context_summary=ctx.get("summary", ""), topic=topic,
-            )
-
-        # --- followup (needs prior topic) ---
-        if history and self._looks_followup(text, words, topic):
-            main = " ".join(topic[:2])
-            # "daha anlat" tek başına roman/film sonuçlarına sapmasın
-            if words <= {"daha", "anlat", "devam", "acikla", "detay"} or text in {
-                "daha anlat", "devam", "devam et", "anlat", "detay",
-            }:
-                rq = f"{main} programming software library explained".strip()
-            else:
-                rq = f"{main} {raw}".strip()
-            return Decision(
-                intent="followup", allow_web=True, allow_memory=True, allow_kb=True,
-                tools=["memory", "kb", "web"],
-                reason=f"önceki konuya bağlı: «{main}»",
-                research_query=rq,
                 context_summary=ctx.get("summary", ""), topic=topic,
             )
 
@@ -443,13 +443,19 @@ class Agent:
         stop = {
             "nedir", "ne", "nasil", "kim", "kimdir", "bir", "ve", "ile", "icin",
             "peki", "bu", "o", "su", "yaz", "kod", "ornek", "bana", "hakkinda",
+            "daha", "anlat", "devam", "acikla", "detay", "neden", "niye", "kullanilir",
+            "kullanılır", "neydi", "midir", "mudur", "misin", "musun",
         }
+        follow_only = {"daha", "anlat", "devam", "acikla", "detay", "neden", "niye", "peki", "baska"}
         for msg in reversed(users):
             n = _norm(msg)
-            # skip followup-shaped
             words = n.split()
+            # skip pure followups — previous real topic'i koru
+            content = [w for w in words if w not in follow_only and w not in stop]
+            if not content and (set(words) <= (follow_only | stop | {"mi", "mu", "miyim"})):
+                continue
             if len(words) <= 5 and any(q in n for q in ("neden", "nasil", "ne zaman", "hangisi")):
-                if not any(h in n for h in ("nedir", "kimdir")):
+                if not any(h in n for h in ("nedir", "kimdir")) and not content:
                     continue
             nouns = [w for w in words if len(w) >= 4 and w not in stop]
             if nouns:
