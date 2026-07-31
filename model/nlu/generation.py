@@ -158,7 +158,37 @@ class ResponseGenerator:
         if cmp:
             return self._with_voice({"reply": cmp, "source": "chat"}, state)
 
-        # Phase 11: directly use HF Turkish/chat learned seeds when tools missed
+        # Phase 13: knowledge index top-k, then legacy learned lookup
+        try:
+            from model.rag import retrieve
+            from .quality import present_code_answer
+
+            intent_v = state.intent.intent.value if state.intent and state.intent.intent else ""
+            rag_hit = retrieve(state.raw, intent=intent_v) or retrieve(
+                state.normalized or state.raw, intent=intent_v
+            )
+            if rag_hit and rag_hit.reply and len(rag_hit.reply) >= 24:
+                if rag_hit.code and intent_v in {"coding", "command", "question", "explanation"}:
+                    shaped = present_code_answer(
+                        question=state.raw,
+                        answer=rag_hit.reply,
+                        code=rag_hit.code,
+                        lang=rag_hit.lang or "python",
+                        language=lang,
+                    )
+                    shaped["source"] = rag_hit.source
+                    return self._with_voice(shaped, state)
+                return self._with_voice(
+                    {
+                        "reply": rag_hit.reply,
+                        "source": rag_hit.source,
+                        "url": rag_hit.url or "",
+                    },
+                    state,
+                )
+        except Exception:
+            pass
+
         try:
             from model.web_research import learned
             from .quality import present_code_answer

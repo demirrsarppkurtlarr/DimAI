@@ -351,10 +351,35 @@ class LearnedStore:
                 try:
                     self._save_supabase(entry)
                     self.backend = "supabase"
+                    # Mirror into hybrid knowledge index (hot + optional pgvector)
+                    try:
+                        from model.kb_index import knowledge_index
+
+                        knowledge_index.add_learned(
+                            entry["q"],
+                            entry["a"],
+                            url=entry.get("url") or "",
+                            code=str(entry.get("c") or ""),
+                            lang=str(entry.get("l") or ""),
+                        )
+                    except Exception:
+                        pass
                     return
                 except Exception:
                     self.backend = "file"
             self._save_file()
+            try:
+                from model.kb_index import knowledge_index
+
+                knowledge_index.add_learned(
+                    entry["q"],
+                    entry["a"],
+                    url=entry.get("url") or "",
+                    code=str(entry.get("c") or ""),
+                    lang=str(entry.get("l") or ""),
+                )
+            except Exception:
+                pass
 
     def seed_from_file(self, path: Path, limit: int = 1500) -> int:
         """Load curated Q&A seed (e.g. Tulu chat) into memory without flooding Supabase."""

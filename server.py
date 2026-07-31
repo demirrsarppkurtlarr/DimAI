@@ -22,10 +22,25 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 # Self-improvement engine (retrieve → evaluate → reflect → queue → promote)
 improve = init_improve(learned)
 
-# Optional Tulu instruct seed (produced by data/ingest_tulu_chat.py)
+# Knowledge index: hybrid top-k over all curated seeds (+ Supabase cold tier)
+from model.kb_index import knowledge_index
+
+try:
+    _kb_stats = knowledge_index.bootstrap(
+        push_supabase=os.environ.get("DIMAI_KB_PUSH", "").lower() in {"1", "true", "yes"},
+    )
+    print(
+        f"[DimAI] kb_index ready: {_kb_stats.get('chunks', 0)} chunks "
+        f"backend={knowledge_index.backend} boot={_kb_stats.get('boot_sec')}s",
+        flush=True,
+    )
+except Exception as _exc:
+    print(f"[DimAI] kb_index bootstrap skipped: {_exc}", flush=True)
+
+# Legacy learned store seeds (smaller caps — primary retrieval is kb_index)
 _TULU_SEED = ROOT / "data" / "tulu_learned_seed.json"
 try:
-    _seeded = learned.seed_from_file(_TULU_SEED, limit=1500)
+    _seeded = learned.seed_from_file(_TULU_SEED, limit=800)
     if _seeded:
         print(f"[DimAI] seeded {_seeded} Tulu Q&A into learned store", flush=True)
 except Exception as _exc:
@@ -34,32 +49,32 @@ except Exception as _exc:
 # Hugging Face coding instruction seed (data/ingest_code_instruct.py)
 _CODE_SEED = ROOT / "data" / "code_learned_seed.json"
 try:
-    _code_seeded = learned.seed_from_file(_CODE_SEED, limit=3500)
+    _code_seeded = learned.seed_from_file(_CODE_SEED, limit=1200)
     if _code_seeded:
         print(f"[DimAI] seeded {_code_seeded} HF code-instruct pairs into learned store", flush=True)
 except Exception as _exc:
     print(f"[DimAI] code seed skipped: {_exc}", flush=True)
 
-# Turkish-heavy chat + code seeds (data/ingest_tr_datasets.py) — ChatGPT-style TR coverage
+# Turkish-heavy chat + code seeds — backup path for learned.lookup
 _TR_CHAT_SEED = ROOT / "data" / "tr_chat_learned_seed.json"
 _TR_CODE_SEED = ROOT / "data" / "tr_code_learned_seed.json"
 try:
-    _tr_chat = learned.seed_from_file(_TR_CHAT_SEED, limit=7000)
+    _tr_chat = learned.seed_from_file(_TR_CHAT_SEED, limit=2000)
     if _tr_chat:
         print(f"[DimAI] seeded {_tr_chat} Turkish chat/instruct pairs into learned store", flush=True)
 except Exception as _exc:
     print(f"[DimAI] TR chat seed skipped: {_exc}", flush=True)
 try:
-    _tr_code = learned.seed_from_file(_TR_CODE_SEED, limit=3500)
+    _tr_code = learned.seed_from_file(_TR_CODE_SEED, limit=1200)
     if _tr_code:
         print(f"[DimAI] seeded {_tr_code} Turkish code-instruct pairs into learned store", flush=True)
 except Exception as _exc:
     print(f"[DimAI] TR code seed skipped: {_exc}", flush=True)
 
-# Huge-scale HF slices (500M+ token-class sources, streamed one-by-one)
+# Huge-scale HF slices — backup only; full set lives in kb_index
 _HUGE_SEED = ROOT / "data" / "huge_learned_seed.json"
 try:
-    _huge = learned.seed_from_file(_HUGE_SEED, limit=8000)
+    _huge = learned.seed_from_file(_HUGE_SEED, limit=2000)
     if _huge:
         print(f"[DimAI] seeded {_huge} huge-HF pairs into learned store", flush=True)
 except Exception as _exc:
@@ -81,18 +96,22 @@ def status():
     payload = trainer.state.to_dict()
     payload["learned_count"] = learned.count()
     payload["learned_backend"] = learned.backend
+    payload["kb_index_count"] = knowledge_index.count()
+    payload["kb_index_backend"] = knowledge_index.backend
+    payload["kb_index_vectors"] = knowledge_index.stats.get("vectors")
     payload["train_job"] = trainer.job_status()
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "huge-data-v12",
+        "phase": "kb-index-v13",
         "codegen": "first-principles",
-        "rag": "kb+learned+hf-code+tr-chat+huge",
+        "rag": "kb+topk-hybrid+learned+supabase-cold",
         "tool_policy": "auto",
         "hf_code_seed": True,
         "tr_chat_seed": True,
         "tr_code_seed": True,
         "huge_seed": True,
+        "kb_index": True,
         "response_quality": True,
         "perf": "tool-shortcircuit+cache+index",
         "self_improve": "codegen-promote+backlog-drain",
