@@ -1,0 +1,130 @@
+{
+  "datasets_integrated": 15,
+  "datasets_registered": 15,
+  "estimated_source_tokens_sum": 16770000000,
+  "slice_chars_sum": 38662868,
+  "combined_seed": 8000,
+  "note": "Full dumps are not stored; each source contributes a streamed slice. estimated_source_tokens_sum is the HF-scale of the *sources*.",
+  "datasets": [
+    {
+      "id": "tascib/turkish-llm-dataset",
+      "kind": "pretrain_text",
+      "lang": "tr",
+      "est_tokens": 500000000,
+      "slice_chars": 4001057,
+      "seed": 1200
+    },
+    {
+      "id": "epfml/FineWeb2-HQ",
+      "kind": "pretrain_text",
+      "lang": "tr",
+      "est_tokens": 200000000,
+      "slice_chars": 3000009,
+      "seed": 800
+    },
+    {
+      "id": "Open-Orca/OpenOrca",
+      "kind": "chat",
+      "lang": "en",
+      "est_tokens": 1000000000,
+      "slice_chars": 3501100,
+      "seed": 1500
+    },
+    {
+      "id": "Open-Orca/SlimOrca",
+      "kind": "chat",
+      "lang": "en",
+      "est_tokens": 200000000,
+      "slice_chars": 2500288,
+      "seed": 1000
+    },
+    {
+      "id": "HuggingFaceH4/ultrachat_200k",
+      "kind": "chat",
+      "lang": "en",
+      "est_tokens": 150000000,
+      "slice_chars": 2501337,
+      "seed": 1000
+    },
+    {
+      "id": "OpenAssistant/oasst1",
+      "kind": "chat",
+      "lang": "multi",
+      "est_tokens": 40000000,
+      "slice_chars": 1169215,
+      "seed": 900
+    },
+    {
+      "id": "Aeala/ShareGPT_Vicuna_unfiltered",
+      "kind": "chat",
+      "lang": "en",
+      "est_tokens": 80000000,
+      "slice_chars": 2501405,
+      "seed": 1000
+    },
+    {
+      "id": "zahide/turkish-instructions-220k",
+      "kind": "chat",
+      "lang": "tr",
+      "est_tokens": 80000000,
+      "slice_chars": 1724870,
+      "seed": 1500
+    },
+    {
+      "id": "matrixportalx/aya-turkish-alpaca",
+      "kind": "chat",
+      "lang": "tr",
+      "est_tokens": 300000000,
+      "slice_chars": 869196,
+      "seed": 682
+    },
+    {
+      "id": "xszheng2020/the_stack_dedup_python",
+      "kind": "code",
+      "lang": "code",
+      "est_tokens": 10000000000,
+      "slice_chars": 3501328,
+      "seed": 800
+    },
+    {
+      "id": "jon-tow/starcoderdata-python-edu",
+      "kind": "code",
+      "lang": "code",
+      "est_tokens": 2000000000,
+      "slice_chars": 3000126,
+      "seed": 800
+    },
+    {
+      "id": "PatrickHaller/the-stack-python-1M",
+      "kind": "code",
+      "lang": "code",
+      "est_tokens": 2000000000,
+      "slice_chars": 2500077,
+      "seed": 700
+    },
+    {
+      "id": "TokenBender/code_instructions_122k_alpaca_style",
+      "kind": "code",
+      "lang": "en",
+      "est_tokens": 60000000,
+      "slice_chars": 2696272,
+      "seed": 1200
+    },
+    {
+      "id": "iamtarun/code_instructions_120k_alpaca",
+      "kind": "code",
+      "lang": "en",
+      "est_tokens": 60000000,
+      "slice_chars": 2696272,
+      "seed": 1200
+    },
+    {
+      "id": "Nan-Do/instructional_code-search-net-python",
+      "kind": "code",
+      "lang": "en",
+      "est_tokens": 100000000,
+      "slice_chars": 2500316,
+      "seed": 1000
+    }
+  ]
+}
