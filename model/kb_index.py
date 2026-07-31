@@ -39,11 +39,25 @@ SUPABASE_KEY = (
 KB_TABLE = os.environ.get("SUPABASE_KB_TABLE", "kb_chunks")
 
 STOP = frozenset({
-    "nedir", "ne", "nasil", "nasıl", "kim", "kimdir", "hakkinda", "bilgi", "ver",
+    "nedir", "ne", "nasil", "nasıl", "kim", "kimdir", "hakkinda", "hakkında", "bilgi", "ver",
     "anlat", "bana", "bir", "the", "what", "is", "who", "ile", "mi", "mu",
     "ve", "de", "da", "icin", "için", "yaz", "kod", "code", "lutfen", "lütfen",
-    "peki", "o", "bu", "su", "onun", "bunun", "gibi", "olan", "icin",
+    "peki", "o", "bu", "su", "onun", "bunun", "gibi", "olan", "orda", "burda",
+    "orada", "burada", "şey", "sey", "bazi", "bazı", "cok", "çok", "daha",
+    "miyim", "misin", "about", "info", "information", "please", "tell", "me",
+    "how", "to", "do", "can", "you", "give", "some",
 })
+
+# Chat/roleplay corpora — never answer factual asks from these alone.
+_CHATTY_SOURCES = (
+    "sohbet", "turkce-sohbet", "alpaca-turkish", "turkish-alpaca",
+    "tulu", "bahadir26", "saillab", "tflai",
+)
+
+_JUNK_OPENERS = re.compile(
+    r"^\s*(haha|hahaha|lan |ula |oğlum|oglum|abi |yaw+|yaa+|evet ya|vallahi)",
+    re.I,
+)
 
 
 def _norm(text: str) -> str:
@@ -68,6 +82,63 @@ def _keywords(text: str) -> list[str]:
 
 def _stems(words: Iterable[str]) -> set[str]:
     return {w[: min(len(w), 5)] for w in words if len(w) >= 2}
+
+
+def _content_stems(text: str) -> set[str]:
+    return _stems(_keywords(text))
+
+
+def is_factual_ask(text: str) -> bool:
+    t = _norm(text)
+    return any(
+        x in t
+        for x in (
+            "nedir", "ne demek", "hakkinda", "bilgi", "kimdir", "nasil",
+            "what is", "about", "explain", "acikla", "anlat", "tanimi",
+        )
+    )
+
+
+def is_settings_howto(text: str) -> bool:
+    t = _norm(text)
+    return any(x in t for x in ("ayar", "settings", "menu", "menü", "nasil gir", "nereden"))
+
+
+def chunk_is_chatty(ch: "Chunk") -> bool:
+    if ch.kind == "chat":
+        return True
+    src = (ch.source or "").casefold()
+    return any(s in src for s in _CHATTY_SOURCES)
+
+
+def hit_supports_query(query: str, ch: "Chunk") -> bool:
+    """Require real topical overlap — stopwords alone must not match."""
+    q_stems = _content_stems(query)
+    if not q_stems:
+        return False
+    blob = f"{ch.title} {ch.body[:500]} {ch.code[:200]} {' '.join(ch.tags)}"
+    c_stems = _content_stems(blob)
+    if not c_stems:
+        return False
+    inter = q_stems & c_stems
+    # At least one content stem from the question must appear in the chunk.
+    if not inter:
+        return False
+    cover = len(inter) / max(len(q_stems), 1)
+    return cover >= 0.34 or (len(inter) >= 2)
+
+
+def looks_like_junk_reply(text: str) -> bool:
+    t = (text or "").strip()
+    if not t:
+        return True
+    if _JUNK_OPENERS.search(t):
+        return True
+    # Roleplay / story dumps
+    low = t.casefold()
+    if any(x in low[:120] for x in ("bir zamanlar", "adında bir", "hikaye", "köyde yaşayan")):
+        return True
+    return False
 
 
 def _chunk_id(kind: str, title: str, source: str) -> str:
@@ -281,6 +352,11 @@ class KnowledgeIndex:
         kind = str(row.get("kind") or default_kind)
         if code and kind == "qa":
             kind = "code"
+        source = str(row.get("source") or source_label)[:80]
+        # Noisy chat roleplay dumps pollute factual RAG — keep them out of the hot index.
+        src_l = source.casefold()
+        if any(x in src_l for x in ("sohbet", "bahadir26", "roleplay")):
+            return None
         lang = str(row.get("l") or row.get("lang") or ("python" if code else ""))[:40]
         tags = row.get("tags") or row.get("kw") or _keywords(title)
         if isinstance(tags, str):
@@ -333,11 +409,28 @@ class KnowledgeIndex:
         if not self.booted:
             self.bootstrap()
 
-        local = self._search_local(q, top_k=top_k * 2, kind=kind, min_score=min_score)
+        local = self._search_local(q, top_k=top_k * 3, kind=kind, min_score=min_score)
+        # Relevance gate — drop chatty/off-topic matches before merge
+        local = [
+            h for h in local
+            if hit_supports_query(q, h.chunk) and not looks_like_junk_reply(h.chunk.body)
+        ]
+        if is_factual_ask(q):
+            local = [h for h in local if not chunk_is_chatty(h.chunk)]
+        if is_settings_howto(q) and "kod" not in _norm(q) and "css yaz" not in _norm(q):
+            # "ayarlara nasıl girerim" is UX help, not a random CSS snippet farm
+            local = [h for h in local if not (h.chunk.code and len(h.chunk.body) < 80)]
+
         remote: list[ChunkHit] = []
         if self.configured:
             try:
                 remote = self._search_supabase(q, top_k=top_k, kind=kind)
+                remote = [
+                    h for h in remote
+                    if hit_supports_query(q, h.chunk) and not looks_like_junk_reply(h.chunk.body)
+                ]
+                if is_factual_ask(q):
+                    remote = [h for h in remote if not chunk_is_chatty(h.chunk)]
             except Exception:
                 remote = []
 
@@ -626,16 +719,25 @@ class KnowledgeIndex:
 knowledge_index = KnowledgeIndex()
 
 
-def synthesize_hits(hits: Sequence[ChunkHit], *, language: str = "tr") -> Optional[dict]:
+def synthesize_hits(hits: Sequence[ChunkHit], *, language: str = "tr", query: str = "") -> Optional[dict]:
     """Turn top-k hits into a single grounded reply payload."""
+    if not hits:
+        return None
+    # Keep only hits that still support the query
+    if query:
+        hits = [h for h in hits if hit_supports_query(query, h.chunk)]
+        if is_factual_ask(query):
+            hits = [h for h in hits if not chunk_is_chatty(h.chunk)]
     if not hits:
         return None
     best = hits[0]
     ch = best.chunk
-    if best.score < 0.32:
+    min_ok = 0.40 if chunk_is_chatty(ch) else 0.34
+    if best.score < min_ok:
+        return None
+    if looks_like_junk_reply(ch.body) and not ch.code:
         return None
 
-    # Strong single answer
     reply = (ch.body or "").strip()
     if not reply and ch.code:
         reply = (
@@ -644,17 +746,24 @@ def synthesize_hits(hits: Sequence[ChunkHit], *, language: str = "tr") -> Option
             else "Pulled a relevant code example from knowledge:"
         )
 
-    # Soft multi-evidence when near-ties and diverse titles
+    # Extras only when they share content stems with the question (never random stories)
     extras: list[str] = []
+    q_stems = _content_stems(query) if query else set()
     for h in hits[1:4]:
-        if h.score < max(0.36, best.score - 0.12):
+        if h.score < max(0.42, best.score - 0.08):
             continue
         if h.chunk.title.casefold() == ch.title.casefold():
+            continue
+        if query and not hit_supports_query(query, h.chunk):
+            continue
+        if looks_like_junk_reply(h.chunk.body):
+            continue
+        if q_stems and not (q_stems & _content_stems(h.chunk.title + " " + h.chunk.body[:200])):
             continue
         snippet = (h.chunk.body or "").strip().replace("\n", " ")
         if len(snippet) < 40:
             continue
-        extras.append(f"• {h.chunk.title[:80]}: {snippet[:180]}")
+        extras.append(f"• {h.chunk.title[:80]}: {snippet[:160]}")
 
     if extras and language == "tr":
         reply = reply.rstrip() + "\n\nİlgili ek bilgi:\n" + "\n".join(extras[:2])
@@ -674,6 +783,7 @@ def synthesize_hits(hits: Sequence[ChunkHit], *, language: str = "tr") -> Option
             "via": best.via,
             "has_code": bool(ch.code),
             "lang": ch.lang or "python",
+            "grounded": True,
         },
     }
     if ch.code:
