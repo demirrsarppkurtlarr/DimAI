@@ -1231,5 +1231,63 @@ print(loaded["isim"])''', "l": "python"},
 
     {"k": ["rest api nasil tasarlanir", "rest tasarim", "api tasarimi"],
      "a": "**REST API tasarım ipuçları:**\n\n• Kaynak adları çoğul isim: `/users`, `/orders/5`\n• HTTP fiilleri doğru kullan (GET/POST/PUT/PATCH/DELETE)\n• Tutarlı JSON şeması + anlamlı status kodları\n• Versiyonlama (`/v1/...`), sayfalama, hata formatı\n• Kimlik: token/OAuth\n\nKod istersen `flask api yaz` de."},
+,
+
+    {"k": ["sql injection nedir", "sqli nedir", "sql enjeksiyon"],
+     "a": "**SQL Injection**, kullanıcı girdisini SQL sorgusuna gömerek veritabanını manipüle eden güvenlik açığıdır.\n\n• Örn: login formuna `' OR 1=1 --`\n• Önlem: parametreli sorgu / prepared statement, ORM, girdi doğrulama\n• Asla string birleştirerek SQL kurma"},
+
+    {"k": ["xss nedir", "cross site scripting"],
+     "a": "**XSS (Cross-Site Scripting)**, saldırganın kurbanın tarayıcısında zararlı JS çalıştırmasıdır.\n\n• Stored / Reflected / DOM XSS\n• Önlem: çıktı encode/escape, CSP, HttpOnly cookie"},
+
+    {"k": ["csrf nedir", "xsrf nedir"],
+     "a": "**CSRF**, kullanıcının oturumu açıkken sahte istek yaptıran saldırıdır.\n\n• Önlem: CSRF token, SameSite cookie, kritik işlerde re-auth"},
+
+    {"k": ["idempotent nedir", "idempotency nedir"],
+     "a": "**Idempotent**, bir işlemi kaç kez tekrarlarsan tekrarla sonucun aynı kalmasıdır.\n\n• HTTP: GET/PUT/DELETE idempotent; POST genelde değil\n• Ödeme/API'de idempotency-key sık kullanılır\n\nNot: lineer cebirdeki idempotent matris değil — web/API bağlamı."},
+
+    {"k": ["stateless nedir", "stateless api"],
+     "a": "**Stateless**, sunucunun istekler arasında istemci durumu tutmamasıdır (REST ilkesi).\n\n• Her istekte token/kimlik gerekir\n• Ölçeklemeyi kolaylaştırır\n\nNot: hukukta 'stateless person' ile karıştırma."},
+
+    {"k": ["gil nedir", "global interpreter lock"],
+     "a": "**GIL (Global Interpreter Lock)**, CPython'da aynı anda yalnızca bir thread'in Python bytecode çalıştırmasını sağlayan kilitir.\n\n• CPU-bound thread'ler zayıf ölçeklenir\n• I/O ve multiprocessing alternatif\n\nNot: basketbolcu isimleriyle karıştırma."},
+
+    {"k": ["hoisting nedir", "javascript hoisting"],
+     "a": "**Hoisting**, JavaScript'te `var` / function bildiriminin kapsamın tepesine 'kalkması' davranışıdır.\n\n• `var` undefined olur; `let`/`const` TDZ\n• Function declaration hoist edilir\n\nNot: vinç (hoist) cihazıyla karıştırma."},
+
+    {"k": ["event loop nedir", "js event loop"],
+     "a": "**Event loop**, JavaScript'in tek thread'de async işleri yönetme mekanizmasıdır.\n\n• Call stack + task queue + microtasks (Promise)\n• Node.js ve tarayıcıda benzer model"},
+
+    {"k": ["null vs undefined", "undefined vs null", "null undefined fark"],
+     "a": "**null vs undefined (JS):**\n\n• `undefined` — değer atanmamış / yok\n• `null` — bilerek boş değer\n• `typeof null === 'object'` (tarihi garabet)\n• Gevşek eşitlikte `null == undefined` true; `===` false"},
+
+    {"k": ["== vs ===", "=== vs ==", "esitlik js"],
+     "a": "**== vs === (JavaScript):**\n\n• `==` tip dönüşümü yapar (loose)\n• `===` tip + değer (strict) — tercih edilen\n\nÖrn: `0 == '0'` true, `0 === '0'` false."},
+
+    {"k": ["acid nedir", "acid veritabani"],
+     "a": "**ACID**, güvenilir veritabanı işlemlerinin dört özelliğidir:\n\n• **A**tomicity — hep ya hiç\n• **C**onsistency — kurallara uygunluk\n• **I**solation — eşzamanlı işlemler birbirini bozmaz\n• **D**urability — commit kalıcıdır"},
+
+    {"k": ["cap theorem nedir", "cap teorisi"],
+     "a": "**CAP teoremi**: dağıtık sistemde aynı anda tam **C**onsistency, **A**vailability ve **P**artition tolerance garantilenemez.\n\n• Ağ bölünmesinde C veya A'dan biri seçilir\n• Cassandra/Dynamo daha AP; klasik RDBMS daha CP eğilimli"},
+
+    {"k": ["typescript nedir", "ts nedir"],
+     "a": "**TypeScript**, JavaScript'e statik tipler ekleyen Microsoft dilidir; JS'e derlenir.\n\n• Erken hata yakalama\n• Daha iyi IDE desteği\n• Büyük frontend/backend JS kod tabanlarında standart"},
+
+    {"k": ["nodejs nedir", "node.js nedir", "node js nedir"],
+     "a": "**Node.js**, V8 üzerinde çalışan sunucu tarafı JavaScript çalışma ortamıdır.\n\n• Non-blocking I/O, npm ekosistemi\n• API, realtime, CLI araçları"},
+
+    {"k": ["deno nedir"],
+     "a": "**Deno**, Rust + V8 tabanlı modern JS/TS çalışma ortamıdır (Ryan Dahl).\n\n• TypeScript birinci sınıf\n• Güvenlik izinleri (net/fs) varsayılan kapalı\n• Node'a alternatif / tamamlayıcı"},
+
+    {"k": ["load balancer nedir", "yuk dengeleyici"],
+     "a": "**Load balancer**, gelen trafiği birden fazla sunucuya dağıtan bileşendir.\n\n• L4 / L7\n• Health check, SSL termination\n• Yüksek erişilebilirlik için kritik"},
+
+    {"k": ["reverse proxy nedir"],
+     "a": "**Reverse proxy**, istemci ile backend arasında duran vekil sunucudur (Nginx, Caddy).\n\n• TLS, cache, load balance, güvenlik\n• Forward proxy'den farkı: sunucu tarafını korur"},
+
+    {"k": ["rate limiting nedir", "rate limit nedir"],
+     "a": "**Rate limiting**, bir istemcinin birim zamanda yapabileceği istek sayısını sınırlamaktır.\n\n• API abuse / DDoS azaltır\n• Token bucket, fixed window algoritmaları\n• 429 Too Many Requests"},
+
+    {"k": ["pagination nedir", "sayfalama nedir api"],
+     "a": "**Pagination (sayfalama)**, büyük listeleri sayfa/cursor ile bölerek döndürmektir.\n\n• offset/limit veya cursor-based\n• API performans ve UX için şart"},
 
 ]

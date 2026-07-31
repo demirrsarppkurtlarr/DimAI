@@ -194,6 +194,10 @@ def extract_math_expr(raw: str) -> Optional[str]:
     if mfn0:
         return f"{mfn0.group(1)}({re.sub(r'\s+', '', mfn0.group(2))})"
 
+    # explicit division by zero before eval
+    if re.search(r"/\s*0(?:\.0+)?\b", raw_l) or re.search(r"\bbolu\s+sifir\b", _norm(raw)):
+        return "ZERO_DIV"
+
     text = _norm(raw)
     if not text:
         return None
@@ -258,9 +262,13 @@ def extract_math_expr(raw: str) -> Optional[str]:
         return None
     if not re.fullmatch(r"[0-9+\-*/().%]+", cand.replace("**", "*")):
         return None
-    # must parse
+    # 2++2 / 5--1 — leave for solve_math to explain (don't silently unary-fold)
+    if "++" in cand or "--" in cand:
+        return cand
     try:
         _safe_eval(cand)
+    except ZeroDivisionError:
+        return "ZERO_DIV"
     except Exception:
         return None
     return cand
@@ -327,12 +335,21 @@ def solve_math(raw: str) -> Optional[str]:
     expr = extract_math_expr(raw)
     if not expr:
         return None
+    if expr == "ZERO_DIV":
+        return "Sıfıra bölme tanımsız — payda 0 olamaz."
     if expr.startswith("sqrt("):
         n = float(expr[5:-1])
+        if n < 0:
+            return "Negatif sayının gerçek karekökü yok. (Karmaşık sayılar için `√(-1) = i`)"
         r = math.sqrt(n)
         return f"Sonuç: **{_format_num(r)}**\n\n`√{_format_num(n)} = {_format_num(r)}`"
+    # invalid operator runs like 2++2
+    if re.search(r"[+\-*/%]{2,}", expr.replace("**", "")):
+        return "İfade geçersiz gibi görünüyor (üst üste işlem işareti). Örn: `2+2` veya `2**3`."
     try:
         result = _safe_eval(expr)
+    except ZeroDivisionError:
+        return "Sıfıra bölme tanımsız — payda 0 olamaz."
     except Exception:
         return None
     return f"Sonuç: **{_format_num(result)}**\n\n`{expr} = {_format_num(result)}`"
