@@ -750,15 +750,24 @@ def answer_casual(raw: str) -> str:
     return "👍 Ne yapmak istersin — kod, matematik veya bir konu?"
 
 
-# -------------------- special codes --------------------
+# -------------------- special codes (exact message only) --------------------
+
+_SPECIAL_CODES = {
+    "kk22": "Facebook olan Kaan!!!",
+    "kk 22": "Facebook olan Kaan!!!",
+    "cnrbsk11": "Çınar Baskın!",
+    "efito": "Efe Alsancak!!!",
+    "kettle": "Göksel Derin SUyolcu hahaha!!",
+    "saral": "Ali Abiiii!!!",
+}
+
 
 def looks_like_special_code(raw: str) -> bool:
+    """Only the whole message — not when the word appears inside a sentence."""
     t = (raw or "").strip().lower()
-    return t in {"kk22", "kk 22"}
+    return t in _SPECIAL_CODES
 
 
 def answer_special_code(raw: str = "") -> str:
     t = (raw or "").strip().lower()
-    if t in {"kk22", "kk 22"}:
-        return "Facebook olan Kaan!!!"
-    return ""
+    return _SPECIAL_CODES.get(t, "")

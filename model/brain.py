@@ -1151,8 +1151,6 @@ git merge yeni-dal           # birleştir''', "l": "bash"},
 # ---------------------------------------------------------------------------
 
 CHITCHAT: list[tuple[list[str], list[str]]] = [
-    (["kk22", "kk 22"],
-     ["Facebook olan Kaan!!!"]),
     (["merhaba", "selam", "hello", "hi", "hey", "slm", "sa"],
      ["Merhaba! Ben DimAI. Kod, soru veya sohbet — ne istersen yaz.",
       "Selam! Bugün ne üzerinde çalışıyoruz?"]),
