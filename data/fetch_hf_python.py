@@ -1,6 +1,9 @@
 """Download a moderate, detailed Python code slice from Hugging Face (no AI API).
 
-Sources are open (non-gated). Volume is capped on purpose — not too much for the tiny model.
+Preferred path: `python data/ingest_code_instruct.py --merge` (datasets-server,
+multi-source instruction corpora, RAG seed).
+
+This module remains for local `datasets` library pulls when available.
 """
 from __future__ import annotations
 
@@ -79,9 +82,7 @@ def fetch_flytech(bucket: list[str], total: list[int], max_chars: int) -> None:
     for row in ds:
         if total[0] >= max_chars * 0.45:
             break
-        # often has 'output' / 'code' / 'text'
         code = row.get("output") or row.get("code") or row.get("text") or ""
-        # strip markdown fences if present
         if "```" in code:
             m = re.search(r"```(?:python)?\n(.*?)```", code, re.S)
             if m:
@@ -167,12 +168,6 @@ def fetch_evol_instruct(bucket: list[str], total: list[int], max_chars: int) -> 
     print(f"  evol done rows={n} chars={total[0]}")
 
 
-def fetch_code_search_net(bucket: list[str], total: list[int], max_chars: int) -> None:
-    # Legacy dataset id is brittle on newer `datasets`; skip gracefully.
-    print("→ code_search_net skipped (legacy dataset script)")
-    return
-
-
 def fetch(max_chars: int = DEFAULT_MAX_CHARS) -> str:
     bucket: list[str] = []
     total = [0]
@@ -207,7 +202,20 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-chars", type=int, default=DEFAULT_MAX_CHARS)
     parser.add_argument("--no-merge", action="store_true")
+    parser.add_argument(
+        "--via-server",
+        action="store_true",
+        help="Use data/ingest_code_instruct.py (recommended, no datasets lib)",
+    )
     args = parser.parse_args()
+
+    if args.via_server:
+        from data.ingest_code_instruct import ingest, merge_into_train
+
+        ingest(learned_cap=3500, max_chars=max(args.max_chars, 4_000_000))
+        if not args.no_merge:
+            merge_into_train()
+        return
 
     text = fetch(max_chars=args.max_chars)
     OUT_PATH.write_text(text, encoding="utf-8")

@@ -363,6 +363,11 @@ class LearnedStore:
                     "t": time.time(),
                     "quality": float(raw.get("quality") or 0.8),
                 }
+                # Optional code payload from HF coding seeds (used by RAG)
+                code = str(raw.get("c") or "").strip()
+                if code:
+                    entry["c"] = code[:3000]
+                    entry["l"] = str(raw.get("l") or "python")[:40]
                 self._items.append(entry)
                 existing_q.add(key)
                 added += 1

@@ -40,7 +40,7 @@ def retrieve(query: str, *, min_score: float = 2.0) -> Optional[RagHit]:
     except Exception:
         pass
 
-    # 2) Learned Q&A store
+    # 2) Learned Q&A store (includes HF code-instruct seeds)
     try:
         from model.web_research import learned
 
@@ -48,9 +48,10 @@ def retrieve(query: str, *, min_score: float = 2.0) -> Optional[RagHit]:
         if hit and hit.get("a"):
             return RagHit(
                 reply=str(hit["a"]),
-                score=1.5,
+                score=1.5 + (0.4 if hit.get("c") else 0.0),
                 source="learned",
                 url=str(hit.get("url") or ""),
+                meta={"has_code": bool(hit.get("c")), "lang": hit.get("l", "python")},
             )
     except Exception:
         pass
@@ -71,6 +72,7 @@ def retrieve_for_tools(query: str, *, intent: str = "") -> Optional[dict]:
     if hit.url:
         out["url"] = hit.url
     if intent == "coding" and hit.meta and hit.meta.get("has_code"):
+        # Prefer structured KB code, else learned HF seed code
         try:
             from model.brain import brain, _norm
 
@@ -80,6 +82,16 @@ def retrieve_for_tools(query: str, *, intent: str = "") -> Optional[dict]:
                 if entry.get("c"):
                     out["code"] = entry["c"]
                     out["lang"] = entry.get("l", "python")
+                    return out
+        except Exception:
+            pass
+        try:
+            from model.web_research import learned
+
+            learned_hit = learned.lookup(query)
+            if learned_hit and learned_hit.get("c"):
+                out["code"] = learned_hit["c"]
+                out["lang"] = learned_hit.get("l", "python")
         except Exception:
             pass
     return out

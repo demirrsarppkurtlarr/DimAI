@@ -2,11 +2,14 @@
 
 Uses the free datasets-server REST API to stream small row batches (JSON)
 instead of downloading whole datasets — fits in Render free tier memory.
+
+Expanded for Claude-oriented coding instruction corpora (Python-leaning).
 """
 from __future__ import annotations
 
 import ast
 import re
+import warnings
 
 import requests
 
@@ -15,13 +18,20 @@ HEADERS = {"User-Agent": "DimAI/1.0 (learning assistant)"}
 TIMEOUT = (5, 12)  # (connect, read) — asılı kalmayı önler
 
 # dataset -> (config, split, field containing code/markdown)
+# Prefer instruction outputs that contain runnable Python.
 SOURCES = [
     ("flytech/python-codes-25k", "default", "train", "output"),
     ("openai/openai_humaneval", "openai_humaneval", "test", "canonical_solution"),
     ("google-research-datasets/mbpp", "full", "train", "code"),
+    ("sahil2801/CodeAlpaca-20k", "default", "train", "output"),
+    ("iamtarun/python_code_instructions_18k_alpaca", "default", "train", "output"),
+    ("nickrosh/Evol-Instruct-Code-80k-v1", "default", "train", "output"),
+    ("ise-uiuc/Magicoder-Evol-Instruct-110K", "default", "train", "response"),
+    ("bigcode/self-oss-instruct-sc2-exec-filter-50k", "default", "train", "response"),
+    ("christopher/rosetta-code", "default", "train", "code"),
 ]
 
-FENCE = re.compile(r"```(?:python)?\s*(.*?)```", re.S)
+FENCE = re.compile(r"```(?:python|py)?\s*(.*?)```", re.S | re.I)
 
 
 def _extract_code(text: str) -> list[str]:
@@ -34,12 +44,21 @@ def _extract_code(text: str) -> list[str]:
         code = "".join(ch for ch in b if ch == "\n" or 32 <= ord(ch) < 127).strip()
         if len(code) < 30:
             continue
+        if not any(tok in code for tok in ("def ", "class ", "import ", "from ")):
+            # Rosetta / snippets may still be valid — try parse anyway
+            pass
         try:
             ast.parse(code)
         except SyntaxError:
             continue
+        except Exception:
+            continue
         out.append(code)
     return out
+
+
+# silence invalid-escape noise from third-party dataset snippets during parse
+warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 
 def fetch_batch(offset: int, rows_per_source: int = 40) -> tuple[str, int]:
@@ -73,7 +92,13 @@ def fetch_batch(offset: int, rows_per_source: int = 40) -> tuple[str, int]:
                 continue
             n0 = len(chunks)
             for item in r.json().get("rows", []):
-                raw = str(item.get("row", {}).get(field) or "")
+                row = item.get("row", {}) or {}
+                # Rosetta: python only
+                if dataset.endswith("rosetta-code"):
+                    lang = str(row.get("language_name") or "").lower()
+                    if lang not in {"python", "python 3", "python3"}:
+                        continue
+                raw = str(row.get(field) or "")
                 chunks.extend(_extract_code(raw))
             print(f"[collect] {dataset}: +{len(chunks) - n0} chunks", flush=True)
         except Exception as exc:

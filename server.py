@@ -31,6 +31,15 @@ try:
 except Exception as _exc:
     print(f"[DimAI] tulu seed skipped: {_exc}", flush=True)
 
+# Hugging Face coding instruction seed (data/ingest_code_instruct.py)
+_CODE_SEED = ROOT / "data" / "code_learned_seed.json"
+try:
+    _code_seeded = learned.seed_from_file(_CODE_SEED, limit=3500)
+    if _code_seeded:
+        print(f"[DimAI] seeded {_code_seeded} HF code-instruct pairs into learned store", flush=True)
+except Exception as _exc:
+    print(f"[DimAI] code seed skipped: {_exc}", flush=True)
+
 
 @app.get("/")
 def index():
@@ -51,10 +60,11 @@ def status():
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "tools-v7",
+        "phase": "code-data-v8",
         "codegen": "first-principles",
-        "rag": "kb+learned",
+        "rag": "kb+learned+hf-code",
         "tool_policy": "auto",
+        "hf_code_seed": True,
     }
     try:
         payload["improve"] = improve.status()

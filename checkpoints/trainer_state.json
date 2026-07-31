@@ -1,12 +1,12 @@
 {
-  "steps": 581234,
+  "steps": 582734,
   "self_train_rounds": 15522,
   "accepted": 11045,
   "rejected": 4477,
-  "last_loss": 1.599587199918735,
+  "last_loss": 1.3071355044189383,
   "last_accepted": "",
   "running": false,
-  "message": "trained 100 steps, loss=1.600",
+  "message": "trained 1500 steps, loss=1.307",
   "hf_offset": 120,
   "history": []
 }

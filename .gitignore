@@ -18,5 +18,8 @@ data/hf_python_corpus.txt
 data/tulu_chat_corpus.txt
 data/tulu_learned_seed.json
 data/tulu_chat_corpus.tmp
+data/code_instruct_corpus.txt
+data/code_instruct_corpus.tmp
+# code_learned_seed.json IS committed (compact RAG seed for Render)
 .pytest_cache/
 .mypy_cache/
