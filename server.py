@@ -51,9 +51,10 @@ def status():
     payload["nlu"] = {
         "pipeline": "stages-1-10",
         "provider": "local-template",
-        "phase": "rag-v6",
-        "codegen": "iterative-improve",
+        "phase": "tools-v7",
+        "codegen": "first-principles",
         "rag": "kb+learned",
+        "tool_policy": "auto",
     }
     try:
         payload["improve"] = improve.status()

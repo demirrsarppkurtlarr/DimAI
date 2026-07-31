@@ -190,13 +190,15 @@ def design(
     invariants: list[str] = []
     edge_cases: list[str] = []
     notes: list[str] = [
-        "Design-first: no tutorial paste; compose for this request.",
-        "Separate domain logic from I/O (SOLID: SRP).",
+        "Design-first: invent for THIS request; no tutorial/GitHub paste.",
+        "Separate domain logic from I/O (SOLID: SRP / DIP).",
         "Prefer stdlib over new dependencies.",
+        "Never search the web for a complete source implementation first.",
     ]
     non_goals = [
         "Do not copy GitHub/tutorial layouts wholesale",
         "Do not invent unrelated features (YAGNI)",
+        "Do not assemble code from internet examples",
     ]
 
     if ptype == "game":

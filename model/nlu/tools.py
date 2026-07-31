@@ -120,6 +120,22 @@ class ToolManager:
         return " | ".join(bits[:3])
 
     def _web(self, msg: str, state: PipelineState) -> ToolResult:
+        # Never use web as first move for coding / full-source hunts
+        intent = state.intent.intent if state.intent else None
+        if intent == Intent.CODING:
+            return ToolResult(
+                name=ToolName.WEB,
+                ok=False,
+                error="policy: no web full-source for coding; use codegen",
+            )
+        fold = (msg or "").lower()
+        if any(x in fold for x in ("github.com", "source code of", "clone repo", "full source")):
+            if intent in {Intent.CODING, Intent.COMMAND}:
+                return ToolResult(
+                    name=ToolName.WEB,
+                    ok=False,
+                    error="policy: refuse full-source scrape; invent instead",
+                )
         q = (state.plan.search_query if state.plan and state.plan.search_query else "") or msg
         if state.reasoning and state.reasoning.resolved_refs and not (state.plan and state.plan.search_query):
             topic = next(iter(state.reasoning.resolved_refs.values()))

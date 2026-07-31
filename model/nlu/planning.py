@@ -108,6 +108,18 @@ class PlanningEngine:
         }
         plan.tools = list(intent_map.get(intent.intent, [ToolName.CHAT]))
 
+        # Phase 7 — policy-based auto tool choice (overrides naive map)
+        try:
+            from .tool_policy import select_tools
+
+            decision = select_tools(message=message, intent=intent, reasoning=reasoning)
+            if decision.tools:
+                plan.tools = list(decision.tools)
+                plan.answer_points.insert(0, f"Tool policy: {decision.reason}")
+                plan.ignore.extend(decision.forbid)
+        except Exception:
+            pass
+
         if intent.intent == Intent.EXPLANATION:
             plan.style = "step_by_step"
         if intent.intent == Intent.PLANNING:
